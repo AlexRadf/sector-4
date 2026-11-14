@@ -386,6 +386,7 @@
         var b = el('button', 'gopt'); b.type = 'button';
         var on = gearFor[r][slot[0]] === item.id;
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        if (item.style) { var tag = el('i', 'gstyle ' + item.style, Sim.STYLES[item.style] + (item.play ? '  /  ' + item.play : '')); b.appendChild(tag); }
         b.appendChild(el('b', 'display', item.name)); b.appendChild(el('span', null, item.desc));
         if (item.list) { var ul = el('ul', 'gabs'); item.list.forEach(function (t) { ul.appendChild(el('li', null, t)); }); b.appendChild(ul); }
         if (slot[0] === 'implant') { var tag = el('em', 'gwarn'); b.appendChild(tag); warnings.push({ item: item, tag: tag, btn: b }); }
@@ -393,14 +394,25 @@
           gearFor[r][slot[0]] = item.id;
           try { localStorage.setItem('s4-gear-' + r, JSON.stringify(gearFor[r])); } catch (e) {}
           Array.prototype.forEach.call(row.children, function (c) { c.setAttribute('aria-pressed', c === b ? 'true' : 'false'); });
-          refreshWarnings();
+          refreshWarnings(); showLeaning();
           Snd.ensure(); Snd.play('swap');
         });
         row.appendChild(b);
       });
       sec.appendChild(row); host.appendChild(sec);
     });
-    refreshWarnings();
+    refreshWarnings(); showLeaning();
+    function showLeaning() {
+      var count = { aggressive: 0, steady: 0, squad: 0 };
+      ['boots', 'rig', 'implant', 'util'].forEach(function (slot) {
+        var list = slot === 'implant' ? Sim.GEAR.implant[r] : Sim.GEAR[slot];
+        var it = list.filter(function (x) { return x.id === gearFor[r][slot]; })[0];
+        if (it && it.style) count[it.style]++;
+      });
+      var top = Object.keys(count).sort(function (a, b) { return count[b] - count[a]; });
+      var line = count[top[0]] >= 3 ? 'A ' + Sim.STYLES[top[0]].toLowerCase() + ' build.' : count[top[0]] === 2 && count[top[1]] === 2 ? 'A mixed build, ' + Sim.STYLES[top[0]].toLowerCase() + ' and ' + Sim.STYLES[top[1]].toLowerCase() + '.' : 'Leaning ' + Sim.STYLES[top[0]].toLowerCase() + '.';
+      $('#armoryLean').textContent = line + '  Aggressive ' + count.aggressive + '  /  Steady ' + count.steady + '  /  Squad ' + count.squad;
+    }
     ['#menu', '#end', '#hud', '#lobby'].forEach(function (q) { $(q).classList.remove('on'); }); $('#armory').classList.add('on');
   }
 
@@ -539,15 +551,17 @@
       $('#weapon').appendChild(el('b', 'display', human.kit.weapons[human.weapon].name));
     }
     var gl = [], G = human.gear, cdTxt = function (k) { var c = human.cds[k] || 0; return c > 0 ? Math.ceil(c) + 's' : 'ready'; };
-    if (G.boots === 'jump') gl.push(['Jump [Space] ' + cdTxt('leap'), !(human.cds.leap > 0)]);
-    if (G.boots === 'mag') gl.push(['Mag-Lock: cast on the move', true]);
-    if (G.boots === 'treads') gl.push(['Sprint Treads', true]);
-    if (G.rig === 'plate') gl.push(['Plating ' + cdTxt('plate'), !(human.cds.plate > 0)]);
+    // One chip per talent showing its live state, so you can see what your build is doing.
+    if (G.boots === 'jump') gl.push([human.momentum > 0 ? 'Momentum: next ability +30%' : 'Jump [Space] ' + cdTxt('leap'), human.momentum > 0 || !(human.cds.leap > 0)]);
+    if (G.boots === 'mag') gl.push([Sim.braced(human) ? 'Braced' : human.moving ? 'Brace: stand still' : 'Bracing...', Sim.braced(human)]);
+    if (G.boots === 'escort') gl.push(['Escort: squad within 8m moves faster', true]);
     if (G.rig === 'pump') gl.push([human.pump > 0 ? 'Pump active' : 'Pump ' + cdTxt('pump'), !(human.cds.pump > 0) || human.pump > 0]);
-    if (G.rig === 'wind') gl.push(['Second Wind ' + cdTxt('wind'), !(human.cds.wind > 0)]);
-    if (G.implant === 'afterburner' && human.afterburn > 0) gl.push(['Afterburn: all hits from behind', true]);
+    if (G.rig === 'plate') gl.push(['Plating ' + cdTxt('plate'), !(human.cds.plate > 0)]);
+    if (G.rig === 'lifeline') gl.push(['Lifeline ' + cdTxt('lifeline'), !(human.cds.lifeline > 0)]);
+    if (G.implant === 'vengeance') gl.push(['Rage ' + Math.round(human.rage || 0), (human.rage || 0) >= 100]);
+    else if (G.implant === 'afterburner' && human.afterburn > 0) gl.push(['Afterburn: all hits from behind', true]);
     else gl.push([Sim.gearName('implant', G.implant, human.role), true]);
-    if (G.util === 'lifeline') gl.push([human.lifelineUsed ? 'Lifeline used' : 'Lifeline ready', !human.lifelineUsed]);
+    if (G.util === 'opportunist') gl.push([human.opp > 0 ? 'Opportunist: +30% for ' + Math.ceil(human.opp) + 's' : 'Opportunist: dodge late', human.opp > 0]);
     else if (G.util) gl.push([Sim.gearName('util', G.util, human.role), true]);
     if (human.spinStacks > 0 && human.kit.weapons[human.weapon].id === 'minigun') gl.push(['Spin x' + human.spinStacks, true]);
     var gtxt = gl.map(function (x) { return x[0] + (x[1] ? '' : '~'); }).join('|');
@@ -657,7 +671,8 @@
           else if (ev.fx === 'adren') ringFx(x, z, 0.5, 3, 0xb98cff, 0.4);
           else if (ev.fx === 'pump') { ringFx(x, z, 0.5, 4, 0xff4a36, 0.5); if (ev.src === human.id) { announce('ADRENAL PUMP', 'bad', true); Snd.play('challenge'); } }
           else if (ev.fx === 'guard') ringFx(x, z, 0.5, 2.5, 0xffb000, 0.5);
-          else if (ev.fx === 'wind') { ringFx(x, z, 0.5, 4, 0xffffff, 0.6); if (ev.src === human.id) announce('SECOND WIND', 'good', true); }
+          else if (ev.fx === 'opportunist') { ringFx(x, z, 0.5, 4, 0xff4a36, 0.5); if (ev.src === human.id && !watching) { announce('OPPORTUNIST', 'good', true); Snd.play('challenge'); } }
+          else if (ev.fx === 'lifeline') { ringFx(x, z, 0.5, 4, 0x4fd88f, 0.6); if (ev.src === human.id && !watching) announce('LIFELINE', 'good', true); }
           else if (ev.fx === 'combo') { ringFx(x, z, 1, 6, 0xd9b8ff, 0.4); Snd.play('combo'); }
           if (ev.fx === 'barrage') Snd.play('alarm');
           if (ev.fx === 'flak') ringFx(x, z, 1, 8, 0xffb000, 0.35);
@@ -1165,7 +1180,7 @@
   }
   function netClientFrame(dt) {
     var mv = readMove();
-    Sim.predictMove(human, mv.mx, mv.mz, dt);
+    Sim.predictMove(human, mv.mx, mv.mz, dt, S);
     human.moving = Math.abs(mv.mx) + Math.abs(mv.mz) > 0.01;
     var tg = input.target !== undefined ? input.target : human.target;
     if (input.target !== undefined) human.target = input.target;

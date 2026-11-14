@@ -216,6 +216,9 @@ h2 { margin: 0; font-family: var(--font-mono); font-size: 12px; font-weight: 400
 .gslot { display: flex; flex-direction: column; gap: 8px; }
 .gopts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
 .gopt { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; text-align: left; padding: 12px 14px; background: var(--steel); border: 1px solid var(--line); border-left: 4px solid var(--line); }
+.gstyle { font-style: normal; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; padding-left: 8px; border-left: 3px solid currentColor; }
+.gstyle.aggressive { color: var(--danger); } .gstyle.steady { color: var(--amber); } .gstyle.squad { color: var(--heal); }
+#armoryLean { color: var(--text) !important; }
 .gopt b { font-size: 26px; font-weight: 800; color: var(--text); }
 .gopt span { color: var(--dim); font-size: 13px; max-width: 40ch; }
 .gopt:hover { border-color: var(--amber); }
@@ -384,7 +387,8 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
     <div class="armhead">
       <h1 id="armoryRole" class="display"></h1>
       <p class="mono" id="armoryWeapons"></p>
-      <p class="armnote">Gear is your weapon. Talents work like Mists of Pandaria: one pick per tier, swap freely between pulls. Nothing adds raw stats, and your picks are saved for next time.</p>
+      <p class="armnote">Gear is your weapon. Talents work like Mists of Pandaria: one pick per tier, swap freely between pulls. Every tier offers the same three playstyles: Aggressive takes risks for bursts of power, Steady holds ground and stays consistent, Squad makes the people around you stronger.</p>
+      <p class="mono" id="armoryLean"></p>
     </div>
     <div id="armorySlots"></div>
     <div class="btns"><button id="armoryGo" class="go" type="button">Clock in</button><button id="armoryBack" class="ghost" type="button">Change role</button></div>
