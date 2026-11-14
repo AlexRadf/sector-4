@@ -1,0 +1,9 @@
+services:
+  sector4:
+    build: .
+    container_name: sector4
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    # The server tells connected players it is restarting before it stops, so give it a moment.
+    stop_grace_period: 5s

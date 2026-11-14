@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sector-4 Raid Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Saira+Extra+Condensed:ital,wght@1,800&family=Saira:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* One world, one theme: a megacorp contractor terminal over a live arena.
+     Layout idea: the 3D stage fills the frame; HUD plates dock to its edges; the briefing sits over it as a work order. */
+  color-scheme: dark;
+  --void: #0a0d12;
+  --steel: #141b24;
+  --plate: #222c38;
+  --line: #3a4756;
+  --text: #dfe5ec;
+  --dim: #8a97a6;
+  --amber: #ffb000;
+  --danger: #ff4a36;
+  --heal: #4fd88f;
+  --shock: #b98cff;
+  --font-display: 'Saira Extra Condensed', 'Arial Narrow', Impact, sans-serif;
+  --font-body: 'Saira', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Share Tech Mono', ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--void); color: var(--text); font-family: var(--font-body); font-size: 14px; overflow: hidden; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+#stage { position: absolute; inset: 0; }
+#stage canvas { display: block; width: 100%; height: 100%; }
+#plates, #floaters { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+
+.display { font-family: var(--font-display); font-style: italic; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; line-height: 0.9; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- HUD ---------- */
+#hud { position: absolute; inset: 0; pointer-events: none; display: none; }
+#hud.on { display: block; }
+#hud .click { pointer-events: auto; }
+.bar { position: relative; height: 14px; background: #05070a; border: 1px solid var(--line); overflow: hidden; }
+.bar > i { position: absolute; inset: 0 auto 0 0; width: 100%; background: var(--danger); transform-origin: left; }
+.bar > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; text-shadow: 0 1px 2px #000; }
+
+#bossFrame { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: min(520px, 46vw); display: flex; flex-direction: column; gap: 4px; }
+#bossFrame .row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+#bossName { font-size: 30px; color: var(--text); text-shadow: 0 2px 0 #000; }
+#phaseTag { font-family: var(--font-mono); font-size: 12px; color: var(--amber); }
+#bossHp { height: 20px; }
+#bossHp > i { background: linear-gradient(#ff6a4d, #c42a1c); }
+#bossCast { height: 16px; visibility: hidden; }
+#bossCast.on { visibility: visible; }
+#bossCast > i { background: #5cc8ff; }
+#overtime { font-family: var(--font-mono); font-size: 12px; color: var(--dim); text-align: center; }
+#overtime.hot { color: var(--danger); }
+
+#party { position: absolute; top: 14px; left: 14px; width: 210px; display: flex; flex-direction: column; gap: 6px; }
+.pf { display: grid; grid-template-columns: 26px 1fr; gap: 2px 8px; align-items: center; padding: 6px 8px; background: rgba(20, 27, 36, 0.86); border: 1px solid var(--line); border-left: 4px solid var(--line); text-align: left; }
+.pf.sel { border-color: var(--heal); border-left-color: var(--heal); }
+.pf.dead { opacity: 0.45; }
+.pf.fol { border-left-color: var(--amber); background: rgba(40, 32, 12, 0.9); }
+#spec { position: absolute; left: 50%; bottom: 286px; transform: translateX(-50%); display: none; gap: 10px; align-items: baseline; white-space: nowrap; padding: 4px 12px; background: rgba(20, 27, 36, 0.86); border: 1px solid var(--line); border-left: 4px solid var(--amber); }
+#spec .mono { font-size: 11px; color: var(--dim); }
+#spec b { font-size: 24px; color: var(--amber); font-weight: 800; }
+#hud.spectate #spec { display: flex; }
+#hud.spectate #actions { pointer-events: none; }
+#hud.spectate .ab { border-bottom-color: var(--line); }
+.squadrow { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line); border-left: 4px solid var(--amber); padding: 12px 14px; background: rgba(20, 27, 36, 0.7); }
+#update { position: fixed; z-index: 50; left: 50%; top: 12px; transform: translateX(-50%); display: flex; gap: 12px; align-items: center; padding: 8px 10px 8px 14px; background: var(--steel); border: 1px solid var(--amber); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); max-width: calc(100% - 32px); }
+#update[hidden] { display: none; }
+#update span { font-size: 13px; }
+#update .go { margin: 0; padding: 6px 14px; font-size: 18px; }
+#nickRow[hidden] { display: none; }
+#nickRow label { font-size: 11px; color: var(--dim); text-transform: uppercase; }
+#nickRow input { width: 12em; letter-spacing: 0.04em; }
+.squadrow p { margin: 0; color: var(--dim); font-size: 13px; max-width: 70ch; }
+.squadctl { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.squadctl .go { margin: 0; padding: 8px 18px; font-size: 20px; }
+.squadctl input { width: 7em; padding: 8px 10px; background: var(--void); color: var(--text); border: 1px solid var(--line); font-family: var(--font-mono); font-size: 16px; text-transform: uppercase; letter-spacing: 0.15em; }
+.squadctl .ghost { padding: 9px 16px; font-size: 14px; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+#netBadge { font-size: 11px; color: var(--amber); white-space: nowrap; }
+.lslots { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.lslot { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; text-align: left; padding: 12px 14px; background: var(--steel); border: 1px solid var(--line); border-top: 4px solid currentColor; }
+.lslot b { font-size: 30px; font-weight: 800; }
+.lslot span { color: var(--text); font-size: 14px; }
+.lslot.mine { background: rgba(40, 32, 12, 0.92); border-color: var(--amber); }
+.lslot.clash { border-color: var(--danger); }
+#lobbyCode { font-size: clamp(64px, 12vw, 128px); color: var(--amber); letter-spacing: 0.08em; }
+.watchrow { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.watchrow p { margin: 0; color: var(--dim); font-size: 13px; max-width: 62ch; }
+.watchrow .ghost { font-size: 14px; padding: 10px 16px; }
+.pf .glyph { grid-row: span 2; font-size: 26px; text-align: center; }
+.pf .top { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; font-weight: 600; }
+.pf .top small { font-family: var(--font-mono); font-weight: 400; color: var(--dim); }
+.pf .bar { height: 10px; }
+.pf .bar > i { background: var(--heal); }
+.pf .chips { grid-column: 2; display: flex; gap: 4px; min-height: 14px; font-family: var(--font-mono); font-size: 10px; }
+.chip { padding: 0 4px; border: 1px solid currentColor; }
+.chip.sludge { color: #9be25a; } .chip.belt { color: var(--amber); } .chip.aggro { color: var(--danger); }
+.role-tank { color: var(--amber); } .role-healer { color: var(--heal); } .role-dps { color: var(--shock); }
+
+#side { position: absolute; top: 14px; right: 14px; width: 220px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+#side .tools { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
+#clock { font-size: 20px; margin-right: auto; }
+.ghost { background: rgba(20, 27, 36, 0.86); border: 1px solid var(--line); padding: 4px 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.ghost:hover { border-color: var(--amber); color: var(--amber); }
+.ef { padding: 5px 8px; background: rgba(20, 27, 36, 0.86); border: 1px solid var(--line); border-right: 4px solid var(--danger); text-align: left; display: flex; flex-direction: column; gap: 3px; }
+.ef.sel { border-color: var(--danger); }
+.ef .top { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; gap: 6px; }
+.ef .top small { font-family: var(--font-mono); font-weight: 400; color: var(--dim); white-space: nowrap; }
+.ef .bar { height: 8px; }
+
+#bottom { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(560px, 92vw); display: flex; flex-direction: column; gap: 6px; }
+#targetFrame { display: flex; flex-direction: column; gap: 3px; padding: 6px 8px; background: rgba(20, 27, 36, 0.86); border: 1px solid var(--line); min-height: 44px; }
+#targetFrame .top { display: flex; justify-content: space-between; font-size: 12px; gap: 8px; }
+#targetFrame .top b { font-weight: 600; }
+#targetFrame .top small { font-family: var(--font-mono); color: var(--dim); }
+#targetFrame .bar { height: 8px; }
+#targetFrame.friend .bar > i { background: var(--heal); }
+#myCast { height: 14px; visibility: hidden; }
+#myCast.on { visibility: visible; }
+#myCast > i { background: var(--amber); }
+#myHp { height: 18px; }
+#myHp > i { background: linear-gradient(#5fe8a0, #2a9c62); }
+#actions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.ab { position: relative; min-height: 64px; padding: 6px 8px; background: var(--steel); border: 1px solid var(--line); border-bottom: 3px solid var(--amber); text-align: left; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
+.ab:hover { border-color: var(--amber); }
+.ab .row { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; min-width: 0; }
+.ab .k { font-family: var(--font-mono); font-size: 12px; color: var(--amber); }
+.ab .tl { font-family: var(--font-mono); font-size: 10px; color: var(--heal); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ab .n { font-size: clamp(13px, 1.15vw, 16px); line-height: 0.95; overflow-wrap: normal; }
+.ab .cool { position: absolute; inset: auto 0 0 0; height: 0; background: rgba(5, 7, 10, 0.78); border-top: 1px solid var(--dim); pointer-events: none; }
+.ab .sec { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 30px; color: var(--text); text-shadow: 0 2px 0 #000; pointer-events: none; }
+.ab.oor { border-bottom-color: var(--danger); }
+.ab.oor .tl { color: var(--danger); }
+.ab.oor .n { color: #ff9a8f; }
+.ab.na { opacity: 0.5; }
+.ab.duty { border-color: var(--amber); background: rgba(70, 50, 8, 0.95); animation: duty 0.45s ease-in-out infinite alternate; }
+.ab.duty .tl { color: var(--amber); }
+@keyframes duty { from { box-shadow: 0 0 0 0 rgba(255, 176, 0, 0); } to { box-shadow: 0 0 18px 2px rgba(255, 176, 0, 0.7); } }
+#bossCast.mine { border-color: var(--amber); box-shadow: 0 0 14px rgba(255, 176, 0, 0.6); }
+.chip.kick { color: #fff; }
+.kit-opt { margin: 0; font-size: 13px; color: var(--dim); }
+.kit-opt b { color: var(--text); font-weight: 600; }
+.gabs { margin: 2px 0 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: 11px; color: var(--dim); display: flex; flex-direction: column; gap: 2px; }
+.gopt[aria-pressed="true"] .gabs { color: var(--text); }
+.gwarn { font-style: normal; font-family: var(--font-mono); font-size: 11px; color: var(--danger); }
+.gwarn:empty { display: none; }
+.gopt.dud { opacity: 0.7; }
+#flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 120px 30px rgba(255, 74, 54, 0.75); }
+#flash.on { animation: hit 0.35s ease-out; }
+@keyframes hit { from { opacity: 1; } to { opacity: 0; } }
+#hud::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 160px 50px rgba(255, 74, 54, 0.55); transition: opacity 0.12s; }
+#hud.danger::before { opacity: 1; animation: pulse 0.5s ease-in-out infinite alternate; }
+@keyframes pulse { from { opacity: 0.55; } to { opacity: 1; } }
+#warn { position: absolute; top: 52%; left: 0; right: 0; text-align: center; font-size: 40px; color: var(--danger); text-shadow: 0 3px 0 #000; visibility: hidden; }
+#hud.danger #warn { visibility: visible; }
+.ab.flash { border-color: var(--text); }
+
+#log { position: absolute; left: 14px; bottom: 16px; width: min(300px, 26vw); display: flex; flex-direction: column; gap: 2px; font-family: var(--font-mono); font-size: 11px; color: var(--dim); }
+#log div:last-child { color: var(--text); }
+#announce { position: absolute; top: 24%; left: 0; right: 0; text-align: center; font-size: clamp(48px, 9vw, 110px); color: var(--amber); text-shadow: 0 4px 0 #000, 0 0 30px rgba(255, 176, 0, 0.35); opacity: 0; }
+#announce.bad { color: var(--danger); text-shadow: 0 4px 0 #000, 0 0 30px rgba(255, 74, 54, 0.4); }
+#announce.good { color: var(--heal); text-shadow: 0 4px 0 #000, 0 0 30px rgba(79, 216, 143, 0.4); }
+#announce.show { animation: slam 1.6s ease-out forwards; }
+#announce.show.quick { animation-duration: 0.9s; }
+@keyframes slam { 0% { opacity: 0; transform: scale(1.5) skewX(-6deg); } 12% { opacity: 1; transform: scale(1) skewX(-6deg); } 75% { opacity: 1; } 100% { opacity: 0; transform: scale(0.98) skewX(-6deg); } }
+#toast { position: absolute; top: 46%; left: 0; right: 0; text-align: center; font-family: var(--font-mono); font-size: 13px; color: var(--danger); text-shadow: 0 1px 2px #000; min-height: 16px; }
+
+.plate { position: absolute; transform: translate(-50%, -100%); text-align: center; font-family: var(--font-mono); font-size: 10px; color: var(--text); text-shadow: 0 1px 2px #000; white-space: nowrap; }
+.plate .bar { width: 64px; height: 5px; margin: 2px auto 0; }
+.plate.friend .bar > i { background: var(--heal); }
+.plate.boss .bar { width: 120px; }
+.float { position: absolute; font-family: var(--font-display); font-style: italic; font-weight: 800; font-size: 26px; text-shadow: 0 2px 0 #000; animation: rise 0.9s ease-out forwards; }
+.float.out { color: #fff; } .float.in { color: var(--danger); } .float.heal { color: var(--heal); }
+@keyframes rise { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -54px); } }
+
+/* ---------- briefing and debrief ---------- */
+.overlay { position: absolute; inset: 0; display: none; overflow-y: auto; background: linear-gradient(90deg, rgba(10, 13, 18, 0.96) 0%, rgba(10, 13, 18, 0.88) 55%, rgba(10, 13, 18, 0.45) 100%); }
+.overlay.on { display: block; }
+.sheet { max-width: 980px; padding: 28px clamp(16px, 4vw, 48px) 40px; display: flex; flex-direction: column; gap: 22px; }
+.corp { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--font-mono); font-size: 12px; color: var(--dim); border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.corp b { color: var(--amber); font-weight: 400; }
+h1 { margin: 0; font-size: clamp(64px, 12vw, 136px); color: var(--text); text-wrap: balance; }
+h1 em { color: var(--amber); font-style: inherit; }
+.sub { margin: 4px 0 0; font-size: clamp(22px, 3.4vw, 34px); color: var(--dim); }
+.order { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0; border: 1px solid var(--line); background: rgba(20, 27, 36, 0.7); }
+.order div { padding: 8px 12px; border-right: 1px solid var(--line); }
+.order div:last-child { border-right: 0; }
+.order dt { font-family: var(--font-mono); font-size: 11px; color: var(--dim); text-transform: uppercase; }
+.order dd { margin: 2px 0 0; font-weight: 600; }
+.order { margin: 0; }
+h2 { margin: 0; font-family: var(--font-mono); font-size: 12px; font-weight: 400; color: var(--amber); text-transform: uppercase; letter-spacing: 0.08em; }
+.roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.sheet { max-width: 1180px; }
+.kit-h:empty { display: none; }
+.kit-h { font-family: var(--font-mono); font-size: 11px; color: var(--dim); text-transform: uppercase; }
+.kit-w { font-family: var(--font-mono); font-size: 11px; color: var(--amber); text-transform: uppercase; border-top: 1px solid var(--line); padding-top: 6px; }
+.chip.amp { color: var(--shock); }
+.role-melee { color: #5cc8ff; }
+#weapon { display: flex; align-items: baseline; gap: 10px; }
+#gearline { display: flex; flex-wrap: wrap; gap: 4px; min-height: 18px; }
+.gchip { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; padding: 1px 6px; border: 1px solid var(--line); color: var(--dim); background: rgba(20, 27, 36, 0.86); }
+.gchip.on { color: var(--amber); border-color: rgba(255, 176, 0, 0.5); }
+.armhead { display: flex; flex-direction: column; gap: 6px; }
+.armhead h1 { font-size: clamp(56px, 9vw, 104px); }
+.armhead .mono { margin: 0; font-size: 12px; color: var(--dim); text-transform: uppercase; }
+.armnote { margin: 0; color: var(--dim); max-width: 62ch; }
+#armorySlots { display: flex; flex-direction: column; gap: 18px; }
+.gslot { display: flex; flex-direction: column; gap: 8px; }
+.gopts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.gopt { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; text-align: left; padding: 12px 14px; background: var(--steel); border: 1px solid var(--line); border-left: 4px solid var(--line); }
+.gopt b { font-size: 26px; font-weight: 800; color: var(--text); }
+.gopt span { color: var(--dim); font-size: 13px; max-width: 40ch; }
+.gopt:hover { border-color: var(--amber); }
+.gopt[aria-pressed="true"] { border-color: var(--amber); border-left-color: var(--amber); background: rgba(40, 32, 12, 0.92); }
+.gopt[aria-pressed="true"] b { color: var(--amber); }
+.gopt[aria-pressed="true"] span { color: var(--text); }
+#weapon b { font-size: 22px; color: var(--text); }
+#weapon .mono { font-size: 11px; color: var(--dim); text-transform: uppercase; }
+.role { display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--steel); border: 1px solid var(--line); border-top: 4px solid currentColor; }
+.role h3 { margin: 0; font-size: clamp(26px, 2.5vw, 34px); }
+.role p { margin: 0; color: var(--text); max-width: 34ch; }
+.role .wpn { font-family: var(--font-mono); font-size: 12px; color: var(--dim); }
+.role ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; color: var(--text); font-size: 13px; }
+.role ol li { display: grid; grid-template-columns: 18px 1fr; gap: 6px; }
+.role ol b { font-family: var(--font-mono); font-weight: 400; color: var(--amber); }
+.role ol span small { display: block; color: var(--dim); font-size: 12px; }
+.go { margin-top: auto; padding: 10px 12px; background: var(--amber); color: #111; border: 0; font-family: var(--font-display); font-style: italic; font-weight: 800; font-size: 24px; text-transform: uppercase; }
+.go:hover { background: #ffc94d; }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px 28px; color: var(--dim); font-size: 13px; }
+.notes > div { display: flex; flex-direction: column; gap: 8px; }
+.notes p { margin: 0; max-width: 62ch; }
+kbd { font-family: var(--font-mono); font-size: 12px; color: var(--text); border: 1px solid var(--line); padding: 0 5px; background: var(--steel); }
+.keys { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; }
+.keys dt { white-space: nowrap; } .keys dd { margin: 0; }
+details { border: 1px solid var(--line); background: rgba(20, 27, 36, 0.7); }
+summary { padding: 8px 12px; cursor: pointer; color: var(--text); font-weight: 600; }
+.meshes { padding: 4px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+.slot { display: grid; grid-template-columns: 110px 1fr auto; gap: 8px; align-items: center; font-size: 13px; }
+.slot label { color: var(--text); font-weight: 600; }
+.slot input { max-width: 100%; color: var(--dim); font-size: 12px; }
+.slot .st { font-family: var(--font-mono); font-size: 11px; color: var(--dim); }
+.slot .st.ok { color: var(--heal); } .slot .st.err { color: var(--danger); }
+
+#end .sheet { max-width: 640px; }
+#endTitle { font-size: clamp(56px, 10vw, 110px); }
+#endTitle.win { color: var(--heal); } #endTitle.wipe { color: var(--danger); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--font-mono); font-size: 11px; font-weight: 400; color: var(--dim); text-transform: uppercase; }
+td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.btns { display: flex; flex-wrap: wrap; gap: 10px; }
+.btns .go { margin: 0; padding: 10px 22px; }
+.btns .ghost { font-size: 14px; padding: 10px 18px; }
+
+@media (max-width: 760px) { #log { display: none; } #side { width: 150px; } #party { width: 150px; } #bossFrame { top: 190px; width: 92vw; } }
+@media (prefers-reduced-motion: reduce) { .ab.duty { animation: none; box-shadow: 0 0 14px 2px rgba(255, 176, 0, 0.7); } #hud.danger::before { animation: none; } #flash.on { animation-duration: 0.01s; } #announce.show { animation: none; opacity: 1; } .float { animation-duration: 0.01s; } }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="update" hidden><span id="updateText"></span><button id="updateBtn" class="go" type="button">Reload now</button></div>
+<div id="plates"></div>
+<div id="floaters"></div>
+
+<div id="hud">
+  <div id="party"></div>
+  <div id="bossFrame">
+    <div class="row"><span id="bossName" class="display">The Foreman</span><span id="phaseTag">PHASE 1</span></div>
+    <div id="bossHp" class="bar"><i></i><span></span></div>
+    <div id="bossCast" class="bar"><i></i><span></span></div>
+    <div id="overtime"></div>
+  </div>
+  <div id="side">
+    <div class="tools"><span id="clock" class="display">0:00</span><span id="netBadge" class="mono"></span><button id="mute" class="ghost click" type="button">Sound on</button><button id="quit" class="ghost click" type="button">Leave</button></div>
+    <div id="enemies"></div>
+  </div>
+  <div id="flash"></div>
+  <div id="warn" class="display">Out of the red</div>
+  <div id="announce" class="display"></div>
+  <div id="toast"></div>
+  <div id="log"></div>
+  <div id="spec"><span class="mono">SPECTATING</span> <b id="specName" class="display"></b> <span class="mono">1 to 4, Tab or click to switch. Drag to orbit.</span></div>
+  <div id="bottom">
+    <div id="targetFrame"><div class="top"><b id="tName">No target</b><small id="tInfo"></small></div><div class="bar"><i></i></div></div>
+    <div id="weapon"></div>
+    <div id="gearline"></div>
+    <div id="myCast" class="bar"><i></i><span></span></div>
+    <div id="myHp" class="bar"><i></i><span></span></div>
+    <div id="actions"></div>
+  </div>
+</div>
+
+<div id="menu" class="overlay on">
+  <div class="sheet">
+    <div class="corp"><span><b>HALCYON-VANCE CONSOLIDATED</b></span><span>CONTRACTOR TERMINAL 04-LD</span><span>WORK ORDER 0001</span><span>PROTOTYPE BUILD</span></div>
+    <div>
+      <h1 class="display">Sector<em>-4</em></h1>
+      <p class="sub display">Skyscraper Ascent</p>
+    </div>
+    <dl class="order">
+      <div><dt>Floor</dt><dd>01, Loading Dock</dd></div>
+      <div><dt>Remove</dt><dd>The Foreman</dd></div>
+      <div><dt>Squad</dt><dd>You and 3 bots</dd></div>
+      <div><dt>Overtime at</dt><dd class="mono">5:00</dd></div>
+    </dl>
+    <h2>Pick a role</h2>
+    <div class="roles" id="roles"></div>
+    <div class="squadrow">
+      <h2>Play together</h2>
+      <p id="netStatus">Checking for multiplayer...</p>
+      <div id="nickRow" class="squadctl" hidden>
+        <label for="nick" class="mono">Your callsign</label>
+        <input id="nick" type="text" maxlength="14" placeholder="ALEX" autocomplete="nickname">
+      </div>
+      <div class="squadctl">
+        <button id="hostBtn" class="go" type="button" disabled>Host a squad</button>
+        <label class="sr" for="joinCode">Squad code</label>
+        <input id="joinCode" type="text" maxlength="8" placeholder="CODE" autocomplete="off" disabled>
+        <button id="joinBtn" class="ghost" type="button" disabled>Join</button>
+      </div>
+    </div>
+    <div class="watchrow">
+      <button id="watch" class="ghost" type="button">Watch the bots run it</button>
+      <p>Spectate from the gantry. Follow any squad member to see their target, casts and cooldowns as they play.</p>
+    </div>
+    <div class="notes">
+      <div>
+        <h2>Controls</h2>
+        <dl class="keys">
+          <dt><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></dt><dd>Move. Moving cancels a cast. Abilities queue if you press them a moment early.</dd>
+          <dt><kbd>1</kbd> to <kbd>4</kbd></dt><dd>Use an ability on your target.</dd>
+          <dt><kbd>5</kbd></dt><dd>Interrupt. Press it when the Foreman's cast bar says it's your turn.</dd>
+          <dt><kbd>Space</kbd></dt><dd>Leap, if you wear Jump Boots.</dd>
+          <dt><kbd>Tab</kbd></dt><dd>Next enemy. Clicking a model or frame also targets it.</dd>
+          <dt><kbd>F1</kbd> to <kbd>F4</kbd></dt><dd>Target a squad member. <kbd>Shift</kbd>+<kbd>1</kbd> to <kbd>4</kbd> does the same.</dd>
+          <dt><kbd>M</kbd></dt><dd>Sound on or off.</dd>
+          <dt>Drag, wheel</dt><dd>Turn and zoom the camera.</dd>
+        </dl>
+      </div>
+      <div>
+        <h2>The fight</h2>
+        <p>Step out of red circles and out of the Foreman's charge lane. Don't stand in front of him unless you're the Juggernaut. Overcharge is interrupted in turns by the Juggernaut, Striker and Wrecker, and the cast bar names whose turn it is. Nobody covers a missed turn unless that player is down. At half health he calls drones that hunt the Medic and coats people in Bio Sludge.</p>
+        <details>
+          <summary>Swap in your own meshes</summary>
+          <div class="meshes" id="meshSlots"></div>
+          <div class="meshes"><p>Each slot takes one .glb file and scales it to fit. Files stay in this browser only. A static pose works. If the file has an animation, the first clip loops.</p></div>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="lobby" class="overlay">
+  <div class="sheet">
+    <div class="corp"><span><b>HALCYON-VANCE CONSOLIDATED</b></span><span>CREW ROSTER</span><span id="lobbyHost"></span></div>
+    <div class="armhead">
+      <p class="mono">Squad code</p>
+      <h1 id="lobbyCode" class="display"></h1>
+      <p class="armnote" id="lobbyNote">Share this code. Everyone needs this page open on claude.ai. Each person picks a different role.</p>
+    </div>
+    <div id="lobbySlots" class="lslots"></div>
+    <p id="lobbyLoose" class="armnote"></p>
+    <p id="lobbyVersion" class="gwarn"></p>
+    <div class="btns">
+      <button id="lobbyStart" class="go" type="button">Start the shift</button>
+      <button id="lobbyGear" class="ghost" type="button">Gear and talents</button>
+      <button id="lobbyLeave" class="ghost" type="button">Leave squad</button>
+    </div>
+    <p id="lobbyWait" class="armnote"></p>
+  </div>
+</div>
+
+<div id="armory" class="overlay">
+  <div class="sheet">
+    <div class="corp"><span><b>HALCYON-VANCE CONSOLIDATED</b></span><span>CONTRACTOR ARMORY</span><span>EQUIPMENT IS ISSUED, NOT EARNED</span></div>
+    <div class="armhead">
+      <h1 id="armoryRole" class="display"></h1>
+      <p class="mono" id="armoryWeapons"></p>
+      <p class="armnote">Gear is your weapon. Talents work like Mists of Pandaria: one pick per tier, swap freely between pulls. Nothing adds raw stats, and your picks are saved for next time.</p>
+    </div>
+    <div id="armorySlots"></div>
+    <div class="btns"><button id="armoryGo" class="go" type="button">Clock in</button><button id="armoryBack" class="ghost" type="button">Change role</button></div>
+  </div>
+</div>
+
+<div id="end" class="overlay">
+  <div class="sheet">
+    <div class="corp"><span><b>HALCYON-VANCE CONSOLIDATED</b></span><span>SHIFT REPORT</span><span id="endTime"></span><span id="endBest"></span></div>
+    <div id="endTitle" class="display"></div>
+    <p id="endLine" class="sub display"></p>
+    <table>
+      <thead><tr><th>Contractor</th><th>Role</th><th class="num">Damage</th><th class="num">Healing</th><th class="num">Taken</th></tr></thead>
+      <tbody id="meters"></tbody>
+    </table>
+    <div class="btns"><button id="again" class="go" type="button">Run it back</button><button id="regear" class="ghost" type="button">Change gear</button><button id="change" class="ghost" type="button">Change role</button></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="sim.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
