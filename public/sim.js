@@ -236,6 +236,10 @@
   }
 
   var TUNE = {
+    /* Bot "hands": how a person drives a keyboard. Fitted later from real movement (see moveStats in summary).
+       hold: seconds a key direction is held before re-deciding. aim: radians of error on a new direction.
+       eightWay: WASD gives eight directions relative to the camera, not any angle. */
+    hands: { holdMin: 0.12, holdMax: 0.34, aim: 0.22, release: 0.07, eightWay: true },
     bossHp: 75000, bossMelee: 280, bossSwing: 2.0, cleaveMult: 0.7,
     barrageEvery: 12, barrageDelay: 2.6, barrageR: 6, barrageDmg: 560,
     overEvery: 24, overCast: 3.0, overDmg: 520,
@@ -363,7 +367,7 @@
   /* Fight metrics: what each player did and what hurt the squad. summary() turns them into one record per fight. */
   function met(S, id) {
     S.m = S.m || { p: {}, taken: {}, killers: {} };
-    return S.m.p[id] || (S.m.p[id] = { dmg: 0, heal: 0, taken: 0, deaths: 0, duty: 0, miss: 0, kicks: 0 });
+    return S.m.p[id] || (S.m.p[id] = { dmg: 0, heal: 0, taken: 0, deaths: 0, duty: 0, miss: 0, kicks: 0, mvT: 0, liveT: 0, holdSum: 0, holdN: 0, redSum: 0, redN: 0 });
   }
   function damageEnemy(S, src, tgt, amt, threatMult, label) {
     if (!tgt.alive) return;
@@ -795,6 +799,46 @@
     }
   }
 
+  /* Bot hands. The bot brain decides where it wants to be every frame with perfect precision; a person doesn't.
+     This sits between the two: it presses one of eight directions relative to a lazily following camera, holds it
+     for a beat before re-deciding, aims a little off, and lets go quickly when the brain wants to stand still. */
+  function hands(S, p, raw, dt) {
+    var H = TUNE.hands, h = p.hand || (p.hand = { mx: 0, mz: 0, hold: 0, cam: p.facing || 0 }), slow = (p.bot && p.bot.slow) || 1;
+    var len = Math.sqrt((raw.mx || 0) * (raw.mx || 0) + (raw.mz || 0) * (raw.mz || 0)), want = len > 0.01;
+    var on = Math.abs(h.mx) + Math.abs(h.mz) > 0.01;
+    // The camera swings round behind the player slowly, so "forward" drifts.
+    var dc = (p.facing || 0) - h.cam; while (dc > Math.PI) dc -= Math.PI * 2; while (dc < -Math.PI) dc += Math.PI * 2;
+    h.cam += dc * Math.min(1, dt * 1.5);
+    h.hold -= dt;
+    if (!want && on) h.hold = Math.min(h.hold, H.release * slow);
+    if (h.hold <= 0) {
+      if (!want) { h.mx = 0; h.mz = 0; }
+      else {
+        var a = Math.atan2(raw.mx / len, raw.mz / len), cur = Math.atan2(h.mx, h.mz), da = a - cur;
+        while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
+        if (!on || Math.abs(da) > 0.3) {
+          a += (S.rng() - 0.5) * 2 * H.aim * slow;
+          if (H.eightWay) a = h.cam + Math.round((a - h.cam) / (Math.PI / 4)) * (Math.PI / 4);
+          h.mx = Math.sin(a); h.mz = Math.cos(a);
+          h.hold = (H.holdMin + S.rng() * (H.holdMax - H.holdMin)) * slow;
+        }
+      }
+    }
+    return { mx: h.mx, mz: h.mz, ability: raw.ability, target: raw.target, jump: raw.jump };
+  }
+  /* Movement measures, kept the same way for people and bots so the two can be compared and the hands fitted. */
+  function trackMove(S, p, dt) {
+    if (!p.alive) return;
+    var q = met(S, p.id), a = p.moving ? Math.atan2(p.inMx, p.inMz) : null;
+    q.liveT += dt; if (p.moving) q.mvT += dt;
+    var tr = p.track || (p.track = { a: null, t: 0, red: 0 });
+    var changed = (a === null) !== (tr.a === null) || (a !== null && Math.abs(Math.atan2(Math.sin(a - tr.a), Math.cos(a - tr.a))) > 0.3);
+    if (changed) { if (tr.a !== null && tr.t > 0) { q.holdSum += tr.t; q.holdN++; } tr.a = a; tr.t = 0; }
+    tr.t += dt;
+    var red = S.telegraphs.some(function (g) { return inTele(g, p); });
+    if (red) tr.red += dt;
+    else if (tr.red > 0) { q.redSum += tr.red; q.redN++; tr.red = 0; }
+  }
   /* Space does whatever this class's tier 1 talent says: Riot Charge, Stim Leap, Medevac or Dodge Jump. */
   function spaceTalent(S, p) {
     var ox = p.x, oz = p.z, dir = function () { return p.moving ? [p.inMx, p.inMz] : [Math.sin(p.facing), Math.cos(p.facing)]; };
@@ -1238,8 +1282,9 @@
     }
     S.t += dt;
     players(S).forEach(function (p) {
-      var inp = (p.human && !p.auto) ? (inputs[p.id] || {}) : botThink(S, p, dt);
+      var inp = (p.human && !p.auto) ? (inputs[p.id] || {}) : hands(S, p, botThink(S, p, dt), dt);
       applyInput(S, p, inp, dt);
+      trackMove(S, p, dt);
       tickPlayer(S, p, dt);
     });
     var boss = ent(S, S.bossId);
@@ -1357,7 +1402,10 @@
         return {
           role: p.role, human: p.human ? 1 : 0, weapon: p.gear.weapon, boots: p.gear.boots, rig: p.gear.rig, implant: p.gear.implant, util: p.gear.util,
           dmg: Math.round(q.dmg || 0), heal: Math.round(q.heal || 0), taken: Math.round(q.taken || 0),
-          deaths: q.deaths || 0, duty: q.duty || 0, miss: q.miss || 0, kicks: q.kicks || 0, alive: p.alive ? 1 : 0
+          deaths: q.deaths || 0, duty: q.duty || 0, miss: q.miss || 0, kicks: q.kicks || 0, alive: p.alive ? 1 : 0,
+          // How this seat moved: average seconds a direction was held, share of the fight spent moving,
+          // and average seconds spent standing in a red zone each time one caught you.
+          move: q.liveT > 5 ? { hold: r2(q.holdN ? q.holdSum / q.holdN : 0), moving: Math.round(q.mvT / q.liveT * 100), red: r2(q.redN ? q.redSum / q.redN : 0), reds: q.redN } : null
         };
       }),
       taken: round(m.taken), killers: m.killers

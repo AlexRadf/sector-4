@@ -116,3 +116,31 @@ test('Killing Spree stacks on highlights and fades', () => {
   run(S, 16);
   assert.strictEqual(p.spree, 0);
 });
+
+test('bot hands hold a direction for a beat instead of re-aiming every frame', () => {
+  const S = Sim.create({ seed: 9 }); S.countdown = 0;
+  let changes = 0, last = null, movingFrames = 0;
+  for (let i = 0; i < 30 * 60; i++) {
+    Sim.step(S, 1 / 30, {});
+    const p = Sim.players(S).find((q) => q.role === 'melee');
+    if (p.moving && p.hand) {
+      movingFrames++;
+      const a = Math.round(Math.atan2(p.inMx, p.inMz) * 100);
+      if (a !== last) { changes++; last = a; }
+    }
+    S.events.length = 0;
+  }
+  // Held for at least 4 frames (~0.13s) on average, where the raw brain would re-aim every frame.
+  assert.ok(changes > 5 && movingFrames / changes >= 4, `${changes} changes in ${movingFrames} moving frames`);
+});
+
+test('fight records keep movement measures and stats compare people with bots', () => {
+  const { cleanRun, aggregate } = require('../lib/stats');
+  const r = runFight({ role: 'dps', seed: 5 });
+  r.mode = 'solo';
+  const clean = cleanRun(r);
+  assert.ok(clean.players.every((p) => p.move && p.move.hold > 0));
+  const a = aggregate([clean]);
+  assert.strictEqual(a.movement.people.n, 1);
+  assert.strictEqual(a.movement.bots.n, 3);
+});
