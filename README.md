@@ -2,15 +2,25 @@
 
 A co-op raid prototype: Unreal Tournament as a tab-target MMO. One Node server serves the game and relays squad traffic. The fight itself runs in the host player's browser.
 
-## Two ways to host it
+## Hosting it
 
-- **GitHub Pages** serves the game for free. It can't run a server, so solo play works on its own, and squads need the relay (`server.js`) running somewhere else, such as your own box behind Cloudflare Tunnel.
-- **Your own server** (`server.js`, or the Docker image) serves the game and the relay together. Nothing else is needed.
+- **Render** (recommended, free): one web service runs the game and the relay. See below.
+- **Your own server** (`server.js`, or the Docker image) behind Cloudflare Tunnel: always on, no sleep.
+- **GitHub Pages**: serves the game only. Solo play works there, but squads need the relay running somewhere else.
+
+## Render
+
+1. On render.com, sign in with GitHub and choose New, then Blueprint, then pick this repo. `render.yaml` fills in the settings: Node, `npm ci`, `npm start`, free instance.
+2. Open the `onrender.com` link it gives you and share it.
+
+Every push to `main` redeploys. Players in a fight see "Server updating, reconnecting" for a few seconds and carry on.
+
+A free service sleeps after 15 minutes with no visitors, and the first visit afterwards takes about a minute to wake it. Open the link a minute before game night. Play keeps it awake.
 
 ## GitHub Pages
 
 1. In the repo, go to Settings, then Pages, and set Source to **GitHub Actions**.
-2. Push to `main`. The workflow in `.github/workflows/pages.yml` builds the site and deploys it. Each deploy is stamped with the commit id, so open pages offer a reload when a new version is out.
+2. In the Actions tab, run "Deploy to GitHub Pages". The workflow in `.github/workflows/pages.yml` builds the site and deploys it. Each deploy is stamped with the commit id, so open pages offer a reload when a new version is out.
 3. For multiplayer, run the relay on your own server (see below) and put its address in `public/config.js`:
 
 ```js
@@ -73,6 +83,7 @@ What players see:
 - `public/config.js`: where the relay lives. Empty means the same server that serves the game.
 - `scripts/build-pages.js`, `scripts/stamp.js`: build the static site for Pages and stamp the build id into the page.
 - `public/net-ws.js`: the browser side of the relay. It offers the same calls as claude.ai's room capability, so the same game files also run as a claude.ai artifact.
+- `render.yaml`: Render settings.
 - `test/`: balance and netcode checks you can run with Node, e.g. `node test/sweep.js`.
 
 ## Limits worth knowing

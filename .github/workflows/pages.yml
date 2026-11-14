@@ -1,8 +1,8 @@
 name: Deploy to GitHub Pages
 
+# Run by hand from the Actions tab once Pages is switched on (Settings > Pages > Source: GitHub Actions).
+# To deploy on every push instead, add:  push: { branches: [main] }
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
