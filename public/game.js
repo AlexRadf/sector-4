@@ -370,15 +370,11 @@
     var weaponItems = k.weapons.map(function (w) {
       return { id: w.id, name: w.name, desc: w.pitch, list: w.abilities.map(function (a, i) { return (i + 1) + '  ' + a.name + (a.cd ? ' (' + a.cd + 's)' : '') + (a.cast ? ', ' + a.cast + 's cast' : ''); }) };
     });
-    var warnings = [];
-    var refreshWarnings = function () {
-      warnings.forEach(function (w) {
-        var bad = w.item.needs && w.item.needs !== gearFor[r].weapon;
-        w.tag.textContent = bad ? 'No effect with your ' + Sim.gearName('weapon', gearFor[r].weapon, r) : '';
-        w.btn.classList.toggle('dud', !!bad);
-      });
-    };
-    [['weapon', 'Gear  /  Weapon', weaponItems], ['boots', 'Talent tier 1  /  Movement', Sim.GEAR.boots], ['rig', 'Talent tier 2  /  Survival', Sim.GEAR.rig], ['implant', 'Talent tier 3  /  ' + k.title + ' specialty', Sim.GEAR.implant[r]], ['util', 'Talent tier 4  /  Utility', Sim.GEAR.util]].forEach(function (slot) {
+    var tree = Sim.TALENTS[r];
+    $('#armoryTheme').textContent = tree.theme; $('#armoryTheme').className = 'armtheme display role-' + r;
+    [['weapon', 'Gear  /  Weapon', weaponItems]].concat(Sim.SLOTS.map(function (slot, i) {
+      return [slot, 'Talent tier ' + (i + 1) + '  /  ' + tree.tiers[i], Sim.talentList(slot, r)];
+    })).forEach(function (slot) {
       var sec = el('div', 'gslot');
       sec.appendChild(el('h2', null, slot[1]));
       var row = el('div', 'gopts');
@@ -389,28 +385,26 @@
         if (item.style) { var tag = el('i', 'gstyle ' + item.style, Sim.STYLES[item.style] + (item.play ? '  /  ' + item.play : '')); b.appendChild(tag); }
         b.appendChild(el('b', 'display', item.name)); b.appendChild(el('span', null, item.desc));
         if (item.list) { var ul = el('ul', 'gabs'); item.list.forEach(function (t) { ul.appendChild(el('li', null, t)); }); b.appendChild(ul); }
-        if (slot[0] === 'implant') { var tag = el('em', 'gwarn'); b.appendChild(tag); warnings.push({ item: item, tag: tag, btn: b }); }
         b.addEventListener('click', function () {
           gearFor[r][slot[0]] = item.id;
           try { localStorage.setItem('s4-gear-' + r, JSON.stringify(gearFor[r])); } catch (e) {}
           Array.prototype.forEach.call(row.children, function (c) { c.setAttribute('aria-pressed', c === b ? 'true' : 'false'); });
-          refreshWarnings(); showLeaning();
+          showLeaning();
           Snd.ensure(); Snd.play('swap');
         });
         row.appendChild(b);
       });
       sec.appendChild(row); host.appendChild(sec);
     });
-    refreshWarnings(); showLeaning();
+    showLeaning();
     function showLeaning() {
       var count = { aggressive: 0, steady: 0, squad: 0 };
-      ['boots', 'rig', 'implant', 'util'].forEach(function (slot) {
-        var list = slot === 'implant' ? Sim.GEAR.implant[r] : Sim.GEAR[slot];
-        var it = list.filter(function (x) { return x.id === gearFor[r][slot]; })[0];
+      Sim.SLOTS.forEach(function (slot) {
+        var it = Sim.talentList(slot, r).filter(function (x) { return x.id === gearFor[r][slot]; })[0];
         if (it && it.style) count[it.style]++;
       });
       var top = Object.keys(count).sort(function (a, b) { return count[b] - count[a]; });
-      var line = count[top[0]] >= 3 ? 'A ' + Sim.STYLES[top[0]].toLowerCase() + ' build.' : count[top[0]] === 2 && count[top[1]] === 2 ? 'A mixed build, ' + Sim.STYLES[top[0]].toLowerCase() + ' and ' + Sim.STYLES[top[1]].toLowerCase() + '.' : 'Leaning ' + Sim.STYLES[top[0]].toLowerCase() + '.';
+      var line = count[top[0]] >= 3 ? (top[0] === 'aggressive' ? 'An ' : 'A ') + Sim.STYLES[top[0]].toLowerCase() + ' build.' : count[top[0]] === 2 && count[top[1]] === 2 ? 'A mixed build, ' + Sim.STYLES[top[0]].toLowerCase() + ' and ' + Sim.STYLES[top[1]].toLowerCase() + '.' : 'Leaning ' + Sim.STYLES[top[0]].toLowerCase() + '.';
       $('#armoryLean').textContent = line + '  Aggressive ' + count.aggressive + '  /  Steady ' + count.steady + '  /  Squad ' + count.squad;
     }
     ['#menu', '#end', '#hud', '#lobby'].forEach(function (q) { $(q).classList.remove('on'); }); $('#armory').classList.add('on');
@@ -550,20 +544,8 @@
       hud.wname = human.weapon; $('#weapon').innerHTML = '';
       $('#weapon').appendChild(el('b', 'display', human.kit.weapons[human.weapon].name));
     }
-    var gl = [], G = human.gear, cdTxt = function (k) { var c = human.cds[k] || 0; return c > 0 ? Math.ceil(c) + 's' : 'ready'; };
     // One chip per talent showing its live state, so you can see what your build is doing.
-    if (G.boots === 'jump') gl.push([human.momentum > 0 ? 'Momentum: next ability +30%' : 'Jump [Space] ' + cdTxt('leap'), human.momentum > 0 || !(human.cds.leap > 0)]);
-    if (G.boots === 'mag') gl.push([Sim.braced(human) ? 'Braced' : human.moving ? 'Brace: stand still' : 'Bracing...', Sim.braced(human)]);
-    if (G.boots === 'escort') gl.push(['Escort: squad within 8m moves faster', true]);
-    if (G.rig === 'pump') gl.push([human.pump > 0 ? 'Pump active' : 'Pump ' + cdTxt('pump'), !(human.cds.pump > 0) || human.pump > 0]);
-    if (G.rig === 'plate') gl.push(['Plating ' + cdTxt('plate'), !(human.cds.plate > 0)]);
-    if (G.rig === 'lifeline') gl.push(['Lifeline ' + cdTxt('lifeline'), !(human.cds.lifeline > 0)]);
-    if (G.implant === 'vengeance') gl.push(['Rage ' + Math.round(human.rage || 0), (human.rage || 0) >= 100]);
-    else if (G.implant === 'afterburner' && human.afterburn > 0) gl.push(['Afterburn: all hits from behind', true]);
-    else gl.push([Sim.gearName('implant', G.implant, human.role), true]);
-    if (G.util === 'opportunist') gl.push([human.opp > 0 ? 'Opportunist: +30% for ' + Math.ceil(human.opp) + 's' : 'Opportunist: dodge late', human.opp > 0]);
-    else if (G.util) gl.push([Sim.gearName('util', G.util, human.role), true]);
-    if (human.spinStacks > 0 && human.kit.weapons[human.weapon].id === 'minigun') gl.push(['Spin x' + human.spinStacks, true]);
+    var gl = Sim.talentChips(human);
     var gtxt = gl.map(function (x) { return x[0] + (x[1] ? '' : '~'); }).join('|');
     if (gtxt !== hud.gtxt) {
       hud.gtxt = gtxt; var gh = $('#gearline'); gh.innerHTML = '';
@@ -586,7 +568,7 @@
       else if (u.state === 'range') label = 'OUT OF RANGE';
       else if (u.behind) label = 'BEHIND +50%';
       else if (h.a.kind === 'friend' && u.tgt) label = u.tgt.id === human.id ? 'ON YOU' : 'ON ' + u.tgt.name;
-      else if (h.a.cast > 0 && human.moving && u.state === 'ok' && human.gear.boots !== 'mag') label = 'STAND STILL';
+      else if (h.a.cast > 0 && human.moving && u.state === 'ok' && human.gear.boots !== 'mag' && !(human.momentum > 0 && human.gear.boots === 'stim')) label = 'STAND STILL';
       var st = u.state + label + duty;
       if (st !== h.state) {
         h.state = st; h.tl.textContent = label;
@@ -642,6 +624,22 @@
     return { x: (pv.x * 0.5 + 0.5) * stage.clientWidth, y: (-pv.y * 0.5 + 0.5) * stage.clientHeight };
   }
 
+  /* A talent going off. Each class has its own colour and sound so you can hear your partner's build working.
+     Squad-wide procs (Hold the Line, Meat Shield, Clear!) are called to everyone; personal ones only to their owner. */
+  var PROC_SOUND = { tank: 'challenge', healer: 'keg', dps: 'combo', melee: 'saw' };
+  function procFx(ev) {
+    var v = views[ev.id], col = ROLE_COLOR[ev.role] || 0xffffff, mine = ev.id === human.id;
+    if (v) {
+      var x = v.g.position.x, z = v.g.position.z, big = ev.scope === 'all';
+      ringFx(x, z, 0.5, big ? 12 : 4, col, big ? 0.7 : 0.5);
+      if (ev.talent === 'bash' || ev.talent === 'rally') ringFx(x, z, 0.5, ev.talent === 'rally' ? 15 : 8, 0xffffff, 0.3);
+    }
+    if ((mine && !watching) || ev.scope === 'all' || (watching && mine)) {
+      var by = mine ? '' : '  /  ' + (Sim.ent(S, ev.id) || {}).name;
+      announce(ev.text + (mine ? '' : by), ev.talent === 'meatshield' || ev.talent === 'decoy' ? 'neutral' : 'good', true);
+      Snd.play(PROC_SOUND[ev.role] || 'good');
+    }
+  }
   function drainEvents() {
     S.events.forEach(function (ev) {
       var v;
@@ -683,6 +681,10 @@
           break;
         case 'boom': Snd.play('boom'); ringFx(ev.x, ev.z, 0.5, ev.r, 0xff7a30, 0.5); ringFx(ev.x, ev.z, 0.2, ev.r * 0.6, 0xffe0a0, 0.3); break;
         case 'blink': if (ev.id === human.id) Snd.play(ev.fx === 'dash' ? 'saw' : 'trans'); v = views[ev.id]; if (v) { ringFx(ev.fromX, ev.fromZ, 0.3, 2.5, 0xb98cff, 0.4); var e = Sim.ent(S, ev.id); v.g.position.set(e.x, 0, e.z); ringFx(e.x, e.z, 2.5, 0.3, 0xb98cff, 0.4); } break;
+        case 'proc': procFx(ev); break;
+        case 'revive':
+          v = views[ev.id]; if (v) { ringFx(v.g.position.x, v.g.position.z, 4, 0.3, ROLE_COLOR.healer, 0.8); ringFx(v.g.position.x, v.g.position.z, 0.3, 6, 0xffffff, 0.4); }
+          Snd.play('combo'); break;
         case 'death': if (ev.id === human.id || ev.id === S.bossId) Snd.play('death'); v = views[ev.id]; if (v && v.kind === 'enemy') ringFx(v.g.position.x, v.g.position.z, 0.5, 5, 0xff4a36, 0.6); break;
         case 'kicked': if (ev.src === human.id || watching) Snd.play('kick'); break;
         case 'assign':
@@ -710,6 +712,7 @@
       var d = e.facing - v.holder.rotation.y; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
       v.holder.rotation.y += d * Math.min(1, dt * 12);
       if (!e.alive && !v.dead) { v.dead = true; v.holder.rotation.x = -Math.PI / 2; v.holder.position.y = 0.4; v.plate.style.opacity = 0.4; }
+      else if (e.alive && v.dead) { v.dead = false; v.holder.rotation.x = 0; v.holder.position.y = 0; v.plate.style.opacity = 1; }
       if (e.type === 'drone') v.holder.position.y = 0.5 + Math.sin(S.t * 3 + e.id) * 0.2;
       v.ring.visible = human.target === e.id && e.alive;
       if (v.ring.visible) v.ring.material.color.setHex(e.kind === 'player' ? 0x4fd88f : 0xff4a36);

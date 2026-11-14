@@ -51,3 +51,68 @@ test('network snapshots stay under the 4 KiB message limit and the mirror keeps 
     assert.ok(Math.abs(p.x - q.x) < 0.05 && p.hp === q.hp, `mirror drifted for ${p.name}`);
   }
 });
+
+/* Per-class talent trees: every class has its own, and the class-specific mechanics actually fire. */
+test('each class has its own four tiers of three talents', () => {
+  const seen = {};
+  for (const role of Object.keys(Sim.KITS)) {
+    for (const slot of Sim.SLOTS) {
+      const list = Sim.talentList(slot, role);
+      assert.strictEqual(list.length, 3, `${role} ${slot}`);
+      assert.deepStrictEqual(list.map((t) => t.style), ['aggressive', 'steady', 'squad']);
+      list.forEach((t) => { seen[t.name] = (seen[t.name] || 0) + 1; });
+    }
+  }
+  assert.ok(Object.values(seen).every((n) => n === 1), 'talent names repeat across classes');
+});
+
+function solo(role, gear) {
+  const S = Sim.create({ humanRole: role, gear, humanAuto: false, seed: 3 });
+  S.countdown = 0;
+  return { S, p: Sim.ent(S, S.humanId), boss: Sim.ent(S, S.bossId) };
+}
+function run(S, secs, inp) { for (let i = 0; i < secs * 30; i++) { Sim.step(S, 1 / 30, i === 0 && inp ? inp : {}); } }
+
+test('Riot Charge closes the gap to the target', () => {
+  const { S, p, boss } = solo('tank', { boots: 'charge' });
+  const before = Math.hypot(p.x - boss.x, p.z - boss.z);
+  run(S, 0.1, { target: boss.id, jump: true });
+  assert.ok(Math.hypot(p.x - boss.x, p.z - boss.z) < before - 5);
+  assert.ok(p.cds.leap > 9);
+});
+
+test('Medevac leaps to the most hurt ally and shields them', () => {
+  const { S, p } = solo('healer', { boots: 'medevac' });
+  const hurt = Sim.players(S).find((q) => q !== p);
+  hurt.hp = Math.round(hurt.maxHp * 0.3);
+  run(S, 0.1, { jump: true });
+  assert.ok(Math.hypot(p.x - hurt.x, p.z - hurt.z) < 3);
+  assert.ok(hurt.armor > 0);
+});
+
+test('Defibrillator brings the first downed player back once', () => {
+  const { S, p } = solo('healer', { util: 'defib' });
+  const ally = Sim.players(S).find((q) => q !== p && q.role !== 'tank');
+  ally.hp = 1; ally.armor = 0;
+  Sim.damagePlayer(S, S.bossId, ally, 5000, 'Test', true);
+  assert.strictEqual(ally.alive, false);
+  run(S, 3.5);
+  assert.strictEqual(ally.alive, true);
+  assert.ok(p.defibUsed);
+});
+
+test('Rampage stacks while the Wrecker keeps swinging', () => {
+  const { S, p, boss } = solo('melee', { implant: 'rampage' });
+  for (let i = 0; i < 9; i++) Sim.damageEnemy(S, p, boss, 10, 0, 'Test');
+  assert.strictEqual(p.rampage, 8);
+});
+
+test('Killing Spree stacks on highlights and fades', () => {
+  const { S, p, boss } = solo('dps', { util: 'spree' });
+  Sim.damageEnemy(S, p, boss, 10, 0, 'Headshot!');
+  Sim.damageEnemy(S, p, boss, 10, 0, 'Combo!');
+  assert.strictEqual(p.spree, 2);
+  assert.ok(S.events.some((e) => e.type === 'proc' && e.text === 'KILLING SPREE'));
+  run(S, 16);
+  assert.strictEqual(p.spree, 0);
+});
