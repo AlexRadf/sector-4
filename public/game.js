@@ -378,7 +378,7 @@
         w.btn.classList.toggle('dud', !!bad);
       });
     };
-    [['weapon', 'Gear  /  Weapon', weaponItems], ['boots', 'Talent tier 1  /  Movement', Sim.GEAR.boots], ['rig', 'Talent tier 2  /  Survival', Sim.GEAR.rig], ['implant', 'Talent tier 3  /  ' + k.title + ' specialty', Sim.GEAR.implant[r]]].forEach(function (slot) {
+    [['weapon', 'Gear  /  Weapon', weaponItems], ['boots', 'Talent tier 1  /  Movement', Sim.GEAR.boots], ['rig', 'Talent tier 2  /  Survival', Sim.GEAR.rig], ['implant', 'Talent tier 3  /  ' + k.title + ' specialty', Sim.GEAR.implant[r]], ['util', 'Talent tier 4  /  Utility', Sim.GEAR.util]].forEach(function (slot) {
       var sec = el('div', 'gslot');
       sec.appendChild(el('h2', null, slot[1]));
       var row = el('div', 'gopts');
@@ -544,9 +544,12 @@
     if (G.boots === 'treads') gl.push(['Sprint Treads', true]);
     if (G.rig === 'plate') gl.push(['Plating ' + cdTxt('plate'), !(human.cds.plate > 0)]);
     if (G.rig === 'pump') gl.push([human.pump > 0 ? 'Pump active' : 'Pump ' + cdTxt('pump'), !(human.cds.pump > 0) || human.pump > 0]);
-    if (G.rig === 'wind') gl.push([human.windUsed ? 'Second Wind used' : 'Second Wind ready', !human.windUsed]);
+    if (G.rig === 'wind') gl.push(['Second Wind ' + cdTxt('wind'), !(human.cds.wind > 0)]);
     if (G.implant === 'afterburner' && human.afterburn > 0) gl.push(['Afterburn: all hits from behind', true]);
     else gl.push([Sim.gearName('implant', G.implant, human.role), true]);
+    if (G.util === 'lifeline') gl.push([human.lifelineUsed ? 'Lifeline used' : 'Lifeline ready', !human.lifelineUsed]);
+    else if (G.util) gl.push([Sim.gearName('util', G.util, human.role), true]);
+    if (human.spinStacks > 0 && human.kit.weapons[human.weapon].id === 'minigun') gl.push(['Spin x' + human.spinStacks, true]);
     var gtxt = gl.map(function (x) { return x[0] + (x[1] ? '' : '~'); }).join('|');
     if (gtxt !== hud.gtxt) {
       hud.gtxt = gtxt; var gh = $('#gearline'); gh.innerHTML = '';
@@ -588,9 +591,9 @@
   }
 
   /* ---------- effects ---------- */
-  var FX_COLOR = { shock: 0xb98cff, core: 0xd9b8ff, rocket: 0xff9a40, volley: 0xffd080, link: 0x4fd88f, surge: 0x9dffc8, bio: 0x9be25a, purge: 0xc8ff7a, hammer: 0xffb000, blast: 0xffe2a0, shell: 0xffb000, kick: 0xffffff, saw: 0x5cc8ff, sawbig: 0xbfeaff, razor: 0x9ad8ff };
-  var FX_WIDTH = { shock: 0.07, core: 0.16, rocket: 0.12, volley: 0.28, link: 0.08, surge: 0.18, bio: 0.1, purge: 0.06, hammer: 0.22, blast: 0.3, shell: 0.12, kick: 0.1, saw: 0.18, sawbig: 0.32, razor: 0.06 };
-  var FX_SOUND = { shock: 'shock', core: 'core', rocket: 'rocket', volley: 'combo', link: 'link', surge: 'surge', bio: 'purge', purge: 'purge', hammer: 'hammer', blast: 'hammer', shell: 'flak', kick: 'kick', saw: 'saw', sawbig: 'saw', razor: 'razor' };
+  var FX_COLOR = { shock: 0xb98cff, core: 0xd9b8ff, rocket: 0xff9a40, volley: 0xffd080, link: 0x4fd88f, surge: 0x9dffc8, bio: 0x9be25a, purge: 0xc8ff7a, hammer: 0xffb000, blast: 0xffe2a0, shell: 0xffb000, kick: 0xffffff, spin: 0xffd36b, suppress: 0xff9a40, shield: 0x7fd0ff, snipe: 0xffffff, tap: 0x9ad8ff, saw: 0x5cc8ff, sawbig: 0xbfeaff, razor: 0x9ad8ff };
+  var FX_WIDTH = { shock: 0.07, core: 0.16, rocket: 0.12, volley: 0.28, link: 0.08, surge: 0.18, bio: 0.1, purge: 0.06, hammer: 0.22, blast: 0.3, shell: 0.12, kick: 0.1, spin: 0.06, suppress: 0.2, shield: 0.14, snipe: 0.05, tap: 0.05, saw: 0.18, sawbig: 0.32, razor: 0.06 };
+  var FX_SOUND = { shock: 'shock', core: 'core', rocket: 'rocket', volley: 'combo', link: 'link', surge: 'surge', bio: 'purge', purge: 'purge', hammer: 'hammer', blast: 'hammer', shell: 'flak', kick: 'kick', spin: 'shock', suppress: 'rocket', shield: 'belt', snipe: 'core', tap: 'razor', saw: 'saw', sawbig: 'saw', razor: 'razor' };
   function addFx(mesh, life, tick) { fxRoot.add(mesh); fx.push({ m: mesh, t: 0, life: life, tick: tick }); }
   function beamFx(a, b, kind) {
     var va = views[a], vb = views[b]; if (!va || !vb || a === b) return;

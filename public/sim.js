@@ -24,6 +24,10 @@
         { id: 'hammer', name: 'Impact Hammer', pitch: 'Single-target threat. Weakens the Foreman\'s hits.', abilities: [
           A({ id: 'swing', name: 'Hammer Swing', kind: 'enemy', range: 5, desc: 'Melee hit. Highest single-target threat.' }),
           A({ id: 'concuss', name: 'Concussion', kind: 'enemy', range: 5, cd: 8, desc: 'Heavy hit. The target deals 25% less damage for 5s.' })
+        ] },
+        { id: 'minigun', name: 'Minigun', pitch: 'Threat that builds the longer you hold one target. Slows enemy casts, buying time for the interrupt.', abilities: [
+          A({ id: 'spin', name: 'Minigun Burst', kind: 'enemy', range: 20, desc: 'Each burst on the same target hits 12% harder, up to 5 stacks. High threat.' }),
+          A({ id: 'suppress', name: 'Suppressive Fire', kind: 'enemy', range: 20, cd: 10, desc: 'For 8s the target casts 40% slower and hits 20% softer.' })
         ] }
       ],
       utils: [
@@ -42,6 +46,10 @@
         { id: 'bio', name: 'Bio Rifle', pitch: 'Instant heals on the move. Less per heal.', abilities: [
           A({ id: 'spray', name: 'Bio Spray', kind: 'friend', range: 30, desc: 'Instant heal, plus more over 6s. Recasting refreshes it.' }),
           A({ id: 'glob', name: 'Bio Glob', kind: 'friend', range: 30, cd: 10, desc: 'Instant. Heals everyone within 7m of the target.' })
+        ] },
+        { id: 'shield', name: 'Shield Gun', pitch: 'Shields before the hit instead of heals after it. Strong if you see the damage coming.', abilities: [
+          A({ id: 'barrier', name: 'Barrier', kind: 'friend', range: 35, desc: 'Instant. Heals 60 and adds a 180 shield, up to 400.' }),
+          A({ id: 'bulwark', name: 'Bulwark', kind: 'friend', range: 35, cd: 15, desc: 'Instant. Everyone within 8m of the target gets a 250 shield.' })
         ] }
       ],
       utils: [
@@ -60,6 +68,10 @@
         { id: 'rockets', name: 'Rocket Launcher', pitch: 'All instant, so you never stop moving. Splash shreds drone packs.', abilities: [
           A({ id: 'rocket', name: 'Rocket', kind: 'enemy', range: 30, desc: 'Instant. Splashes enemies within 4m of the target.' }),
           A({ id: 'volley', name: 'Rocket Volley', kind: 'enemy', range: 30, cd: 10, desc: 'Instant burst of three rockets.' })
+        ] },
+        { id: 'sniper', name: 'Sniper Rifle', pitch: 'Long, slow shots from across the arena. Headshot a target mid-cast for huge damage.', abilities: [
+          A({ id: 'snipe', name: 'Snipe', kind: 'enemy', range: 50, cast: 2.0, desc: 'Heavy shot from up to 50m. 2s cast, stand still.' }),
+          A({ id: 'headshot', name: 'Headshot', kind: 'enemy', range: 50, cd: 12, desc: 'Instant. Two and a half times the damage on a target that is casting or below 35% health.' })
         ] }
       ],
       utils: [
@@ -78,6 +90,10 @@
         { id: 'ripper', name: 'Ripper', pitch: 'Mid-range blades that bounce between targets. Safer, less damage.', abilities: [
           A({ id: 'razor', name: 'Razor', kind: 'enemy', range: 18, desc: 'Thrown blade at 18m.' }),
           A({ id: 'bounce', name: 'Ricochet', kind: 'enemy', range: 18, cd: 8, desc: 'Blade that also hits two more enemies nearby.' })
+        ] },
+        { id: 'enforcers', name: 'Dual Enforcers', pitch: 'Mid-range pistols that hit 35% harder while you keep moving. No positioning tax.', abilities: [
+          A({ id: 'tap', name: 'Double Tap', kind: 'enemy', range: 10, desc: 'Two quick shots. 35% more damage while moving.' }),
+          A({ id: 'fan', name: 'Fan the Hammer', kind: 'enemy', range: 10, cd: 7, desc: 'Four shots at once. 35% more damage while moving.' })
         ] }
       ],
       utils: [
@@ -96,34 +112,43 @@
       { id: 'mag', name: 'Mag-Lock Soles', desc: 'Cast while moving, at half speed.' }
     ],
     rig: [
-      { id: 'wind', name: 'Second Wind', desc: 'The first time you would go down, you stay up at 1 health and take half damage for 3s. Once per raid.' },
+      { id: 'wind', name: 'Second Wind', desc: 'When you would go down, you stay up at 1 health and take half damage for 3s. Recharges after 90s.' },
       { id: 'plate', name: 'Ablative Plating', desc: 'Ignore the first hit of 100 or more every 20s.' },
-      { id: 'pump', name: 'Adrenal Pump', desc: 'Drop below 30% health and you deal and heal 40% more for 6s. Once a minute.' }
+      { id: 'pump', name: 'Adrenal Pump', desc: 'Drop below 30% health and for 6s you deal and heal 40% more and take 25% less. Once a minute.' }
+    ],
+    util: [
+      { id: 'comms', name: 'Field Comms', desc: 'Interrupt is ready every 10s instead of 15s and reaches 35m.' },
+      { id: 'overclock', name: 'Overclock', desc: 'All your cooldowns recover 15% faster.' },
+      { id: 'lifeline', name: 'Lifeline', desc: 'Once per raid, when a squad member drops below 20% health, they are instantly healed for 35% of it.' }
     ],
     implant: {
       tank: [
         { id: 'recharge', name: 'Rapid Recharge', desc: 'Shield Belt is ready every 15s instead of 25s, but lasts 4s instead of 6s.' },
-        { id: 'guardian', name: 'Guardian Link', desc: 'Challenge also gives the most hurt squad member 300 armor.' }
+        { id: 'guardian', name: 'Guardian Link', desc: 'Challenge also gives the most hurt squad member 300 armor.' },
+        { id: 'bodyguard', name: 'Bodyguard', desc: 'Squad members within 6m of you take 20% less damage. You take that 20% instead.' }
       ],
       healer: [
-        { id: 'triage', needs: 'link', name: 'Triage Matrix', desc: 'Link Beam and Nano Surge heal 30% more on anyone below 40% health.' },
-        { id: 'recycler', needs: 'bio', name: 'Bio Recycler', desc: 'Bio Spray also lands on the most hurt ally within 8m of your target.' }
+        { id: 'triage', needs: 'link', name: 'Triage Matrix', desc: 'Link Beam and Nano Surge heal 15% more on anyone below 40% health.' },
+        { id: 'recycler', needs: 'bio', name: 'Bio Recycler', desc: 'Bio Spray also lands on the most hurt ally within 8m of your target.' },
+        { id: 'overflow', name: 'Overflow', desc: 'Healing past full health turns into a shield, up to 300.' }
       ],
       dps: [
         { id: 'capacitor', needs: 'shock', name: 'Combo Capacitor', desc: 'Shock Core does 60% more to a target you hit with Shock Beam in the last 3s.' },
-        { id: 'seeker', needs: 'rockets', name: 'Seeker Payload', desc: 'Rocket splash reaches 7m. Rocket Volley cooldown drops to 7s.' }
+        { id: 'seeker', needs: 'rockets', name: 'Seeker Payload', desc: 'Rocket splash reaches 7m. Rocket Volley cooldown drops to 7s.' },
+        { id: 'marksman', name: 'Marksman', desc: '25% more damage to anything 25m or more away.' }
       ],
       melee: [
         { id: 'bloodlust', needs: 'chainsaw', name: 'Bloodlust Saw', desc: 'Each Rip from behind takes 2s off Saw Through.' },
-        { id: 'afterburner', name: 'Afterburner', desc: 'Dash cooldown drops to 5s. For 3s after a Dash every hit counts as from behind.' }
+        { id: 'afterburner', name: 'Afterburner', desc: 'Dash cooldown drops to 5s. For 3s after a Dash every hit counts as from behind.' },
+        { id: 'bloodletting', name: 'Bloodletting', desc: 'Your hits from behind make the target take 10% more damage from everyone for 4s.' }
       ]
     }
   };
   var BOT_GEAR = {
-    tank: { weapon: 'hammer', boots: 'treads', rig: 'plate', implant: 'recharge' },
-    healer: { weapon: 'link', boots: 'jump', rig: 'plate', implant: 'triage' },
-    dps: { weapon: 'rockets', boots: 'jump', rig: 'pump', implant: 'seeker' },
-    melee: { weapon: 'chainsaw', boots: 'treads', rig: 'pump', implant: 'bloodlust' }
+    tank: { weapon: 'hammer', boots: 'treads', rig: 'plate', implant: 'recharge', util: 'comms' },
+    healer: { weapon: 'link', boots: 'jump', rig: 'plate', implant: 'triage', util: 'overclock' },
+    dps: { weapon: 'rockets', boots: 'jump', rig: 'pump', implant: 'seeker', util: 'comms' },
+    melee: { weapon: 'chainsaw', boots: 'treads', rig: 'pump', implant: 'bloodlust', util: 'overclock' }
   };
   function validGear(role, g) {
     var out = {}, has = function (list, id) { return list.some(function (x) { return x.id === id; }); };
@@ -132,10 +157,11 @@
     out.boots = has(GEAR.boots, g.boots) ? g.boots : GEAR.boots[0].id;
     out.rig = has(GEAR.rig, g.rig) ? g.rig : GEAR.rig[0].id;
     out.implant = has(GEAR.implant[role], g.implant) ? g.implant : GEAR.implant[role][0].id;
+    out.util = has(GEAR.util, g.util) ? g.util : GEAR.util[0].id;
     return out;
   }
   function gearName(slot, id, role) {
-    var list = slot === 'implant' ? GEAR.implant[role] : slot === 'weapon' ? KITS[role].weapons : GEAR[slot];
+    var list = slot === 'implant' ? GEAR.implant[role] : slot === 'weapon' ? KITS[role].weapons : GEAR[slot] || [];
     for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i].name;
     return id;
   }
@@ -163,6 +189,7 @@
     if (r > max) { e.x *= max / r; e.z *= max / r; }
   }
   function abilitiesOf(p) { return p.kit.weapons[p.weapon].abilities.concat(p.kit.utils, [KICK]); }
+  function reach(p, ab) { return ab.id === 'kick' && p.gear && p.gear.util === 'comms' ? 35 : ab.range; }
   function behind(p, e) {
     var fx = Math.sin(e.facing), fz = Math.cos(e.facing), dx = p.x - e.x, dz = p.z - e.z, l = Math.sqrt(dx * dx + dz * dz) || 1;
     return (fx * dx + fz * dz) / l < -0.3;
@@ -222,7 +249,7 @@
         belt: 0, adren: 0, amp: 0, armor: 0, hot: 0, sludge: 0, sludgeAcc: 0,
         bot: { danger: 0, react: 0.35 + S.rng() * 0.3, think: S.rng() * 0.5, intDelay: 0.9 + S.rng() * 0.6, slow: 1 }
       };
-      p.weapon = kit.weapons[0].id === p.gear.weapon ? 0 : 1;
+      p.weapon = Math.max(0, kit.weapons.map(function (w) { return w.id; }).indexOf(p.gear.weapon));
       if (p.gear.boots === 'treads') p.speed *= 1.25;
       if (isHuman && S.humanId == null) S.humanId = p.id;
       S.ents.push(p);
@@ -260,7 +287,12 @@
   }
   function damageEnemy(S, src, tgt, amt, threatMult, label) {
     if (!tgt.alive) return;
-    if (src.kind === 'player') amt *= (src.adren > 0 ? 1.4 : 1) * (src.amp > 0 ? 1.5 : 1) * (src.pump > 0 ? 1.4 : 1);
+    if (src.kind === 'player') {
+      amt *= (src.adren > 0 ? 1.4 : 1) * (src.amp > 0 ? 1.5 : 1) * (src.pump > 0 ? 1.4 : 1);
+      if (src.gear.implant === 'marksman' && dist(src, tgt) >= 25 + (tgt.radius || 0)) amt *= 1.25;
+      if (src.gear.implant === 'bloodletting' && behind(src, tgt)) tgt.exposed = 4;
+    }
+    if (tgt.exposed > 0) amt *= 1.1;
     amt = Math.round(amt);
     if (src.kind === 'player') met(S, src.id).dmg += Math.min(amt, tgt.hp);
     tgt.hp -= amt;
@@ -271,16 +303,25 @@
       emit(S, { type: 'death', id: tgt.id });
     }
   }
-  function damagePlayer(S, srcId, p, amt, label) {
+  function damagePlayer(S, srcId, p, amt, label, guarded) {
     if (!p.alive) return;
+    if (!guarded && p.role !== 'tank') {
+      // Bodyguard: a Juggernaut nearby soaks a fifth of the hit.
+      var guard = players(S, true).filter(function (g) { return g !== p && g.gear.implant === 'bodyguard' && dist(g, p) <= 6; })[0];
+      if (guard) { var share = amt * 0.2; amt -= share; damagePlayer(S, srcId, guard, share, 'Bodyguard', true); }
+    }
     if (p.belt > 0) amt = amt * 0.5;
+    if (p.pump > 0) amt = amt * 0.75;
     amt = Math.round(amt);
     if (p.gear && p.gear.rig === 'plate' && amt >= 100 && (p.cds.plate || 0) <= 0) {
       p.cds.plate = 20;
       emit(S, { type: 'absorb', id: p.id, amt: amt, label: label });
       return;
     }
-    if (p.armor > 0) { var soak = Math.min(p.armor, amt); p.armor -= soak; amt -= soak; }
+    if (p.armor > 0) {
+      var soak = Math.min(p.armor, amt); p.armor -= soak; amt -= soak;
+      if (p.armorSrc) { var shieldBy = ent(S, p.armorSrc); if (shieldBy) met(S, shieldBy.id).heal += soak; }
+    }
     met(S, p.id).taken += amt; S.m.taken[label] = (S.m.taken[label] || 0) + amt;
     p.hp -= amt;
     emit(S, { type: 'dmg', src: srcId, dst: p.id, amt: amt, label: label });
@@ -288,8 +329,17 @@
       p.pump = 6; p.cds.pump = 60;
       emit(S, { type: 'fx', fx: 'pump', src: p.id });
     }
-    if (p.hp <= 0 && p.gear && p.gear.rig === 'wind' && !p.windUsed) {
-      p.windUsed = true; p.hp = 1; p.belt = Math.max(p.belt, 3);
+    if (p.hp > 0 && p.hp < p.maxHp * 0.2) {
+      var saver = players(S, true).filter(function (q) { return q.gear.util === 'lifeline' && !q.lifelineUsed; })[0];
+      if (saver) {
+        saver.lifelineUsed = true;
+        heal(S, saver, p, p.maxHp * 0.35, 'Lifeline');
+        emit(S, { type: 'fx', fx: 'wind', src: p.id });
+        emit(S, { type: 'log', id: p.id, text: saver.name + "'s Lifeline catches " + p.name + '.', you: saver.name + "'s Lifeline catches you." });
+      }
+    }
+    if (p.hp <= 0 && p.gear && p.gear.rig === 'wind' && (p.cds.wind || 0) <= 0) {
+      p.cds.wind = 90; p.hp = 1; p.belt = Math.max(p.belt, 3);
       emit(S, { type: 'fx', fx: 'wind', src: p.id });
       emit(S, { type: 'log', id: p.id, text: p.name + ' catches a Second Wind.', you: 'You catch a Second Wind.' });
     }
@@ -303,10 +353,14 @@
   function heal(S, src, p, amt, label) {
     if (!p.alive) return;
     if (src.kind === 'player' && src.pump > 0) amt *= 1.4;
+    amt = Math.round(amt);   // whole points, so a squad client's copy matches the host exactly
     var before = p.hp;
     p.hp = Math.min(p.maxHp, p.hp + amt);
     var eff = p.hp - before;
     if (src.kind === 'player') met(S, src.id).heal += eff;
+    if (src.kind === 'player' && src.gear.implant === 'overflow' && amt - eff > 1) {
+      p.armor = Math.min(300, Math.max(p.armor, 0) + (amt - eff)); p.armorSrc = src.id;
+    }
     emit(S, { type: 'heal', src: src.id, dst: p.id, amt: Math.round(eff), label: label });
     enemies(S).forEach(function (e) { addThreat(S, e, src.id, eff * 0.5); });
   }
@@ -316,6 +370,7 @@
   function castingEnemy(S, p, range) {
     return enemies(S).filter(function (e) { return e.cast && e.cast.interruptible && dist(p, e) <= range + (e.radius || 0); })[0] || null;
   }
+  function shieldUp(q, src, amt, cap) { q.armor = Math.min(cap, Math.max(q.armor, 0) + amt); q.armorSrc = src.id; }
   function resolveTarget(S, p, ab) {
     if (ab.id === 'kick') return castingEnemy(S, p, 999);
     var t = p.target != null ? ent(S, p.target) : null;
@@ -343,7 +398,7 @@
     var tgt = resolveTarget(S, p, ab);
     if (!tgt) return { state: ab.id === 'kick' ? 'idle' : 'notarget', tgt: null };
     var out = { tgt: tgt, behind: BACKSTAB[ab.id] && tgt.kind === 'enemy' && (behind(p, tgt) || p.afterburn > 0) };
-    if (ab.kind !== 'self' && dist(p, tgt) > ab.range + (tgt.radius || 0)) out.state = 'range';
+    if (ab.kind !== 'self' && dist(p, tgt) > reach(p, ab) + (tgt.radius || 0)) out.state = 'range';
     else if ((p.cds[ab.id] || 0) > 0) out.state = 'cd';
     else out.state = 'ok';
     return out;
@@ -363,7 +418,7 @@
     var tgt = resolveTarget(S, p, ab);
     if (!tgt) return fail(S, p, ab.id === 'kick' ? 'Nothing to interrupt' : 'No target');
     if (ab.kind !== 'self') {
-      if (dist(p, tgt) > ab.range + (tgt.radius || 0)) return fail(S, p, 'Out of range');
+      if (dist(p, tgt) > reach(p, ab) + (tgt.radius || 0)) return fail(S, p, 'Out of range');
     }
     if (ab.cast > 0 && p.moving && p.gear.boots !== 'mag') return fail(S, p, 'Stand still to cast ' + ab.name);
     if (ab.gcd) p.gcd = GCD;
@@ -378,9 +433,10 @@
     if (G.implant === 'seeker' && ab.id === 'volley') p.cds.volley = 7;
     if (G.implant === 'afterburner' && ab.id === 'dash') p.cds.dash = 5;
     if (G.implant === 'recharge' && ab.id === 'belt') p.cds.belt = 15;
+    if (G.util === 'comms' && ab.id === 'kick') p.cds.kick = 10;
     if (tgt && tgt !== p && !p.moving) p.facing = Math.atan2(tgt.x - p.x, tgt.z - p.z);
     var back = BACKSTAB[ab.id] && tgt.kind === 'enemy' && (behind(p, tgt) || p.afterburn > 0) ? 1.5 : 1;
-    var triage = G.implant === 'triage' && tgt.kind === 'player' && tgt.hp < tgt.maxHp * 0.4 ? 1.3 : 1;
+    var triage = G.implant === 'triage' && tgt.kind === 'player' && tgt.hp < tgt.maxHp * 0.4 ? 1.15 : 1;
     switch (ab.id) {
       case 'flak':
         emit(S, { type: 'fx', fx: 'flak', src: p.id });
@@ -485,10 +541,10 @@
         break;
       case 'link':
         emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'link' });
-        heal(S, p, tgt, 160 * triage, 'Link'); break;
+        heal(S, p, tgt, 185 * triage, 'Link'); break;
       case 'surge':
         emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'surge' });
-        heal(S, p, tgt, 430 * triage, 'Surge'); break;
+        heal(S, p, tgt, 470 * triage, 'Surge'); break;
       case 'spray':
         emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'bio' });
         tgt.hot = 6; tgt.hotSrc = p.id; heal(S, p, tgt, 110, 'Spray');
@@ -502,6 +558,34 @@
         emit(S, { type: 'fx', fx: 'glob', src: tgt.id });
         players(S, true).forEach(function (q) { if (dist(q, tgt) <= 7) heal(S, p, q, 170, 'Glob'); });
         break;
+      case 'spin':
+        if (p.spinTgt === tgt.id) p.spinStacks = Math.min(5, (p.spinStacks || 0) + 1); else { p.spinTgt = tgt.id; p.spinStacks = 0; }
+        emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'spin' });
+        damageEnemy(S, p, tgt, 55 * (1 + 0.12 * p.spinStacks), 7, 'Minigun'); break;
+      case 'suppress':
+        emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'suppress' });
+        tgt.suppressed = 8;
+        damageEnemy(S, p, tgt, 80, 7, 'Suppress'); break;
+      case 'barrier':
+        emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'shield' });
+        heal(S, p, tgt, 60, 'Barrier'); shieldUp(tgt, p, 180, 400); break;
+      case 'bulwark':
+        emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'shield' });
+        emit(S, { type: 'fx', fx: 'guard', src: tgt.id });
+        players(S, true).forEach(function (q) { if (dist(q, tgt) <= 8) shieldUp(q, p, 250, 400); }); break;
+      case 'snipe':
+        emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'snipe' });
+        damageEnemy(S, p, tgt, 270, 1, 'Snipe'); break;
+      case 'headshot':
+        var casting = !!tgt.cast || tgt.hp < tgt.maxHp * 0.35;
+        emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'snipe' });
+        damageEnemy(S, p, tgt, casting ? 650 : 260, 1, casting ? 'Headshot!' : 'Headshot'); break;
+      case 'tap':
+        emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'tap' });
+        damageEnemy(S, p, tgt, 80 * (p.moving ? 1.35 : 1), 1, p.moving ? 'Tap!' : 'Tap'); break;
+      case 'fan':
+        emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'tap' });
+        damageEnemy(S, p, tgt, 180 * (p.moving ? 1.35 : 1), 1, p.moving ? 'Fan!' : 'Fan'); break;
       case 'keg':
         emit(S, { type: 'fx', fx: 'keg', src: p.id });
         players(S, true).forEach(function (q) { if (dist(p, q) <= ab.range) heal(S, p, q, 190, 'Keg'); });
@@ -545,7 +629,8 @@
   function tickPlayer(S, p, dt) {
     if (!p.alive) return;
     if (p.gcd > 0) p.gcd = Math.max(0, p.gcd - dt);
-    for (var k in p.cds) if (p.cds[k] > 0) p.cds[k] = Math.max(0, p.cds[k] - dt);
+    var cdRate = p.gear.util === 'overclock' ? 1.15 : 1;
+    for (var k in p.cds) if (p.cds[k] > 0) p.cds[k] = Math.max(0, p.cds[k] - dt * cdRate);
     ['belt', 'adren', 'amp', 'pump', 'afterburn'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
     if (p.hot > 0) {
       var src = ent(S, p.hotSrc), step = Math.min(dt, p.hot);
@@ -599,11 +684,13 @@
     }
     if (e.fixate) { e.fixate.t -= dt; if (e.fixate.t <= 0) e.fixate = null; }
     if (e.weak > 0) e.weak -= dt;
+    if (e.suppressed > 0) e.suppressed -= dt;
+    if (e.exposed > 0) e.exposed -= dt;
     if (e.slowed > 0) e.slowed -= dt;
     e.target = pickTarget(S, e);
     var tgt = e.target != null ? ent(S, e.target) : null;
     if (e.cast) {
-      e.cast.t += dt;
+      e.cast.t += dt * (e.suppressed > 0 ? 0.6 : 1);
       if (e.cast.t >= e.cast.dur) { var cc = e.cast; e.cast = null; cc.done(); }
       return;
     }
@@ -618,7 +705,7 @@
     e.swing -= dt;
     if (e.swing <= 0 && d <= reach + 0.6) {
       e.swing = e.swingInt * (e.slowed > 0 ? 1.33 : 1);
-      var dmg = e.melee * (S.enraged && e.type === 'boss' ? 3 : 1) * (e.weak > 0 ? 0.75 : 1);
+      var dmg = e.melee * (S.enraged && e.type === 'boss' ? 3 : 1) * (e.weak > 0 ? 0.75 : 1) * (e.suppressed > 0 ? 0.8 : 1);
       emit(S, { type: 'fx', fx: e.type === 'boss' ? 'cleave' : 'melee', src: e.id, dst: tgt.id });
       damagePlayer(S, e.id, tgt, dmg, 'Hit');
       if (e.type === 'boss') {
@@ -810,6 +897,9 @@
           if (looseFar && ready('shell')) { inp.target = looseFar.id; inp.ability = idx('shell'); }
           else if (ready('shell') && boss.alive && !(boss.slowed > 0)) { inp.target = boss.id; inp.ability = idx('shell'); }
           else if (d <= 8) inp.ability = idx('flak');
+        } else if (W === 'minigun') {
+          if (boss.alive && ready('suppress') && (boss.cast || !(boss.suppressed > 0))) { inp.target = boss.id; inp.ability = idx('suppress'); }
+          else inp.ability = idx('spin');
         } else if (d <= 5) inp.ability = ready('concuss') ? idx('concuss') : idx('swing');
         b.think = 0.15 + S.rng() * 0.35;
       }
@@ -828,6 +918,10 @@
         if (boss.alive && boss.target !== p.id && dist(p, boss) < boss.radius + 8) { inp.mx = p.x - boss.x; inp.mz = p.z - boss.z; }
         if (canAct && p.gcd <= 0) {
           if (W === 'rockets') inp.ability = ready('volley') ? idx('volley') : idx('rocket');
+          else if (W === 'sniper') {
+            if (ready('headshot') && (tg.cast || tg.hp < tg.maxHp * 0.35 || moving())) inp.ability = idx('headshot');
+            else if (!moving() || p.gear.boots === 'mag') inp.ability = idx('snipe');
+          }
           else inp.ability = moving() && p.gear.boots !== 'mag' ? idx('beam') : idx('core');
           b.think = 0.2 + S.rng() * 0.5;
         }
@@ -840,6 +934,14 @@
         if (dm > 10 && ready('dash')) { inp.ability = idx('dash'); return inp; }
         if (off > 1.2 && (tg.type === 'boss' || dm > 3)) moveTo(spot.x, spot.z);
         if (canAct && p.gcd <= 0) { inp.ability = ready('saw') ? idx('saw') : idx('rip'); b.think = 0.2 + S.rng() * 0.4; }
+      } else if (W === 'enforcers') {
+        // Enforcers: circle the target at about 8m so every shot gets the moving bonus.
+        var ang = Math.atan2(p.x - tg.x, p.z - tg.z) + 0.6;
+        var ring = { x: tg.x + Math.sin(ang) * ((tg.radius || 1) + 7), z: tg.z + Math.cos(ang) * ((tg.radius || 1) + 7) };
+        clampArena(ring, 2);
+        moveTo(ring.x, ring.z);
+        if (tg.type === 'boss') { var fx2 = Math.sin(tg.facing), fz2 = Math.cos(tg.facing); if (((p.x - tg.x) * fx2 + (p.z - tg.z) * fz2) > 0) moveTo(tg.x - fx2 * 9, tg.z - fz2 * 9); }
+        if (canAct && p.gcd <= 0) { inp.ability = ready('fan') ? idx('fan') : idx('tap'); b.think = 0.2 + S.rng() * 0.4; }
       } else {
         // Ripper: hold a spot 12m behind the target so the cleave and charge lanes miss you.
         var back = tg.type === 'boss' ? { x: tg.x - Math.sin(tg.facing) * 12, z: tg.z - Math.cos(tg.facing) * 12 } : null;
@@ -869,6 +971,14 @@
         var pick = low.hp < low.maxHp * 0.6 ? low : (nohot || (low.hp < low.maxHp * 0.92 ? low : null));
         if (pick) { inp.target = pick.id; inp.ability = idx('spray'); }
       }
+    } else if (W === 'shield') {
+      // Shield the tank ahead of the hits, blanket the squad when something big is coming.
+      var bigHit = boss.alive && (boss.cast || S.telegraphs.length);
+      var tank = allies.filter(function (a) { return a.role === 'tank'; })[0];
+      if (bigHit && ready('bulwark')) { inp.target = (tank || low).id; inp.ability = idx('bulwark'); }
+      else if (low.hp < low.maxHp * 0.6 || low.armor < 100) { inp.target = low.id; inp.ability = idx('barrier'); }
+      else if (tank && tank.armor < 250) { inp.target = tank.id; inp.ability = idx('barrier'); }
+      else { var bare = allies.filter(function (a) { return a.armor < 100; })[0]; if (bare) { inp.target = bare.id; inp.ability = idx('barrier'); } }
     } else if (!moving() || p.gear.boots === 'mag') {
       if (low.hp < low.maxHp * 0.5 && ready('surge')) { inp.target = low.id; inp.ability = idx('surge'); }
       else if (low.hp < low.maxHp * 0.88) { inp.target = low.id; inp.ability = idx('link'); }
@@ -943,8 +1053,9 @@
         if (e.moving) o.mv = 1;
         if (e.auto && e.human) o.au = 1;
         if (e.cast) o.k = [e.cast.ab.id, r2(e.cast.t), r2(e.cast.dur), e.cast.targetId];
-        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
+        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
         if (e.windUsed) o.wu = 1;
+        if (e.lifelineUsed) o.lu = 1;
         snap.p.push(o);
       } else {
         var q = { i: e.id, ty: e.type, n: e.name, x: r2(e.x), z: r2(e.z), f: r2(e.facing), h: Math.round(e.hp), mh: e.maxHp, a: e.alive ? 1 : 0, tg: e.target, ra: e.radius };
@@ -975,8 +1086,8 @@
       var p = ent(M, o.i); if (!p) return;
       p.x = o.x; p.z = o.z; p.facing = o.f; p.hp = o.h; p.alive = !!o.a; p.target = o.tg; p.gcd = o.g; p.cds = o.c || {};
       p.moving = !!o.mv; p.auto = !!o.au || !p.human;
-      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge'].forEach(function (f) { p[f] = o[f] || 0; });
-      p.windUsed = !!o.wu;
+      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks'].forEach(function (f) { p[f] = o[f] || 0; });
+      p.windUsed = !!o.wu; p.lifelineUsed = !!o.lu;
       if (o.k) {
         var ab = abilitiesOf(p).filter(function (a) { return a.id === o.k[0]; })[0];
         p.cast = ab ? { ab: ab, t: o.k[1], dur: o.k[2], targetId: o.k[3] } : null;
@@ -1018,7 +1129,7 @@
       players: players(S).map(function (p) {
         var q = m.p[p.id] || {};
         return {
-          role: p.role, human: p.human ? 1 : 0, weapon: p.gear.weapon, boots: p.gear.boots, rig: p.gear.rig, implant: p.gear.implant,
+          role: p.role, human: p.human ? 1 : 0, weapon: p.gear.weapon, boots: p.gear.boots, rig: p.gear.rig, implant: p.gear.implant, util: p.gear.util,
           dmg: Math.round(q.dmg || 0), heal: Math.round(q.heal || 0), taken: Math.round(q.taken || 0),
           deaths: q.deaths || 0, duty: q.duty || 0, miss: q.miss || 0, kicks: q.kicks || 0, alive: p.alive ? 1 : 0
         };

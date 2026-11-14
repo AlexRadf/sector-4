@@ -53,6 +53,7 @@ for (const role of Object.keys(Sim.KITS)) {
   Sim.GEAR.boots.forEach((g) => items.push(['boots', g.id, g.name]));
   Sim.GEAR.rig.forEach((g) => items.push(['rig', g.id, g.name]));
   Sim.GEAR.implant[role].forEach((g) => items.push(['implant', g.id, g.name]));
+  Sim.GEAR.util.forEach((g) => items.push(['util', g.id, g.name]));
   for (const [slot, id, name] of items) {
     const isDefault = def[slot] === id;
     const s = isDefault ? ref : batch({ role, gear: Object.assign({}, def, { [slot]: id }), offset: 11 });

@@ -11,6 +11,7 @@ for (const role of Object.keys(Sim.KITS)) {
   Sim.GEAR.boots.forEach((g) => items.push(['boots', g.id, g.name]));
   Sim.GEAR.rig.forEach((g) => items.push(['rig', g.id, g.name]));
   Sim.GEAR.implant[role].forEach((g) => items.push(['implant', g.id, g.name]));
+  Sim.GEAR.util.forEach((g) => items.push(['util', g.id, g.name]));
   for (const [slot, id, name] of items) {
     test(`${Sim.KITS[role].title} with ${name} can win`, () => {
       const gear = Object.assign({}, Sim.BOT_GEAR[role], { [slot]: id });
