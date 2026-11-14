@@ -8,6 +8,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const express = require('express');
 const { WebSocketServer } = require('ws');
+const makeStore = require('./lib/store');
+const { cleanRun, aggregate } = require('./lib/stats');
 
 const PORT = Number(process.env.PORT) || 8080;
 const PUB = path.join(__dirname, 'public');
@@ -31,6 +33,40 @@ const indexHtml = stampIndex(fs.readFileSync(path.join(PUB, 'index.html'), 'utf8
 
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 1);   // Render and Cloudflare sit in front; use the real client address for rate limits
+const store = makeStore();
+store.init().then(() => console.log('Fight records: ' + store.kind)).catch((e) => console.error('Fight records unavailable:', e.message));
+
+/* ---------- fight records ----------
+   The host (or a solo player) sends one summary when a fight ends. No names are stored. */
+const posts = new Map();
+app.post('/api/runs', express.json({ limit: '16kb' }), async (req, res) => {
+  const ip = req.ip || 'x', now = Date.now(), hour = 3600e3;
+  const recent = (posts.get(ip) || []).filter((t) => now - t < hour);
+  if (recent.length >= 60) return res.status(429).json({ error: 'Too many fights recorded from here this hour.' });
+  recent.push(now); posts.set(ip, recent);
+  const run = cleanRun(req.body);
+  if (!run) return res.status(400).json({ error: 'That doesn\'t look like a fight record.' });
+  try { await store.add(run); res.status(201).json({ ok: true }); }
+  catch (e) { console.error('Could not save a fight:', e.message); res.status(503).json({ error: 'Could not save right now.' }); }
+});
+let statsCache = { at: 0, key: '', body: null };
+app.get('/api/stats', async (req, res) => {
+  const build = typeof req.query.build === 'string' ? req.query.build.slice(0, 40) : '';
+  const mode = typeof req.query.mode === 'string' ? req.query.mode.slice(0, 10) : '';
+  const key = build + '|' + mode;
+  if (statsCache.key === key && Date.now() - statsCache.at < 15000) return res.json(statsCache.body);
+  try {
+    let runs = (await store.recent(5000)).map(cleanRun).filter(Boolean);
+    const builds = [...new Set(runs.map((r) => r.build))];
+    if (build) runs = runs.filter((r) => r.build === build);
+    if (mode) runs = runs.filter((r) => r.mode === mode);
+    const body = Object.assign({ build: BUILD, storage: store.kind, builds }, aggregate(runs));
+    statsCache = { at: Date.now(), key, body };
+    res.set('Cache-Control', 'no-store').json(body);
+  } catch (e) { res.status(503).json({ error: 'Stats are unavailable right now.' }); }
+});
+app.get('/stats', (req, res) => { res.set('Cache-Control', 'no-cache'); res.sendFile(path.join(PUB, 'stats.html')); });
 app.get(['/', '/index.html'], (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(indexHtml); });
 app.get('/version.json', (req, res) => { res.set('Cache-Control', 'no-store'); res.json({ build: BUILD }); });
 app.get('/healthz', (req, res) => res.json({ ok: true, build: BUILD, rooms: rooms.size, sockets: wss ? wss.clients.size : 0 }));

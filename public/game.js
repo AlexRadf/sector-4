@@ -349,6 +349,7 @@
     $('#specName').textContent = watching && human ? human.name + ', ' + human.kit.title : '';
   }
   function toMenu() {
+    if (running && S && !S.result) recordFight(true);
     running = false; showPlates(false);
     if (Net.squad) leaveSquad();
     ['#hud', '#end', '#armory', '#lobby'].forEach(function (q) { $(q).classList.remove('on'); }); $('#menu').classList.add('on');
@@ -768,8 +769,20 @@
     });
   }
 
+  /* On the self-hosted site, each finished fight is recorded for the /stats page. The host records squad fights;
+     clients don't, so nothing is counted twice. Nothing identifies the players. */
+  function recordFight(abandoned) {
+    if (!window.S4Transport || !S || Net.mode === 'client' || S.recorded || !Sim.summary) return;
+    if (abandoned && S.t < 20) return;   // a quick look-around isn't a fight
+    S.recorded = true;
+    var run = Sim.summary(S, { build: BUILD, mode: watching ? 'watch' : Net.mode === 'host' ? 'squad' : 'solo' });
+    try {
+      fetch('api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(run), keepalive: true }).catch(function () {});
+    } catch (e) {}
+  }
   function endFight() {
     running = false;
+    recordFight(false);
     var win = S.result === 'win', boss = Sim.ent(S, S.bossId);
     var t = $('#endTitle'); t.textContent = win ? 'Floor cleared' : 'Squad terminated'; t.className = 'display ' + (win ? 'win' : 'wipe');
     $('#endLine').textContent = win ? 'The lift to floor 02 is unlocked.' : 'The Foreman had ' + Math.ceil(boss.hp / boss.maxHp * 100) + '% left.';

@@ -147,7 +147,7 @@
     chargeEvery: 19, chargeDelay: 1.8, chargeW: 4.5, chargeDmg: 380,
     droneEvery: 32, droneHp: 650, droneMelee: 65, droneSwing: 1.5,
     sludgeEvery: 15, sludgeDur: 12, sludgeTick: 75,
-    enrageAt: 300
+    enrageAt: 300, shiftEnd: 420
   };
 
   function makeRng(seed) {
@@ -253,10 +253,16 @@
   function emit(S, ev) { S.events.push(ev); }
   function addThreat(S, enemy, pid, amt) { enemy.threat[pid] = (enemy.threat[pid] || 0) + amt; }
 
+  /* Fight metrics: what each player did and what hurt the squad. summary() turns them into one record per fight. */
+  function met(S, id) {
+    S.m = S.m || { p: {}, taken: {}, killers: {} };
+    return S.m.p[id] || (S.m.p[id] = { dmg: 0, heal: 0, taken: 0, deaths: 0, duty: 0, miss: 0, kicks: 0 });
+  }
   function damageEnemy(S, src, tgt, amt, threatMult, label) {
     if (!tgt.alive) return;
     if (src.kind === 'player') amt *= (src.adren > 0 ? 1.4 : 1) * (src.amp > 0 ? 1.5 : 1) * (src.pump > 0 ? 1.4 : 1);
     amt = Math.round(amt);
+    if (src.kind === 'player') met(S, src.id).dmg += Math.min(amt, tgt.hp);
     tgt.hp -= amt;
     addThreat(S, tgt, src.id, amt * (threatMult || 1));
     emit(S, { type: 'dmg', src: src.id, dst: tgt.id, amt: amt, label: label });
@@ -275,6 +281,7 @@
       return;
     }
     if (p.armor > 0) { var soak = Math.min(p.armor, amt); p.armor -= soak; amt -= soak; }
+    met(S, p.id).taken += amt; S.m.taken[label] = (S.m.taken[label] || 0) + amt;
     p.hp -= amt;
     emit(S, { type: 'dmg', src: srcId, dst: p.id, amt: amt, label: label });
     if (p.hp > 0 && p.gear && p.gear.rig === 'pump' && p.hp < p.maxHp * 0.3 && (p.cds.pump || 0) <= 0) {
@@ -287,6 +294,7 @@
       emit(S, { type: 'log', id: p.id, text: p.name + ' catches a Second Wind.', you: 'You catch a Second Wind.' });
     }
     if (p.hp <= 0) {
+      met(S, p.id).deaths++; S.m.killers[label] = (S.m.killers[label] || 0) + 1;
       p.hp = 0; p.alive = false; p.cast = null; p.queued = null; p.sludge = 0; p.hot = 0;
       emit(S, { type: 'death', id: p.id });
       emit(S, { type: 'log', id: p.id, text: p.name + ' is down.', you: "You're down." });
@@ -298,6 +306,7 @@
     var before = p.hp;
     p.hp = Math.min(p.maxHp, p.hp + amt);
     var eff = p.hp - before;
+    if (src.kind === 'player') met(S, src.id).heal += eff;
     emit(S, { type: 'heal', src: src.id, dst: p.id, amt: Math.round(eff), label: label });
     enemies(S).forEach(function (e) { addThreat(S, e, src.id, eff * 0.5); });
   }
@@ -392,6 +401,7 @@
         damageEnemy(S, p, tgt, 120, 7, 'Concussion');
         break;
       case 'kick':
+        met(S, p.id).kicks++;
         emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'kick' });
         var assigned = tgt.cast.assigned;
         var cover = assigned && assigned !== p.id ? ', covering for ' + (ent(S, assigned) || {}).name : '';
@@ -636,7 +646,8 @@
     if (!S.enraged && S.t >= TUNE.enrageAt) {
       S.enraged = true;
       emit(S, { type: 'announce', text: 'OVERTIME', tone: 'bad' });
-      emit(S, { type: 'log', text: 'Shift over. The Foreman hits three times as hard.' });
+      emit(S, { type: 'log', text: 'Overtime. The Foreman hits three times as hard and runs you down.' });
+      boss.speed = 9;
     }
 
     T.barrage -= dt;
@@ -678,11 +689,12 @@
         T.over = TUNE.overEvery;
         var order = ['tank', 'dps', 'melee'].map(function (r) { return alive.filter(function (q) { return q.role === r; })[0]; }).filter(Boolean);
         var on = order.length ? order[S.kickIdx++ % order.length] : null;
+        if (on) met(S, on.id).duty++;
         boss.cast = {
           name: 'Overcharge', t: 0, dur: TUNE.overCast, interruptible: true, assigned: on ? on.id : null,
           done: function () {
             var who = on && ent(S, on.id);
-            if (who) emit(S, { type: 'log', id: who.id, text: who.name + ' missed the interrupt.', you: 'You missed the interrupt.' });
+            if (who) { met(S, who.id).miss++; emit(S, { type: 'log', id: who.id, text: who.name + ' missed the interrupt.', you: 'You missed the interrupt.' }); }
             emit(S, { type: 'announce', text: 'OVERCHARGE', tone: 'bad' });
             emit(S, { type: 'fx', fx: 'overcharge', src: boss.id });
             players(S, true).forEach(function (p) { damagePlayer(S, boss.id, p, TUNE.overDmg, 'Overcharge'); });
@@ -902,7 +914,12 @@
       if (p.target != null) { var t = ent(S, p.target); if (!t || !t.alive) p.target = null; }
     });
 
-    if (!boss.alive) {
+    if (boss.alive && S.t >= TUNE.shiftEnd) {
+      // Hard stop: nobody can kite the Foreman forever.
+      S.result = 'wipe';
+      emit(S, { type: 'log', text: 'The shift is over. Halcyon-Vance writes the squad off.' });
+      emit(S, { type: 'announce', text: 'SHIFT OVER', tone: 'bad' });
+    } else if (!boss.alive) {
       S.result = 'win';
       emit(S, { type: 'announce', text: 'FLOOR CLEARED', tone: 'good' });
     } else if (!players(S, true).length) {
@@ -990,7 +1007,28 @@
     clampArena(p);
   }
 
+  /* One compact record of a finished (or abandoned) fight, for the stats page and the balance reports. */
+  function summary(S, meta) {
+    meta = meta || {};
+    var boss = ent(S, S.bossId), m = S.m || { p: {}, taken: {}, killers: {} };
+    var round = function (o) { var r = {}; for (var k in o) r[k] = Math.round(o[k]); return r; };
+    return {
+      v: 1, build: String(meta.build || 'dev'), mode: meta.mode || 'solo', result: S.result || 'abandoned',
+      secs: Math.round(S.t), bossPct: boss ? Math.round(boss.hp / boss.maxHp * 100) : 0, phase: S.phase, enraged: S.enraged ? 1 : 0,
+      players: players(S).map(function (p) {
+        var q = m.p[p.id] || {};
+        return {
+          role: p.role, human: p.human ? 1 : 0, weapon: p.gear.weapon, boots: p.gear.boots, rig: p.gear.rig, implant: p.gear.implant,
+          dmg: Math.round(q.dmg || 0), heal: Math.round(q.heal || 0), taken: Math.round(q.taken || 0),
+          deaths: q.deaths || 0, duty: q.duty || 0, miss: q.miss || 0, kicks: q.kicks || 0, alive: p.alive ? 1 : 0
+        };
+      }),
+      taken: round(m.taken), killers: m.killers
+    };
+  }
+
   var api = {
+    summary: summary,
     snapshot: snapshot, applySnapshot: applySnapshot, predictMove: predictMove,
     create: create, step: step, usable: usable, GEAR: GEAR, BOT_GEAR: BOT_GEAR, validGear: validGear, gearName: gearName, abilitiesOf: abilitiesOf, behind: behind, inTele: inTele,
     ent: ent, players: players, enemies: enemies, KITS: KITS, KICK: KICK, TUNE: TUNE,

@@ -9,3 +9,7 @@ services:
     startCommand: npm start
     healthCheckPath: /healthz
     autoDeploy: true
+    envVars:
+      # Free Neon Postgres connection string, so fight records survive restarts. Set it in the Render dashboard.
+      - key: DATABASE_URL
+        sync: false

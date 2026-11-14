@@ -1,0 +1,35 @@
+name: Nightly balance report
+
+# Every night, and on demand from the Actions tab: thousands of simulated fights covering every role,
+# weapon and talent, plus the live site's real-player stats if the SITE_URL repository variable is set.
+# The report appears on the run's summary page and as a downloadable artifact.
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+    inputs:
+      seeds:
+        description: Fights per row
+        default: '100'
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Balance report
+        env:
+          SEEDS: ${{ inputs.seeds || '100' }}
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: node scripts/balance-report.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: balance-report
+          path: |
+            report.md
+            report.json

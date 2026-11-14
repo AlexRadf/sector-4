@@ -31,6 +31,24 @@ Until that's set, the Pages site plays solo and the squad panel says a relay is 
 
 The relay accepts connections from any site, so the Pages copy and a self-hosted copy can share it. Pages caches the page for up to 10 minutes, so a new deploy can take that long to show up as the "Reload now" banner.
 
+## Fight records and the stats page
+
+When a fight ends, the host (or a solo player) sends one small record to the server: result, time, how far the Foreman got, and for each seat its role, weapon, talents, damage, healing, deaths and interrupts. No names or callsigns are stored. Open `/stats` on the site to see win rates by role, weapon and talent, what is killing people, and how each version compares.
+
+Where records are kept:
+
+- **Render:** its free disk is wiped on every restart, so give it a database. Create a free project at neon.tech, copy its connection string, and add it in Render as the environment variable `DATABASE_URL`. The server creates its table on first start.
+- **Your own box:** with no `DATABASE_URL`, records go to `data/runs.jsonl`. Mount `data/` as a volume if you use Docker.
+
+The stats page is public, like the game.
+
+## Automated checks
+
+- **On every push** (`.github/workflows/ci.yml`): syntax, then `npm test`. The tests check that every fight ends, that a bot squad wins most but not all fights, that an idle player in any role gets the squad killed, that every weapon and talent can win, that network snapshots stay under the 4 KiB limit, and that the relay and the fight-record API work. Under a minute.
+- **Every night** (`.github/workflows/nightly.yml`, or run it from the Actions tab): about 4,000 simulated fights covering every role, weapon and talent. The report lands on the run's summary page and flags any pick whose win rate gap is bigger than chance would explain. Set the repository variable `SITE_URL` (Settings, then Secrets and variables, then Actions, then Variables) to your live site and the report adds your real players' numbers alongside the sims.
+
+Run them yourself with `npm test` and `npm run report` (`SEEDS=20 npm run report` for a quick one).
+
 ## Run it locally
 
 ```
@@ -84,7 +102,10 @@ What players see:
 - `scripts/build-pages.js`, `scripts/stamp.js`: build the static site for Pages and stamp the build id into the page.
 - `public/net-ws.js`: the browser side of the relay. It offers the same calls as claude.ai's room capability, so the same game files also run as a claude.ai artifact.
 - `render.yaml`: Render settings.
-- `test/`: balance and netcode checks you can run with Node, e.g. `node test/sweep.js`.
+- `lib/stats.js`, `lib/store.js`: checking and storing fight records, and turning them into stats.
+- `lib/simrun.js`, `scripts/balance-report.js`: simulated fights for the tests and the nightly report.
+- `public/stats.html`: the stats page.
+- `test/`: the automated checks (`npm test`).
 
 ## Limits worth knowing
 

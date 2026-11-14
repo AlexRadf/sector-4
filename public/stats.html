@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sector-4 Shift Records</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Saira+Extra+Condensed:ital,wght@1,800&family=Saira:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Same terminal world as the game: a contractor's performance ledger. Layout: summary tiles, then one table per question. */
+  color-scheme: dark;
+  --void: #0a0d12; --steel: #141b24; --plate: #222c38; --line: #3a4756;
+  --text: #dfe5ec; --dim: #8a97a6; --amber: #ffb000; --danger: #ff4a36; --heal: #4fd88f;
+  --font-display: 'Saira Extra Condensed', 'Arial Narrow', Impact, sans-serif;
+  --font-body: 'Saira', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Share Tech Mono', ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--void); color: var(--text); font-family: var(--font-body); font-size: 14px; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px clamp(16px, 4vw, 40px) 60px; display: flex; flex-direction: column; gap: 28px; }
+.corp { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--font-mono); font-size: 12px; color: var(--dim); border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.corp b { color: var(--amber); font-weight: 400; }
+.corp a { color: var(--dim); }
+h1 { margin: 0; font-family: var(--font-display); font-style: italic; font-weight: 800; text-transform: uppercase; font-size: clamp(48px, 8vw, 88px); line-height: 0.9; text-wrap: balance; }
+h1 em { color: var(--amber); font-style: inherit; }
+h2 { margin: 0 0 4px; font-family: var(--font-mono); font-size: 12px; font-weight: 400; color: var(--amber); text-transform: uppercase; letter-spacing: 0.08em; }
+.lede { margin: 6px 0 0; color: var(--dim); max-width: 70ch; }
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.filters label { display: flex; flex-direction: column; gap: 4px; font-family: var(--font-mono); font-size: 11px; color: var(--dim); text-transform: uppercase; }
+select { background: var(--steel); color: var(--text); border: 1px solid var(--line); padding: 7px 10px; font: inherit; font-size: 14px; min-width: 180px; }
+select:focus-visible, a:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0; border: 1px solid var(--line); background: var(--steel); }
+.tile { padding: 12px 14px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
+.tile:last-child { border-right: 0; }
+.tile span { font-family: var(--font-mono); font-size: 11px; color: var(--dim); text-transform: uppercase; }
+.tile b { font-family: var(--font-display); font-style: italic; font-weight: 800; font-size: 40px; line-height: 1; font-variant-numeric: tabular-nums; }
+.tile small { color: var(--dim); font-size: 12px; }
+section { display: flex; flex-direction: column; gap: 8px; }
+.note { margin: 0; color: var(--dim); font-size: 13px; max-width: 75ch; }
+.wrap { overflow-x: auto; border: 1px solid var(--line); background: var(--steel); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+th { font-family: var(--font-mono); font-size: 11px; font-weight: 400; color: var(--dim); text-transform: uppercase; background: var(--plate); }
+td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+tr.thin td { color: var(--dim); }
+tr:last-child td { border-bottom: 0; }
+.rate { display: inline-flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.rate i { display: inline-block; width: 70px; height: 6px; background: var(--void); position: relative; }
+.rate i::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--w); background: var(--heal); }
+.rate.low i::after { background: var(--danger); }
+.bars { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); background: var(--steel); }
+.bar { display: grid; grid-template-columns: 140px 1fr 64px; gap: 10px; align-items: center; font-size: 13px; }
+.bar i { height: 10px; background: var(--void); position: relative; }
+.bar i::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--w); background: var(--danger); }
+.bar b { font-family: var(--font-mono); font-weight: 400; text-align: right; font-variant-numeric: tabular-nums; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+.role-tank { color: var(--amber); } .role-healer { color: var(--heal); } .role-dps { color: #b98cff; } .role-melee { color: #5cc8ff; }
+#empty { padding: 18px; border: 1px dashed var(--line); color: var(--dim); }
+#empty[hidden], #content[hidden] { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <div class="corp"><span><b>HALCYON-VANCE CONSOLIDATED</b></span><span>CONTRACTOR PERFORMANCE LEDGER</span><span id="meta"></span><a href="./">Back to the game</a></div>
+  <div>
+    <h1>Shift <em>records</em></h1>
+    <p class="lede">Every finished fight on this site, from the host's side. Use it to see which roles, weapons and talents are pulling their weight and what is killing people. Rows with fewer than 10 fights are greyed out: too few to judge.</p>
+  </div>
+  <div class="filters">
+    <label for="build">Version<select id="build"><option value="">All versions</option></select></label>
+    <label for="mode">Fights<select id="mode">
+      <option value="">Everything</option><option value="squad">Squads only</option><option value="solo">Solo only</option><option value="watch">Bots only (spectated)</option>
+    </select></label>
+  </div>
+  <p id="empty" hidden></p>
+  <div id="content">
+    <div class="tiles" id="tiles"></div>
+  </div>
+  <section><h2>By role</h2><p class="note" id="seatNote"></p><div class="wrap"><table id="roles"></table></div></section>
+  <section><h2>Weapons</h2><div class="wrap"><table id="weapons"></table></div></section>
+  <section><h2>Talent tier 1  /  Movement</h2><div class="wrap"><table id="boots"></table></div></section>
+  <section><h2>Talent tier 2  /  Survival</h2><div class="wrap"><table id="rigs"></table></div></section>
+  <section><h2>Talent tier 3  /  Specialty</h2><div class="wrap"><table id="implants"></table></div></section>
+  <div class="two">
+    <section><h2>Where the damage comes from</h2><div class="bars" id="taken"></div></section>
+    <section><h2>What finishes people off</h2><div class="bars" id="killers"></div></section>
+  </div>
+  <section><h2>By version</h2><p class="note">Compare a change against the version before it.</p><div class="wrap"><table id="builds"></table></div></section>
+</main>
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var el = function (t, c, x) { var e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  var fmt = function (s) { if (s == null) return '-'; s = Math.round(s); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); };
+  var pct = function (v) { return v == null ? '-' : v.toFixed(1) + '%'; };
+  var big = function (v) { return v == null ? '-' : Math.round(v).toLocaleString(); };
+
+  function rateCell(v) {
+    var td = el('td', 'num');
+    if (v == null) { td.textContent = '-'; return td; }
+    var s = el('span', 'rate' + (v < 50 ? ' low' : '')); var bar = el('i'); bar.style.setProperty('--w', Math.max(0, Math.min(100, v)) + '%');
+    s.appendChild(bar); s.appendChild(document.createTextNode(pct(v))); td.appendChild(s); return td;
+  }
+  function table(id, cols, rows) {
+    var t = $(id); t.innerHTML = '';
+    var head = el('tr'); cols.forEach(function (c) { head.appendChild(el('th', c.num ? 'num' : null, c.label)); });
+    var th = el('thead'); th.appendChild(head); t.appendChild(th);
+    var tb = el('tbody');
+    if (!rows.length) { var tr = el('tr'); var td = el('td', null, 'No fights yet.'); td.colSpan = cols.length; tr.appendChild(td); tb.appendChild(tr); }
+    rows.forEach(function (r) {
+      var tr = el('tr', r.n != null && r.n < 10 ? 'thin' : null);
+      cols.forEach(function (c) { tr.appendChild(c.cell ? c.cell(r) : el('td', c.num ? 'num' : null, c.get(r))); });
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+  }
+  var roleCell = function (r) { return el('td', 'role-' + r.role, r.title); };
+  var seatCols = [
+    { label: 'Fights', num: true, get: function (r) { return r.n; } },
+    { label: 'Win rate', num: true, cell: function (r) { return rateCell(r.winRate); } },
+    { label: 'Avg damage', num: true, get: function (r) { return big(r.dmg); } },
+    { label: 'Avg healing', num: true, get: function (r) { return big(r.heal); } },
+    { label: 'Died in', num: true, get: function (r) { return pct(r.deathRate); } },
+    { label: 'Interrupts missed', num: true, get: function (r) { return pct(r.interruptMiss); } }
+  ];
+  function pickTable(id, rows) {
+    table(id, [{ label: 'Role', cell: roleCell }, { label: 'Pick', get: function (r) { return r.name; } }].concat(seatCols), rows);
+  }
+  function bars(id, rows, unit) {
+    var host = $(id); host.innerHTML = '';
+    if (!rows.length) { host.appendChild(el('p', 'note', 'Nothing recorded yet.')); return; }
+    rows.slice(0, 8).forEach(function (r) {
+      var row = el('div', 'bar'); row.appendChild(el('span', null, r.label));
+      var b = el('i'); b.style.setProperty('--w', (r.share || 0) + '%'); row.appendChild(b);
+      row.appendChild(el('b', null, pct(r.share))); host.appendChild(row);
+    });
+  }
+  function render(d) {
+    $('#meta').textContent = 'SITE BUILD ' + d.build + '  /  STORAGE ' + String(d.storage).toUpperCase();
+    var sel = $('#build'), cur = sel.value;
+    if (sel.options.length - 1 !== d.builds.length) {
+      sel.innerHTML = '<option value="">All versions</option>';
+      d.builds.slice().reverse().forEach(function (b) { var o = el('option', null, b + (b === d.build ? '  (live)' : '')); o.value = b; sel.appendChild(o); });
+      sel.value = cur;
+    }
+    var none = !d.runs;
+    $('#empty').hidden = !none;
+    $('#empty').textContent = 'No fights recorded for this filter yet. Play a few on this site and they will show up here.';
+    var tiles = $('#tiles'); tiles.innerHTML = '';
+    [['Fights finished', d.finished, d.abandoned + ' abandoned'], ['Win rate', pct(d.winRate), d.wins + ' clears'],
+     ['Average clear', fmt(d.avgWinSecs), 'minutes on the floor'], ['Foreman left on wipes', d.avgBossLeftOnWipe == null ? '-' : d.avgBossLeftOnWipe + '%', 'how close the losses were'],
+     ['Reached phase two', pct(d.reachedPhase2), 'of finished fights']].forEach(function (t) {
+      var x = el('div', 'tile'); x.appendChild(el('span', null, t[0])); x.appendChild(el('b', null, String(t[1]))); x.appendChild(el('small', null, t[2])); tiles.appendChild(x);
+    });
+    $('#seatNote').textContent = d.seatsCounted === 'people'
+      ? 'Roles, weapons and talents count only seats a person played. Bots run fixed gear, so they would skew the picks.'
+      : 'No person-played seats in this filter, so these rows count bots.';
+    table('#roles', [{ label: 'Role', cell: roleCell }].concat(seatCols), d.byRole);
+    pickTable('#weapons', d.byWeapon); pickTable('#boots', d.byBoots); pickTable('#rigs', d.byRig); pickTable('#implants', d.byImplant);
+    bars('#taken', d.damageTaken); bars('#killers', d.killedBy);
+    table('#builds', [{ label: 'Version', get: function (r) { return r.build + (r.build === d.build ? '  (live)' : ''); } },
+      { label: 'Fights', num: true, get: function (r) { return r.n; } },
+      { label: 'Win rate', num: true, cell: function (r) { return rateCell(r.winRate); } },
+      { label: 'Average clear', num: true, get: function (r) { return fmt(r.avgWinSecs); } }], d.byBuild);
+  }
+  function load() {
+    var q = '?build=' + encodeURIComponent($('#build').value) + '&mode=' + encodeURIComponent($('#mode').value);
+    fetch('api/stats' + q, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(); return r.json(); }).then(render).catch(function () {
+      $('#empty').hidden = false; $('#empty').textContent = 'The stats service is not answering. If the site was asleep, give it a minute and reload.';
+    });
+  }
+  $('#build').addEventListener('change', load);
+  $('#mode').addEventListener('change', load);
+  load();
+})();
+</script>
+</body>
+</html>

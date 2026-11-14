@@ -1,0 +1,22 @@
+name: Checks
+
+# Runs on every push and pull request: syntax, sim balance bands, every weapon and talent,
+# network snapshot size, the relay and the fight-record API. Takes under a minute.
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Syntax check
+        run: for f in server.js lib/*.js scripts/*.js public/*.js; do node --check "$f" || exit 1; done
+      - name: Tests
+        run: npm test
