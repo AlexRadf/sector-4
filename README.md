@@ -15,6 +15,11 @@ A co-op raid prototype: Unreal Tournament as a tab-target MMO. One Node server s
 
 Every push to `main` redeploys. Players in a fight see "Server updating, reconnecting" for a few seconds and carry on.
 
+### Version and admin
+
+- The version (for example v0.9.0) shows on the briefing, in the corner of the HUD and on /stats. To ship a change, bump `VERSION` in `public/sim.js` and `version` in `package.json`, and add a line to `CHANGELOG.md`. A test fails if they disagree.
+- Admin: in Render, open the service, then Environment, and add `ADMIN_KEY` with a long password. Then go to `/admin` on your site, enter it, and press Watch on any live squad. You see their fight; they can't see you. Solo fights run only in the player's browser, so only squads show up.
+
 A free service sleeps after 15 minutes with no visitors, and the first visit afterwards takes about a minute to wake it. Open the link a minute before game night. Play keeps it awake.
 
 ## GitHub Pages

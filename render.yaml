@@ -13,3 +13,6 @@ services:
       # Free Neon Postgres connection string, so fight records survive restarts. Set it in the Render dashboard.
       - key: DATABASE_URL
         sync: false
+      # Password for /admin (watching live squads). Set it in the Render dashboard; at least 8 characters.
+      - key: ADMIN_KEY
+        sync: false

@@ -29,7 +29,14 @@ const GAME_FILES = ['index.html', 'sim.js', 'game.js', 'net-ws.js', 'config.js']
 const BUILD = process.env.BUILD || crypto.createHash('sha1')
   .update(GAME_FILES.map((f) => fs.readFileSync(path.join(PUB, f))).join('\n')).digest('hex').slice(0, 10);
 
+const VERSION = require('./public/sim.js').VERSION;
 const indexHtml = stampIndex(fs.readFileSync(path.join(PUB, 'index.html'), 'utf8'), BUILD);
+
+/* ---------- admin ----------
+   Set ADMIN_KEY on the host (Render: Environment) to a long password. Without it, the admin page and watching are off. */
+const ADMIN_KEY = process.env.ADMIN_KEY || '';
+const keyHash = (k) => crypto.createHash('sha256').update(String(k || '')).digest();
+function isAdmin(k) { return ADMIN_KEY.length >= 8 && typeof k === 'string' && crypto.timingSafeEqual(keyHash(k), keyHash(ADMIN_KEY)); }
 
 const app = express();
 app.disable('x-powered-by');
@@ -61,14 +68,34 @@ app.get('/api/stats', async (req, res) => {
     const builds = [...new Set(runs.map((r) => r.build))];
     if (build) runs = runs.filter((r) => r.build === build);
     if (mode) runs = runs.filter((r) => r.mode === mode);
-    const body = Object.assign({ build: BUILD, storage: store.kind, builds }, aggregate(runs));
+    const body = Object.assign({ build: BUILD, version: VERSION, storage: store.kind, builds }, aggregate(runs));
     statsCache = { at: Date.now(), key, body };
     res.set('Cache-Control', 'no-store').json(body);
   } catch (e) { res.status(503).json({ error: 'Stats are unavailable right now.' }); }
 });
 app.get('/stats', (req, res) => { res.set('Cache-Control', 'no-cache'); res.sendFile(path.join(PUB, 'stats.html')); });
 app.get(['/', '/index.html'], (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(indexHtml); });
-app.get('/version.json', (req, res) => { res.set('Cache-Control', 'no-store'); res.json({ build: BUILD }); });
+app.get('/version.json', (req, res) => { res.set('Cache-Control', 'no-store'); res.json({ build: BUILD, version: VERSION }); });
+app.get('/admin', (req, res) => { res.set('Cache-Control', 'no-cache'); res.sendFile(path.join(PUB, 'admin.html')); });
+// Live squad rooms for the admin page: who is in each, what they're playing, and whether a fight is on.
+app.get('/api/admin/rooms', (req, res) => {
+  if (!ADMIN_KEY) return res.status(503).json({ error: 'Admin is off. Set ADMIN_KEY on the server.' });
+  if (!isAdmin(req.get('x-admin-key'))) return res.status(403).json({ error: 'Wrong admin key.' });
+  res.set('Cache-Control', 'no-store');
+  const list = [];
+  for (const [name, r] of rooms) {
+    if (!name.startsWith('s4-')) continue;
+    const people = [...r.values()].map((m) => {
+      const p = m.presence || {};
+      return { nick: typeof p.nick === 'string' ? p.nick.slice(0, 14) : 'Player', role: p.role || null, host: p.host === 1, away: !!m.away, build: p.build || null };
+    });
+    const meta = roomMeta.get(name) || {};
+    const host = [...r.values()].find((m) => m.presence && m.presence.host === 1);
+    const fighting = !!(host && meta.start && host.presence.st === meta.start.data.id);
+    list.push({ code: name.slice(3), people, fighting, since: meta.startedAt || null, watchers: (spies.get(name) || new Set()).size });
+  }
+  res.json({ version: VERSION, build: BUILD, rooms: list });
+});
 app.get('/healthz', (req, res) => res.json({ ok: true, build: BUILD, rooms: rooms.size, sockets: wss ? wss.clients.size : 0 }));
 app.use(express.static(PUB, {
   index: false,
@@ -82,10 +109,13 @@ const server = http.createServer(app);
    Client -> server: hello {peer} | join {room, presence} | leave {room} | pres {room, presence} | emit {room, topic, data}
    Server -> client: welcome {peer, build} | joined {room, peers} | peer {room, peer, presence, away, gone} | msg {room, topic, data, peer} | restarting */
 const rooms = new Map();
+const roomMeta = new Map();   // name -> { start: last 'start' message, startedAt }, so a late watcher can join mid-fight
+const spies = new Map();      // name -> Set(ws) of admins watching invisibly: they get room messages, never appear as peers
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 16 * 1024 });
 
 function send(ws, obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
 function broadcast(room, obj, except) {
+  if (obj.t === 'msg') (spies.get(room) || []).forEach((ws) => send(ws, obj));
   const r = rooms.get(room); if (!r) return;
   const text = JSON.stringify(obj);
   for (const [id, m] of r) if (id !== except && m.ws && m.ws.readyState === 1) m.ws.send(text);
@@ -99,13 +129,13 @@ function dropPeer(room, id) {
   const m = r.get(id); if (!m) return;
   if (m.away) clearTimeout(m.away);
   r.delete(id);
-  if (!r.size) rooms.delete(room);
+  if (!r.size) { rooms.delete(room); roomMeta.delete(room); }
   broadcast(room, { t: 'peer', room, peer: id, gone: true });
 }
 
 wss.on('connection', (ws) => {
   let peer = null;
-  const joined = new Set();
+  const joined = new Set(), watching = new Set();
   let tokens = BURST, last = Date.now();
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
@@ -128,6 +158,16 @@ wss.on('connection', (ws) => {
     const room = typeof m.room === 'string' && ROOM_RE.test(m.room) ? m.room : null;
     if (!room) return;
 
+    if (m.t === 'spy') {
+      // An admin watching a squad: hears the host's fight messages, sends nothing, and isn't in anyone's peer list.
+      if (!isAdmin(m.key)) { ws.badKeys = (ws.badKeys || 0) + 1; send(ws, { t: 'error', room, code: 'forbidden' }); if (ws.badKeys >= 3) ws.close(4003, 'forbidden'); return; }
+      if (!spies.has(room)) spies.set(room, new Set());
+      spies.get(room).add(ws); watching.add(room);
+      const meta = roomMeta.get(room);
+      send(ws, { t: 'spying', room, live: rooms.has(room), start: meta && meta.start ? meta.start : null });
+      return;
+    }
+    if (m.t === 'unspy') { const s = spies.get(room); if (s) { s.delete(ws); if (!s.size) spies.delete(room); } watching.delete(room); return; }
     if (m.t === 'join') {
       let r = rooms.get(room);
       if (!r) { r = new Map(); rooms.set(room, r); }
@@ -157,11 +197,17 @@ wss.on('connection', (ws) => {
     if (m.t === 'emit') {
       if (typeof m.topic !== 'string' || !TOPIC_RE.test(m.topic)) return;
       if (JSON.stringify(m.data === undefined ? null : m.data).length > MAX_DATA) return;
+      if (m.topic === 'start' && m.data && typeof m.data.id === 'string') {
+        const meta = roomMeta.get(room) || {};
+        if (!meta.start || meta.start.data.id !== m.data.id) meta.startedAt = Date.now();
+        meta.start = { data: m.data, peer }; roomMeta.set(room, meta);
+      }
       broadcast(room, { t: 'msg', room, topic: m.topic, data: m.data, peer });   // sender included, like the claude.ai room
     }
   });
 
   ws.on('close', () => {
+    for (const room of watching) { const s = spies.get(room); if (s) { s.delete(ws); if (!s.size) spies.delete(room); } }
     if (!peer) return;
     for (const room of joined) {
       const r = rooms.get(room); const m = r && r.get(peer);

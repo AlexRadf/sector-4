@@ -60,3 +60,17 @@ test('records a fight and reports it in the stats', async () => {
   assert.strictEqual(stats.storage, 'file');
   assert.ok(stats.byRole.find((r) => r.role === 'tank').n === 1, 'the person-played tank seat is counted');
 });
+
+test('version matches package.json and has a changelog entry', async () => {
+  const Sim = require('../public/sim.js');
+  const pkg = require('../package.json');
+  assert.strictEqual(pkg.version, Sim.VERSION, 'bump VERSION in public/sim.js and package.json together');
+  assert.ok(fs.readFileSync(path.join(__dirname, '..', 'CHANGELOG.md'), 'utf8').includes(`## ${Sim.VERSION} `), 'add a CHANGELOG.md entry for this version');
+  const v = await (await fetch(BASE + '/version.json')).json();
+  assert.strictEqual(v.version, Sim.VERSION);
+});
+
+test('admin is off without ADMIN_KEY', async () => {
+  const res = await fetch(BASE + '/api/admin/rooms', { headers: { 'x-admin-key': 'anything-at-all' } });
+  assert.strictEqual(res.status, 503);
+});

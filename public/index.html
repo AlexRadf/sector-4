@@ -219,6 +219,7 @@ h2 { margin: 0; font-family: var(--font-mono); font-size: 12px; font-weight: 400
 .gstyle { font-style: normal; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; padding-left: 8px; border-left: 3px solid currentColor; }
 .gstyle.aggressive { color: var(--danger); } .gstyle.steady { color: var(--amber); } .gstyle.squad { color: var(--heal); }
 #armoryLean { color: var(--text) !important; }
+#verHud { position: fixed; right: 8px; bottom: 4px; font-family: var(--font-mono); font-size: 10px; color: var(--dim); opacity: 0.6; pointer-events: none; z-index: 5; }
 .armtheme { font-size: clamp(14px, 1.6vw, 18px); margin: 4px 0 6px; letter-spacing: .02em; overflow-wrap: normal; }
 .gopt b { font-size: 26px; font-weight: 800; color: var(--text); }
 .gopt span { color: var(--dim); font-size: 13px; max-width: 40ch; }
@@ -302,9 +303,10 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
   </div>
 </div>
 
+<div id="verHud"></div>
 <div id="menu" class="overlay on">
   <div class="sheet">
-    <div class="corp"><span><b>HALCYON-VANCE CONSOLIDATED</b></span><span>CONTRACTOR TERMINAL 04-LD</span><span>WORK ORDER 0001</span><span>PROTOTYPE BUILD</span></div>
+    <div class="corp"><span><b>HALCYON-VANCE CONSOLIDATED</b></span><span>CONTRACTOR TERMINAL 04-LD</span><span>WORK ORDER 0001</span><span id="verTag">PROTOTYPE BUILD</span></div>
     <div>
       <h1 class="display">Sector<em>-4</em></h1>
       <p class="sub display">Skyscraper Ascent</p>

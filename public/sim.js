@@ -1395,7 +1395,7 @@
     var boss = ent(S, S.bossId), m = S.m || { p: {}, taken: {}, killers: {} };
     var round = function (o) { var r = {}; for (var k in o) r[k] = Math.round(o[k]); return r; };
     return {
-      v: 1, build: String(meta.build || 'dev'), mode: meta.mode || 'solo', result: S.result || 'abandoned',
+      v: 1, version: VERSION, build: String(meta.build || 'dev'), mode: meta.mode || 'solo', result: S.result || 'abandoned',
       secs: Math.round(S.t), bossPct: boss ? Math.round(boss.hp / boss.maxHp * 100) : 0, phase: S.phase, enraged: S.enraged ? 1 : 0,
       players: players(S).map(function (p) {
         var q = m.p[p.id] || {};
@@ -1451,7 +1451,12 @@
     return out;
   }
 
+  /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
+     the middle number for new things, the last number for fixes. package.json must match (a test checks). */
+  var VERSION = '0.9.0';
+
   var api = {
+    VERSION: VERSION,
     summary: summary,
     snapshot: snapshot, applySnapshot: applySnapshot, predictMove: predictMove,
     create: create, step: step, usable: usable, GEAR: GEAR, TALENTS: TALENTS, SLOTS: SLOTS, talentList: talentList, talentChips: talentChips, STYLES: STYLES, braced: braced, hasTalent: T, BOT_GEAR: BOT_GEAR, validGear: validGear, gearName: gearName, abilitiesOf: abilitiesOf, behind: behind, inTele: inTele,

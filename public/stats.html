@@ -140,7 +140,7 @@ tr:last-child td { border-bottom: 0; }
     });
   }
   function render(d) {
-    $('#meta').textContent = 'SITE BUILD ' + d.build + '  /  STORAGE ' + String(d.storage).toUpperCase();
+    $('#meta').textContent = (d.version ? 'V' + d.version + '  /  ' : '') + 'SITE BUILD ' + d.build + '  /  STORAGE ' + String(d.storage).toUpperCase();
     var sel = $('#build'), cur = sel.value;
     if (sel.options.length - 1 !== d.builds.length) {
       sel.innerHTML = '<option value="">All versions</option>';
@@ -169,7 +169,7 @@ tr:last-child td { border-bottom: 0; }
       { label: 'Time spent moving', num: true, get: function (r) { return r.moving == null ? '-' : Math.round(r.moving) + '%'; } },
       { label: 'Time in the red per hit', num: true, get: function (r) { return secs(r.red); } }],
       [Object.assign({ who: 'People' }, mv.people), Object.assign({ who: 'Bots' }, mv.bots)]);
-    table('#builds', [{ label: 'Version', get: function (r) { return r.build + (r.build === d.build ? '  (live)' : ''); } },
+    table('#builds', [{ label: 'Version', get: function (r) { return (r.version ? 'v' + r.version + '  /  ' : '') + r.build + (r.build === d.build ? '  (live)' : ''); } },
       { label: 'Fights', num: true, get: function (r) { return r.n; } },
       { label: 'Win rate', num: true, cell: function (r) { return rateCell(r.winRate); } },
       { label: 'Average clear', num: true, get: function (r) { return fmt(r.avgWinSecs); } }], d.byBuild);

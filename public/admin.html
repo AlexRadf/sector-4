@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Sector-4 Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Saira+Extra+Condensed:ital,wght@1,800&family=Saira:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Same terminal world as the game: a contractor's performance ledger. Layout: summary tiles, then one table per question. */
+  color-scheme: dark;
+  --void: #0a0d12; --steel: #141b24; --plate: #222c38; --line: #3a4756;
+  --text: #dfe5ec; --dim: #8a97a6; --amber: #ffb000; --danger: #ff4a36; --heal: #4fd88f;
+  --font-display: 'Saira Extra Condensed', 'Arial Narrow', Impact, sans-serif;
+  --font-body: 'Saira', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Share Tech Mono', ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--void); color: var(--text); font-family: var(--font-body); font-size: 14px; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px clamp(16px, 4vw, 40px) 60px; display: flex; flex-direction: column; gap: 28px; }
+.corp { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--font-mono); font-size: 12px; color: var(--dim); border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.corp b { color: var(--amber); font-weight: 400; }
+.corp a { color: var(--dim); }
+h1 { margin: 0; font-family: var(--font-display); font-style: italic; font-weight: 800; text-transform: uppercase; font-size: clamp(48px, 8vw, 88px); line-height: 0.9; text-wrap: balance; }
+h1 em { color: var(--amber); font-style: inherit; }
+h2 { margin: 0 0 4px; font-family: var(--font-mono); font-size: 12px; font-weight: 400; color: var(--amber); text-transform: uppercase; letter-spacing: 0.08em; }
+.lede { margin: 6px 0 0; color: var(--dim); max-width: 70ch; }
+
+form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+input { background: var(--steel); color: var(--text); border: 1px solid var(--line); padding: 8px 10px; font-family: var(--font-mono); min-width: 260px; }
+button, .btn { background: var(--amber); color: #111; border: 0; padding: 8px 14px; font-family: var(--font-mono); text-transform: uppercase; cursor: pointer; text-decoration: none; display: inline-block; }
+button.ghost { background: transparent; color: var(--dim); border: 1px solid var(--line); }
+#msg { font-family: var(--font-mono); color: var(--dim); min-height: 1.4em; margin: 0; }
+#msg.bad { color: var(--danger); }
+.rooms { display: grid; gap: 10px; }
+.room { background: var(--steel); border: 1px solid var(--line); padding: 12px 14px; display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: center; }
+.room h3 { margin: 0; font-family: var(--font-display); font-style: italic; font-size: 28px; text-transform: uppercase; }
+.room .st { font-family: var(--font-mono); font-size: 12px; color: var(--dim); }
+.room .st.live { color: var(--heal); }
+.room ul { grid-column: 1 / -1; margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 14px; font-family: var(--font-mono); font-size: 12px; }
+.room li.away { color: var(--dim); text-decoration: line-through; }
+.room li .old { color: var(--danger); }
+.role-tank { color: var(--amber); } .role-healer { color: var(--heal); } .role-dps { color: #b98cff; } .role-melee { color: #5cc8ff; }
+</style>
+</head>
+<body>
+<main>
+  <div class="corp"><span><b>HALCYON-VANCE CONSOLIDATED</b></span><span>FLOOR SUPERVISOR</span><span id="ver"></span><span><a href="./">Game</a></span><span><a href="stats">Shift records</a></span></div>
+  <div>
+    <h1>Live <em>floors</em></h1>
+    <p class="lede">Squads playing right now. Watch drops you into their fight from the gantry: you see everything, they can't see you, and nothing you do reaches the fight.</p>
+  </div>
+  <form id="keyForm">
+    <input id="key" type="password" autocomplete="current-password" placeholder="Admin key" aria-label="Admin key">
+    <button type="submit">Unlock</button>
+    <button type="button" class="ghost" id="forget">Forget key</button>
+  </form>
+  <p id="msg" role="status"></p>
+  <div class="rooms" id="rooms"></div>
+</main>
+<script>
+(function () {
+  var $ = function (q) { return document.querySelector(q); };
+  var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  var TITLES = { tank: 'Juggernaut', healer: 'Medic', dps: 'Striker', melee: 'Wrecker' };
+  var key = ''; try { key = localStorage.getItem('s4-admin-key') || ''; } catch (e) {}
+  var timer = null;
+  function msg(t, bad) { $('#msg').textContent = t; $('#msg').className = bad ? 'bad' : ''; }
+  function ago(ms) { var s = Math.max(0, Math.round((Date.now() - ms) / 1000)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  function render(d) {
+    $('#ver').textContent = 'SITE V' + d.version + '  /  ' + d.build.slice(0, 7);
+    var host = $('#rooms'); host.innerHTML = '';
+    if (!d.rooms.length) { msg('No squads online. Rooms appear here as soon as someone opens one.'); return; }
+    msg(d.rooms.length + (d.rooms.length === 1 ? ' squad' : ' squads') + ' online. Refreshes every 5 seconds.');
+    d.rooms.forEach(function (r) {
+      var box = el('div', 'room');
+      var left = el('div'); left.appendChild(el('h3', null, r.code));
+      left.appendChild(el('span', 'st' + (r.fighting ? ' live' : ''), r.fighting ? 'IN A FIGHT' + (r.since ? ', ' + ago(r.since) : '') : 'IN THE LOBBY'));
+      if (r.watchers) left.appendChild(el('span', 'st', '  /  ' + r.watchers + ' admin watching'));
+      box.appendChild(left);
+      var a = el('a', 'btn', 'Watch'); a.href = './?watch=' + encodeURIComponent(r.code); box.appendChild(a);
+      var ul = el('ul');
+      r.people.forEach(function (p) {
+        var li = el('li', p.away ? 'away' : null);
+        li.appendChild(document.createTextNode(p.nick + (p.host ? ' (host)' : '') + ' '));
+        li.appendChild(el('span', p.role ? 'role-' + p.role : null, p.role ? TITLES[p.role] : 'no role'));
+        if (p.build && p.build !== d.build) li.appendChild(el('span', 'old', '  old version'));
+        ul.appendChild(li);
+      });
+      box.appendChild(ul); host.appendChild(box);
+    });
+  }
+  function load() {
+    if (!key) { msg('Enter the admin key. It is the ADMIN_KEY setting on the server.'); return; }
+    fetch('api/admin/rooms', { headers: { 'x-admin-key': key }, cache: 'no-store' }).then(function (res) {
+      return res.json().then(function (d) { return { ok: res.ok, d: d }; });
+    }).then(function (r) {
+      if (!r.ok) { msg(r.d.error || 'Not allowed.', true); $('#rooms').innerHTML = ''; return; }
+      render(r.d);
+    }).catch(function () { msg('The server is not answering. If it was asleep, give it a minute.', true); });
+  }
+  $('#keyForm').addEventListener('submit', function (e) {
+    e.preventDefault(); key = $('#key').value.trim(); $('#key').value = '';
+    try { localStorage.setItem('s4-admin-key', key); } catch (err) {}
+    load();
+  });
+  $('#forget').addEventListener('click', function () { key = ''; try { localStorage.removeItem('s4-admin-key'); } catch (e) {} $('#rooms').innerHTML = ''; load(); });
+  load(); timer = setInterval(load, 5000);
+})();
+</script>
+</body>
+</html>

@@ -326,14 +326,14 @@
     fx.forEach(function (f) { fxRoot.remove(f.m); }); fx = [];
     $('#floaters').innerHTML = ''; $('#log').innerHTML = '';
     S = state;
-    human = watching ? Sim.players(S)[2] : myKey ? Sim.players(S).filter(function (p) { return p.key === myKey; })[0] : Sim.ent(S, S.humanId);
+    human = watching ? (Sim.players(S).filter(function (p) { return p.human; })[0] || Sim.players(S)[2]) : myKey ? Sim.players(S).filter(function (p) { return p.key === myKey; })[0] : Sim.ent(S, S.humanId);
     if (myKey) role = human.role;
     stats = {}; Sim.players(S).forEach(function (p) { stats[p.id] = { dmg: 0, heal: 0, taken: 0 }; });
     input.ability = -1; input.jump = false; input.target = (role === 'healer') ? undefined : S.bossId; keys = {};
     cam.yaw = Math.PI; cam.pitch = 0.6; cam.dist = 18;
     buildHud();
     ['#menu', '#end', '#armory', '#lobby'].forEach(function (q) { $(q).classList.remove('on'); }); $('#hud').classList.add('on'); showPlates(true);
-    $('#netBadge').textContent = Net.mode === 'solo' ? '' : 'SQUAD ' + Net.code.toUpperCase() + (Net.mode === 'host' ? '  /  HOST' : '');
+    $('#netBadge').textContent = Net.mode === 'solo' ? '' : 'SQUAD ' + Net.code.toUpperCase() + (Net.mode === 'host' ? '  /  HOST' : Net.mode === 'spy' ? '  /  ADMIN' : '');
     $('#update').hidden = true;
     $('#hud').classList.toggle('spectate', watching); updateSpec();
     running = true; acc = 0; lastSim = performance.now(); Net.evMark = 0;
@@ -793,7 +793,7 @@
   /* On the self-hosted site, each finished fight is recorded for the /stats page. The host records squad fights;
      clients don't, so nothing is counted twice. Nothing identifies the players. */
   function recordFight(abandoned) {
-    if (!window.S4Transport || !S || Net.mode === 'client' || S.recorded || !Sim.summary) return;
+    if (!window.S4Transport || !S || Net.mode === 'client' || Net.mode === 'spy' || S.recorded || !Sim.summary) return;
     if (abandoned && S.t < 20) return;   // a quick look-around isn't a fight
     S.recorded = true;
     var run = Sim.summary(S, { build: BUILD, mode: watching ? 'watch' : Net.mode === 'host' ? 'squad' : 'solo' });
@@ -813,9 +813,12 @@
     $('#endTime').textContent = 'TIME ON FLOOR ' + fmtTime(S.t);
     if (watching) best = null;
     $('#endBest').textContent = best ? 'BEST AS ' + human.kit.title.toUpperCase() + ' ' + fmtTime(best) + (isNew ? '  NEW' : '') : '';
-    var inSquad = Net.mode !== 'solo';
-    $('#again').textContent = inSquad ? 'Back to the squad' : watching ? 'Watch another' : 'Run it back';
-    $('#change').textContent = inSquad ? 'Leave the squad' : watching ? 'Back to briefing' : 'Change role';
+    var inSquad = Net.mode !== 'solo' && Net.mode !== 'spy';
+    if (Net.mode === 'spy') { $('#again').textContent = 'Wait for the next pull'; $('#change').textContent = 'Back to rooms'; }
+    else {
+      $('#again').textContent = inSquad ? 'Back to the squad' : watching ? 'Watch another' : 'Run it back';
+      $('#change').textContent = inSquad ? 'Leave the squad' : watching ? 'Back to briefing' : 'Change role';
+    }
     $('#regear').style.display = watching || inSquad ? 'none' : '';
     if (Net.mode === 'host') Net.postEnd = 3;
     setTimeout(showUpdateBanner, 1700);
@@ -902,6 +905,46 @@
     var mine = me();
     if (mine && mine.by && Net.names[mine.by]) return Net.names[mine.by];
     return callsign();
+  }
+  /* The version: on the briefing, faintly in the corner of the HUD, and in every fight record. */
+  function showVersion() {
+    var v = 'v' + Sim.VERSION + (BUILD !== 'dev' ? '  /  ' + BUILD.slice(0, 7) : '');
+    $('#verTag').textContent = 'VERSION ' + v.toUpperCase();
+    $('#verHud').textContent = v;
+  }
+  /* Admin watching: /?watch=CODE with the key saved by the admin page. Invisible to the squad. */
+  function adminWatchFromUrl() {
+    var code = (new URLSearchParams(location.search).get('watch') || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12), key = '';
+    try { key = localStorage.getItem('s4-admin-key') || ''; } catch (e) {}
+    if (!code || !window.S4Transport || !window.S4Transport.spy) return;
+    if (!key) { netStatus('Open /admin and enter the admin key first.'); return; }
+    netStatus('Connecting to squad ' + code.toUpperCase() + ' as admin...');
+    window.S4Transport.spy('s4-' + code, key).then(function (res) {
+      Net.mode = 'spy'; Net.code = code; Net.spyRoom = res.api; Net.startId = null;
+      var onStart = function (msg) {
+        var d = msg.data || {};
+        if (!d.id || !Array.isArray(d.roster) || (d.id === Net.startId && running)) return;
+        if (d.build && d.build !== BUILD) { netStatus('That squad is on a different version. Reload this page after they update.'); return; }
+        var roster = d.roster.filter(function (r) { return r && ROLE_ORDER.indexOf(r.role) >= 0; }).map(function (r) {
+          return { role: r.role, gear: Sim.validGear(r.role, r.gear), name: String(r.name || 'Player').slice(0, 14), key: String(r.key) };
+        });
+        Net.startId = d.id; Net.hostPeer = msg.peer; Net.lastSnap = performance.now();
+        watching = true; Net.mode = 'spy';
+        beginFight(Sim.create({ humans: roster, seed: +d.seed || 1 }), null);
+        logLine('Admin view. The squad cannot see you.');
+      };
+      res.api.on('start', onStart);
+      res.api.on('snap', function (msg) {
+        var snap = msg.data;
+        if (!S || msg.peer !== Net.hostPeer || !snap || snap.sid !== Net.startId || !Array.isArray(snap.p)) return;
+        try { Sim.applySnapshot(S, snap); } catch (e) { return; }
+        Net.lastSnap = performance.now();
+      });
+      if (res.start) onStart(res.start);
+      else {
+        netStatus(res.live ? 'Admin: watching squad ' + code.toUpperCase() + '. Nobody has pulled yet; the fight opens here when they do.' : 'Admin: squad ' + code.toUpperCase() + ' is empty right now. This page picks it up if they come back.');
+      }
+    }).catch(function (e) { netStatus(e && e.code === 'forbidden' ? 'Wrong admin key. Re-enter it on /admin.' : 'Could not reach the server.'); });
   }
   function callsign() {
     var v = ($('#nick').value || '').replace(/[^\w .'-]/g, '').trim().slice(0, 14);
@@ -1206,7 +1249,7 @@
   function simTick() {
     var now = performance.now(), dt = Math.min(Net.mode === 'host' ? 1 : 0.1, (now - lastSim) / 1000 || 0);
     lastSim = now;
-    if (!running || !S || Net.mode === 'client') return;
+    if (!running || !S || Net.mode === 'client' || Net.mode === 'spy') return;
     acc += dt;
     while (acc >= STEP) {
       var mv = document.hidden ? { mx: 0, mz: 0 } : readMove(), ins = {};
@@ -1232,7 +1275,12 @@
     var dt = Math.min(0.1, (now - last) / 1000 || 0); last = now;
     mixers.forEach(function (m) { m.update(dt); });
     if (S && (running || $('#end').classList.contains('on') || S.result)) {
-      if (running && Net.mode === 'client') {
+      if (running && Net.mode === 'spy') {
+        var lagS = performance.now() - Net.lastSnap;
+        $('#netBadge').textContent = 'ADMIN  /  ' + Net.code.toUpperCase() + (lagS > 2000 ? '  /  NO SIGNAL' : '');
+        drainEvents();
+        if (S.result) endFight();
+      } else if (running && Net.mode === 'client') {
         netClientFrame(dt);
         drainEvents();
         if (S.result) endFight();
@@ -1261,7 +1309,10 @@
     syncViews(1);
     S = null;
     if (saved && saved.role) role = saved.role;
-    $('#again').addEventListener('click', function () { if (Net.squad) showLobby(); else startFight(role, watching); });
+    $('#again').addEventListener('click', function () {
+      if (Net.mode === 'spy') { $('#end').classList.remove('on'); $('#menu').classList.add('on'); netStatus('Admin: watching squad ' + Net.code.toUpperCase() + '. Their next pull opens here.'); return; }
+      if (Net.squad) showLobby(); else startFight(role, watching);
+    });
     $('#watch').addEventListener('click', function () { startFight(role, true); });
     $('#armoryGo').addEventListener('click', function () {
       if (armoryCtx === 'lobby') { netSetPresence({ role: role, gear: gearFor[role] }); showLobby(); } else startFight(role);
@@ -1273,9 +1324,11 @@
     $('#lobbyGear').addEventListener('click', function () { if (Net.myRole) openArmory(Net.myRole, 'lobby'); });
     $('#lobbyStart').addEventListener('click', hostStart);
     netInit();
+    showVersion();
+    adminWatchFromUrl();
     $('#armoryBack').addEventListener('click', toMenu);
     $('#regear').addEventListener('click', function () { openArmory(role); });
-    $('#change').addEventListener('click', toMenu);
+    $('#change').addEventListener('click', function () { if (Net.mode === 'spy') location.href = 'admin'; else toMenu(); });
     $('#quit').addEventListener('click', toMenu);
     $('#mute').addEventListener('click', function () { Snd.ensure(); setMute(Snd.toggle()); });
     setMute(Snd.isMuted());

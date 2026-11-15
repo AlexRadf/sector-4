@@ -24,13 +24,18 @@ window.S4Transport = (function () {
     ws.onopen = function () {
       isOpen = true; backoff = 500; restarting = false;
       raw({ t: 'hello', peer: peerId });
-      Object.keys(rooms).forEach(function (n) { if (!rooms[n].left) raw({ t: 'join', room: n, presence: rooms[n].pres }); });
+      Object.keys(rooms).forEach(function (n) {
+        if (rooms[n].left) return;
+        if (rooms[n].spyKey) raw({ t: 'spy', room: n, key: rooms[n].spyKey }); else raw({ t: 'join', room: n, presence: rooms[n].pres });
+      });
       setConn(true);
     };
     ws.onmessage = function (e) {
       var m; try { m = JSON.parse(e.data); } catch (err) { return; }
       if (m.t === 'restarting') { restarting = true; return; }
       var r = m.room && rooms[m.room]; if (!r || r.left) return;
+      if (m.t === 'spying') { if (r.onJoined) { r.onJoined(m); r.onJoined = null; } return; }
+      if (m.t === 'error' && m.code === 'forbidden' && r.onFail) { r.onFail({ code: 'forbidden', message: 'Wrong admin key.' }); r.onFail = null; r.onJoined = null; return; }
       if (m.t === 'joined') {
         var fresh = {};
         (m.peers || []).forEach(function (p) { fresh[p.peer] = { presence: p.presence || {}, away: !!p.away, at: Date.now() }; });
@@ -101,6 +106,20 @@ window.S4Transport = (function () {
     peerId: peerId,
     isRestarting: function () { return restarting; },
     connected: function () { return isOpen; },
+    /* Admin only: listen to a squad room without joining it. Resolves with { api, start } where start is the
+       fight already under way, if any. The server checks the key; nobody in the room can see you. */
+    spy: function (name, key) {
+      var r = rooms[name] = makeRoom(name);
+      r.spyKey = key;
+      r.api.leave = function () { r.left = true; raw({ t: 'unspy', room: name }); delete rooms[name]; return Promise.resolve(); };
+      return new Promise(function (resolve, reject) {
+        var timer = setTimeout(function () { if (r.onJoined) { r.onJoined = null; reject({ code: 'upstream_error', message: 'Could not reach the server.' }); } }, 8000);
+        r.onJoined = function (m) { clearTimeout(timer); resolve({ api: r.api, start: m.start, live: m.live }); };
+        r.onFail = function (e) { clearTimeout(timer); delete rooms[name]; reject(e); };
+        var go = function () { if (isOpen) raw({ t: 'spy', room: name, key: key }); else setTimeout(go, 200); };
+        go();
+      });
+    },
     join: function (name) {
       if (rooms[name] && !rooms[name].left) return Promise.resolve(rooms[name].api);
       var r = rooms[name] = makeRoom(name);

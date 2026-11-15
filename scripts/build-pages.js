@@ -14,6 +14,6 @@ fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 fs.writeFileSync(path.join(OUT, 'index.html'), stampIndex(fs.readFileSync(path.join(PUB, 'index.html'), 'utf8'), BUILD));
 FILES.forEach((f) => fs.copyFileSync(path.join(PUB, f), path.join(OUT, f)));
-fs.writeFileSync(path.join(OUT, 'version.json'), JSON.stringify({ build: BUILD }));
+fs.writeFileSync(path.join(OUT, 'version.json'), JSON.stringify({ build: BUILD, version: require('../public/sim.js').VERSION }));
 fs.writeFileSync(path.join(OUT, '.nojekyll'), '');
 console.log('Built dist/ for build ' + BUILD);
