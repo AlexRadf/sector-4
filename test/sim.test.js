@@ -153,16 +153,47 @@ function arena(role, gear) {
 const press = (S, i, extra) => Sim.step(S, 1 / 30, Object.assign({ ability: i }, extra || {}));
 const idle = (S, secs) => { for (let i = 0; i < secs * 30; i++) Sim.step(S, 1 / 30, {}); };
 
-test('builders add pips, spenders cash them all in, and a spender with no pips is refused', () => {
-  const { S, p, boss } = arena('dps', { weapon: 'rockets' });
-  p.x = boss.x; p.z = boss.z - 15;
+test('Wrecker Revs: key 1 builds, key 2 cashes them all in, and is refused with none', () => {
+  const { S, p, boss } = arena('melee', { weapon: 'ripper' });
+  p.x = boss.x; p.z = boss.z - 12;
   press(S, 1, { target: boss.id });
-  assert.ok(S.events.some((e) => e.type === 'error' && /pips/i.test(e.text)));
+  assert.ok(S.events.some((e) => e.type === 'error' && /Revs/.test(e.text)));
   for (let n = 0; n < 3; n++) { p.gcd = 0; press(S, 0, { target: boss.id }); }
   assert.strictEqual(p.pips, 3);
-  S.events.length = 0; p.gcd = 0; press(S, 1, { target: boss.id });
+  p.gcd = 0; press(S, 1, { target: boss.id });
   assert.strictEqual(p.pips, 0);
-  assert.strictEqual(S.events.filter((e) => e.type === 'dmg' && e.label === 'Volley').length, 3);
+});
+
+test('Striker Capacitor: recharges by itself, the heavy shot drains 50', () => {
+  const { S, p, boss } = arena('dps', { weapon: 'rockets' });
+  p.x = boss.x; p.z = boss.z - 15; p.pips = 100;
+  S.events.length = 0; press(S, 1, { target: boss.id });
+  assert.ok(p.pips <= 60.5 && p.pips >= 49, String(p.pips));   // 50 spent, crits refund 10
+  assert.strictEqual(S.events.filter((e) => e.type === 'dmg' && e.label === 'Volley').length, 4);
+  p.pips = 0; idle(S, 2);
+  assert.ok(p.pips > 12, 'recharges');
+});
+
+test('Medic Nanites: heals cost them, shooting harvests them', () => {
+  const { S, p, boss } = arena('healer', { weapon: 'bio' });
+  p.x = boss.x; p.z = boss.z - 15; p.pips = 30;
+  press(S, 1);
+  assert.ok(p.pips < 6);
+  p.gcd = 0; press(S, 1);
+  assert.ok(S.events.some((e) => e.type === 'error' && /Nanites/.test(e.text)));
+  p.gcd = 0; const before = p.pips; press(S, 0, { target: boss.id });
+  assert.ok(p.pips >= before + 11);
+});
+
+test('Juggernaut Heat: swings and hits build it, venting spends it all, Redline hits harder', () => {
+  const { S, p, boss } = arena('tank', { weapon: 'hammer' });
+  p.x = boss.x; p.z = boss.z - 4;
+  press(S, 0, { target: boss.id });
+  assert.ok(p.pips >= 14);
+  const h = p.pips; Sim.damagePlayer(S, S.bossId, p, 50, 'Hit');
+  assert.ok(p.pips > h);
+  p.pips = 100; p.gcd = 0; press(S, 1, { target: boss.id });
+  assert.ok(p.pips < 3);
 });
 
 test('a proc lights the third button for a while and using it spends the proc', () => {
@@ -245,8 +276,23 @@ test('collapsing floor sections only catch people standing on them', () => {
   assert.ok(!Sim.inTele(g, { x: Math.sin(0.5) * 4, z: Math.cos(0.5) * 4 }));
 });
 
-test('bots answer every kind of hero moment over a fight', () => {
+test('ultimates are free-use against the Foreman: no hero calls, and bots still use them', () => {
   const r = runFight({ seed: 5 });
-  for (const role of ['tank', 'healer', 'dps', 'melee']) assert.ok(r.heroes[role][0] >= 1, role + ' was never called');
-  assert.ok(Object.values(r.heroes).every(([called, done]) => done >= 1 || called === 0));
+  assert.ok(Object.values(r.heroes).every(([called]) => called === 0));
+  assert.ok(r.players.filter((p) => p.ults >= 1).length >= 3, JSON.stringify(r.players.map((p) => [p.role, p.ults])));
+});
+
+test('Wrecking Slam staggers its target at any time', () => {
+  const { S, p, boss } = arena('melee');
+  p.ult = 100; p.x = boss.x; p.z = boss.z - 5;
+  press(S, 5, { target: boss.id });
+  assert.ok(boss.stagger > 2);
+});
+
+test('scripted hero moments still work when a boss switches them on', () => {
+  Sim.TUNE.heroMoments = true;
+  try {
+    const r = runFight({ seed: 5 });
+    for (const role of ['tank', 'healer', 'dps', 'melee']) assert.ok(r.heroes[role][0] >= 1, role + ' was never called');
+  } finally { Sim.TUNE.heroMoments = false; }
 });

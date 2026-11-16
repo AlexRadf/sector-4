@@ -372,10 +372,11 @@
     $('#armoryBack').style.display = armoryCtx === 'lobby' ? 'none' : '';
     host.innerHTML = '';
     var weaponItems = k.weapons.map(function (w) {
-      var tag = { build: 'builds', spend: 'spends', proc: 'proc' };
+      var tag = { build: 'basic', spend: 'spends ' + k.res.name, proc: 'proc' };
       return { id: w.id, name: w.name, desc: w.pitch, list: w.abilities.map(function (a, i) { return (i + 1) + '  ' + a.name + '  /  ' + tag[a.role] + (a.cast ? ', ' + a.cast + 's cast' : ''); }) };
     });
     var tree = Sim.TALENTS[r];
+    $('#armoryRes').textContent = k.res.how;
     $('#armoryTheme').textContent = tree.theme; $('#armoryTheme').className = 'armtheme display role-' + r;
     [['weapon', 'Gear  /  Weapon', weaponItems]].concat(Sim.SLOTS.map(function (slot, i) {
       return [slot, 'Talent tier ' + (i + 1) + '  /  ' + tree.tiers[i], Sim.talentList(slot, r)];
@@ -467,9 +468,12 @@
       b.addEventListener('click', function () { input.ability = i; });
       acts.appendChild(b); hud.abs.push({ a: a, el: b, cool: cool, sec: sec, tl: tl, meter: meter, state: '' });
     });
-    var pips = $('#pips'); pips.innerHTML = ''; hud.pips = [];
-    pips.appendChild(el('span', null, 'PIPS'));
-    for (var n = 0; n < Sim.PIP_MAX; n++) { var pi = el('i'); pips.appendChild(pi); hud.pips.push(pi); }
+    // The class resource: Revs show as five pips, the others as a bar.
+    var pips = $('#pips'), RS = human.kit.res; pips.innerHTML = ''; hud.pips = []; hud.resBar = null;
+    pips.className = 'res-' + RS.id; pips.title = RS.how;
+    pips.appendChild(el('span', null, RS.name.toUpperCase()));
+    if (RS.max <= 5) for (var n = 0; n < RS.max; n++) { var pi = el('i'); pips.appendChild(pi); hud.pips.push(pi); }
+    else { var rb = el('b', 'resbar'), rf = el('u'); rb.appendChild(rf); pips.appendChild(rb); hud.resBar = rf; hud.resNum = el('span', 'resnum'); pips.appendChild(hud.resNum); }
     hud.pipState = -1;
   }
   function setBar(fill, frac) { fill.style.transform = 'scaleX(' + Math.max(0, Math.min(1, frac)).toFixed(3) + ')'; }
@@ -588,7 +592,7 @@
         glow = duty ? 'hero' : full ? 'ultready' : '';
       }
       else if (h.a.role === 'proc' && human.procT > 0) { label = 'PROC ' + Math.ceil(human.procT) + 's'; glow = 'proc'; }
-      else if (h.a.role === 'spend' && u.state !== 'range') label = (human.pips || 0) + ' PIPS';
+      else if (h.a.role === 'spend' && u.state !== 'range') label = human.kit.res.spend === 'all' ? Math.floor(human.pips || 0) + ' ' + human.kit.res.name.toUpperCase() : 'COSTS ' + human.kit.res.spend;
       else if (u.state === 'range') label = 'OUT OF RANGE';
       else if (u.behind) label = 'BEHIND +50%';
       else if (h.a.kind === 'friend' && u.tgt) label = u.tgt.id === human.id ? 'ON YOU' : 'ON ' + u.tgt.name;
@@ -601,11 +605,14 @@
         h.el.classList.toggle('na', u.state === 'notarget' || u.state === 'dead' || u.state === 'idle' || (u.state === 'locked' && !glow));
       }
     });
-    var pipN = human.pips || 0;
+    var pipN = Math.floor(human.pips || 0), RS2 = human.kit.res;
     if (hud.pips && pipN !== hud.pipState) {
       hud.pipState = pipN;
       hud.pips.forEach(function (pi, n) { pi.classList.toggle('on', n < pipN); });
-      $('#pips').classList.toggle('full', pipN >= Sim.PIP_MAX);
+      if (hud.resBar) { hud.resBar.style.transform = 'scaleX(' + (pipN / RS2.max).toFixed(2) + ')'; hud.resNum.textContent = pipN + (RS2.id === 'heat' && pipN >= 80 ? '  REDLINE' : ''); }
+      $('#pips').classList.toggle('full', pipN >= RS2.max);
+      $('#pips').classList.toggle('redline', RS2.id === 'heat' && pipN >= 80);
+      $('#pips').classList.toggle('low', RS2.id === 'nanites' && pipN < RS2.min);
     }
     var danger = human.alive && S.telegraphs.some(function (g) { return Sim.inTele(g, human); });
     $('#hud').classList.toggle('danger', danger);

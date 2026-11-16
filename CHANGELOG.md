@@ -4,6 +4,15 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.11.0 (2026-11-16)
+- Ultimates are free-use: big buttons you press when you judge it right, not answers to a scripted call.
+  Wrecking Slam staggers any target for 3s; Deadeye is 700 damage, five pips and a lit proc; Riot Wall and Field Hospital as before.
+- The Foreman no longer calls class-specific hero moments. The system stays in the code (TUNE.heroMoments) for a future boss.
+- /stats shows ultimates used per fight.
+- Each class has its own resource: Juggernaut Heat (with a Redline), Medic Nanite Reserve (heals cost it, shooting harvests it),
+  Striker Capacitor (recharges itself, pool and dump), Wrecker Revs (combo points).
+- The Foreman has more health and hits harder to make up for the free-use ultimates.
+
 ## 0.10.0 (2026-11-16) "The Fight"
 - The interrupt is gone. The Foreman raises an overcharge shield instead: break it with damage in 9s and he staggers, miss it and the room is shocked.
 - Every weapon is a rotation: 1 builds pips, 2 spends them, 3 lights up on a proc. Hits vary by 15% and can crit.

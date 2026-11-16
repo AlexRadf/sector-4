@@ -10,10 +10,14 @@
   /* ---------- kits: two weapons own slots 1-2, the role's utilities own slots 3-4 ---------- */
   function A(o) { o.cast = o.cast || 0; o.cd = o.cd || 0; if (o.gcd === undefined) o.gcd = true; return o; }
 
-  /* Every weapon plays as a small rotation on keys 1 to 3:
-       1 builder  - your filler. Adds a pip (up to 5) and has a chance to proc. A crit always procs.
-       2 spender  - cashes in every pip; the more you saved, the harder it lands.
-       3 proc     - only lights up after a proc, for 10s. Off the global cooldown, so weave it in.
+  /* Every weapon plays on keys 1 to 3, but each class pays for key 2 in its own way (see KITS[role].res):
+       Juggernaut  Heat       - swings and taking hits build it; venting spends it all; above 80 is the Redline.
+       Medic       Nanites    - heals cost them; shooting the Foreman harvests them back.
+       Striker     Capacitor  - recharges on its own; the heavy shot drains half a cell.
+       Wrecker     Revs       - classic combo points: build to five, cash them in.
+       1 basic  - your filler, with a chance to proc. A crit always procs.
+       2 heavy  - spends the class resource.
+       3 proc   - only lights up after a proc, for 10s. Off the global cooldown, so weave it in.
      Keys 4 and 5 are the class's two utilities. Every hit and heal rolls 85% to 115%, and 10% of them crit for 80% more. */
   var PIP_MAX = 5, PROC_WINDOW = 10, CRIT_CHANCE = 0.10, CRIT_MULT = 1.8;
   function W(id, name, pitch, b, sp, pr) {
@@ -24,95 +28,104 @@
   var KITS = {
     tank: {
       role: 'tank', title: 'Juggernaut', hp: 1700,
+      // spend 'all': key 2 vents everything; its power is Heat / per.
+      res: { id: 'heat', name: 'Heat', max: 100, start: 0, regen: -1.5, build: 15, spend: 'all', min: 20, per: 20,
+        how: 'Heat. Swinging and getting hit build it. Key 2 vents all of it: the hotter, the harder. Above 80 is the Redline: you deal 15% more.' },
       blurb: 'Hold the Foreman and keep drones off the Medic.',
       weapons: [
         W('flak', 'Flak Cannon', 'Area threat. Grabs drones from range and slows what it hits.',
-          { id: 'flak', name: 'Flak Blast', kind: 'enemy', range: 8, procChance: 0.2, desc: 'Builds. Hits every enemy within 8m. High threat.' },
-          { id: 'shell', name: 'Flak Shell', kind: 'enemy', range: 25, desc: 'Spends. 40 + 55 a pip at 25m. Slows the target 1s a pip. Very high threat.' },
+          { id: 'flak', name: 'Flak Blast', kind: 'enemy', range: 8, procChance: 0.2, desc: 'Hits every enemy within 8m. High threat. Builds Heat.' },
+          { id: 'shell', name: 'Flak Shell', kind: 'enemy', range: 25, desc: 'Vents all Heat: up to 315 at 25m and a 5s slow at full Heat. Very high threat.' },
           { id: 'shrapnel', name: 'Shrapnel Storm', kind: 'enemy', range: 10, desc: 'Proc. 220 to every enemy within 10m.' }),
         W('hammer', 'Impact Hammer', 'Single-target threat. Weakens the Foreman and hits back when he hits you.',
-          { id: 'swing', name: 'Hammer Swing', kind: 'enemy', range: 5, procChance: 0.15, desc: 'Builds. Melee hit, highest single-target threat. The Foreman hitting you can also proc.' },
-          { id: 'concuss', name: 'Concussion', kind: 'enemy', range: 5, desc: 'Spends. 50 + 55 a pip. The target deals 25% less damage for 1.2s a pip.' },
+          { id: 'swing', name: 'Hammer Swing', kind: 'enemy', range: 5, procChance: 0.15, desc: 'Melee hit, highest single-target threat. Builds Heat. The Foreman hitting you can also proc.' },
+          { id: 'concuss', name: 'Concussion', kind: 'enemy', range: 5, desc: 'Vents all Heat: up to 325, and the target deals 25% less damage for up to 6s.' },
           { id: 'wave', name: 'Impact Wave', kind: 'enemy', range: 6, desc: 'Proc. 240 to everything within 6m and heals you 6%.' }),
         W('minigun', 'Minigun', 'Threat that builds the longer you hold one target.',
-          { id: 'spin', name: 'Minigun Burst', kind: 'enemy', range: 20, procChance: 0, desc: 'Builds. Each burst on the same target hits 12% harder, up to 5. At 5, each burst has a 35% chance to proc.' },
-          { id: 'suppress', name: 'Suppressive Fire', kind: 'enemy', range: 20, desc: 'Spends. 40 + 50 a pip. The target hits 20% softer for 1.5s a pip.' },
+          { id: 'spin', name: 'Minigun Burst', kind: 'enemy', range: 20, procChance: 0, desc: 'Each burst on the same target hits 12% harder, up to 5. At 5, each burst has a 35% chance to proc. Builds Heat.' },
+          { id: 'suppress', name: 'Suppressive Fire', kind: 'enemy', range: 20, desc: 'Vents all Heat: up to 290, and the target hits 20% softer for up to 7.5s.' },
           { id: 'overheat', name: 'Overheat', kind: 'enemy', range: 20, desc: 'Proc. A 320 burst. Keeps your spin.' })
       ],
       utils: [
         A({ id: 'challenge', name: 'Challenge', kind: 'self', range: 30, cd: 10, gcd: false, desc: 'Every enemy within 30m attacks you for 4s.' }),
         A({ id: 'belt', name: 'Shield Belt', kind: 'self', range: 0, cd: 25, gcd: false, desc: 'Take half damage for 6s.' })
       ],
-      ult: A({ id: 'wall', name: 'Riot Wall', kind: 'self', range: 0, gcd: false, role: 'ult', desc: 'Ultimate. For 6s an energy wall faces the Foreman: everyone standing behind you takes nothing from him, and you take half. Answers Demolition Blast.' })
+      ult: A({ id: 'wall', name: 'Riot Wall', kind: 'self', range: 0, gcd: false, role: 'ult', desc: 'Ultimate. For 6s an energy wall faces the Foreman: everyone standing behind you takes nothing from him, and you take half. Raise it before anything big lands.' })
     },
     healer: {
       role: 'healer', title: 'Medic', hp: 900,
+      res: { id: 'nanites', name: 'Nanites', max: 100, start: 100, regen: 2.5, build: 12, spend: 25, min: 25, power: 3,
+        how: 'Nanite Reserve. Heals on key 2 cost 25 and it barely refills on its own. Shooting the Foreman with key 1 harvests 12 a shot.' },
       blurb: 'Keep four health bars up. Your builder shoots the Foreman, and every shot patches someone up.',
       weapons: [
         W('link', 'Link Gun', 'Shoot the Foreman to charge big heals. Every bolt also patches the most hurt ally.',
-          { id: 'bolt', name: 'Link Bolt', kind: 'enemy', range: 35, procChance: 0.2, desc: 'Builds. 70 damage, and heals the most hurt ally for 70% of it.' },
-          { id: 'link', name: 'Link Beam', kind: 'friend', range: 40, cast: 1.0, min: 0, desc: 'Spends. Heal for 170 + 70 a pip. 1s cast. Works with no pips.' },
+          { id: 'bolt', name: 'Link Bolt', kind: 'enemy', range: 35, procChance: 0.2, desc: '70 damage, and heals the most hurt ally for 70% of it. Harvests 12 Nanites.' },
+          { id: 'link', name: 'Link Beam', kind: 'friend', range: 40, cast: 1.0, desc: '25 Nanites. Heal for 380. 1s cast.' },
           { id: 'surge', name: 'Nano Surge', kind: 'friend', range: 40, desc: 'Proc. Instant 480 heal.' }),
         W('bio', 'Bio Rifle', 'Acid on the Foreman, fumes on the squad. Instant, so you never stop moving.',
-          { id: 'acid', name: 'Corrosive Glob', kind: 'enemy', range: 30, procChance: 0.25, desc: 'Builds. 45 damage plus 90 more over 6s. The two most hurt allies get 35.' },
-          { id: 'spray', name: 'Bio Spray', kind: 'friend', range: 30, min: 0, desc: 'Spends. Instant 70 + 35 a pip, then 150 over 6s. At 5 pips everyone within 7m gets the 150.' },
+          { id: 'acid', name: 'Corrosive Glob', kind: 'enemy', range: 30, procChance: 0.25, desc: '45 damage plus 90 more over 6s. The two most hurt allies get 35. Harvests 12 Nanites.' },
+          { id: 'spray', name: 'Bio Spray', kind: 'friend', range: 30, desc: '25 Nanites. Instant 175, then 150 over 6s. With half your reserve left, everyone within 7m gets the 150.' },
           { id: 'glob', name: 'Bio Bloom', kind: 'friend', range: 30, desc: 'Proc. Heals everyone within 8m of the target for 200.' }),
         W('shield', 'Shield Gun', 'Shields before the hit. Your shots armour whoever needs it.',
-          { id: 'pulse', name: 'Kinetic Pulse', kind: 'enemy', range: 30, procChance: 0.2, desc: 'Builds. 60 damage, and a 60 shield on the most hurt ally.' },
-          { id: 'barrier', name: 'Barrier', kind: 'friend', range: 35, min: 0, desc: 'Spends. Heals 50 and shields 130 + 50 a pip, up to 450.' },
+          { id: 'pulse', name: 'Kinetic Pulse', kind: 'enemy', range: 30, procChance: 0.2, desc: '60 damage, and a 60 shield on the most hurt ally. Harvests 12 Nanites.' },
+          { id: 'barrier', name: 'Barrier', kind: 'friend', range: 35, desc: '25 Nanites. Heals 50 and shields 280, up to 450.' },
           { id: 'bulwark', name: 'Bulwark', kind: 'friend', range: 35, desc: 'Proc. Everyone within 8m of the target gets a 250 shield.' })
       ],
       utils: [
         A({ id: 'keg', name: 'Health Keg', kind: 'self', range: 40, cd: 20, desc: 'Heals the whole squad within 40m.' }),
         A({ id: 'purge', name: 'Purge', kind: 'friend', range: 40, cd: 6, desc: 'Removes Bio Sludge and heals a little.' })
       ],
-      ult: A({ id: 'hospital', name: 'Field Hospital', kind: 'self', range: 40, gcd: false, role: 'ult', desc: 'Ultimate. Everyone within 40m is cleansed, healed for half their health and takes half damage for 4s. Answers Meltdown.' })
+      ult: A({ id: 'hospital', name: 'Field Hospital', kind: 'self', range: 40, gcd: false, role: 'ult', desc: 'Ultimate. Everyone within 40m is cleansed, healed for half their health and takes half damage for 4s.' })
     },
     dps: {
       role: 'dps', title: 'Striker', hp: 900,
+      res: { id: 'cap', name: 'Capacitor', max: 100, start: 60, regen: 8, build: 0, spend: 50, min: 50, power: 4,
+        how: 'Capacitor. Recharges on its own. Key 1 is free, key 2 drains 50. Fire as it fills, or pool to 100 and dump two in a row. Crits give 10 back.' },
       blurb: 'Ranged damage from a safe distance.',
       weapons: [
         W('shock', 'Shock Rifle', 'Beam to mark, Core to cash in. The big shot needs you standing still.',
-          { id: 'beam', name: 'Shock Beam', kind: 'enemy', range: 35, procChance: 0.2, desc: 'Builds. Instant 70. Marks the target for 3s.' },
-          { id: 'core', name: 'Shock Core', kind: 'enemy', range: 35, cast: 1.2, desc: 'Spends. 90 + 75 a pip, 1.2s cast. 40% more on a marked target: the Shock Combo.' },
+          { id: 'beam', name: 'Shock Beam', kind: 'enemy', range: 35, procChance: 0.2, desc: 'Free. Instant 70. Marks the target for 3s.' },
+          { id: 'core', name: 'Shock Core', kind: 'enemy', range: 35, cast: 1.2, desc: '50 Capacitor. 390, 1.2s cast. 40% more on a marked target: the Shock Combo.' },
           { id: 'gib', name: 'Instagib', kind: 'enemy', range: 50, desc: 'Proc. Instant 380.' }),
         W('rockets', 'Rocket Launcher', 'All instant, so you never stop moving. Splash shreds drone packs.',
-          { id: 'rocket', name: 'Rocket', kind: 'enemy', range: 30, procChance: 0.2, desc: 'Builds. 85, splashing 55 within 4m.' },
-          { id: 'volley', name: 'Rocket Volley', kind: 'enemy', range: 30, desc: 'Spends. One rocket a pip: 110 each, splashing 45.' },
+          { id: 'rocket', name: 'Rocket', kind: 'enemy', range: 30, procChance: 0.2, desc: 'Free. 85, splashing 55 within 4m.' },
+          { id: 'volley', name: 'Rocket Volley', kind: 'enemy', range: 30, desc: '50 Capacitor. Four rockets of 110, each splashing 45.' },
           { id: 'seeker', name: 'Seeker Swarm', kind: 'enemy', range: 40, desc: 'Proc. Three homing rockets of 110, spread over nearby enemies.' }),
         W('sniper', 'Sniper Rifle', 'Long, slow shots from across the arena. Headshots are the payoff.',
-          { id: 'scope', name: 'Quick Scope', kind: 'enemy', range: 50, procChance: 0.2, desc: 'Builds. Instant 65. Always procs on a target below 35% or staggered.' },
-          { id: 'snipe', name: 'Snipe', kind: 'enemy', range: 50, cast: 1.8, desc: 'Spends. 110 + 85 a pip, 1.8s cast, stand still.' },
+          { id: 'scope', name: 'Quick Scope', kind: 'enemy', range: 50, procChance: 0.2, desc: 'Free. Instant 65. Always procs on a target below 35% or staggered.' },
+          { id: 'snipe', name: 'Snipe', kind: 'enemy', range: 50, cast: 1.8, desc: '50 Capacitor. 450, 1.8s cast, stand still.' },
           { id: 'headshot', name: 'Headshot', kind: 'enemy', range: 50, desc: 'Proc. Instant 520.' })
       ],
       utils: [
         A({ id: 'adren', name: 'Adrenaline', kind: 'self', range: 0, cd: 45, gcd: false, desc: '40% more damage for 8s.' }),
         A({ id: 'trans', name: 'Translocator', kind: 'self', range: 0, cd: 10, gcd: false, desc: 'Jump 12m the way you are moving, or away from your target.' })
       ],
-      ult: A({ id: 'deadeye', name: 'Deadeye', kind: 'self', range: 0, gcd: false, role: 'ult', desc: 'Ultimate. Shoots a Heavy Rocket out of the air from any range, and the round carries on into the Foreman for 700. With no rocket up, 700 to your target.' })
+      ult: A({ id: 'deadeye', name: 'Deadeye', kind: 'self', range: 0, gcd: false, role: 'ult', desc: 'Ultimate. One perfect shot from any range: 700 to your target, a full Capacitor and your proc lit.' })
     },
     melee: {
       role: 'melee', title: 'Wrecker', hp: 1100,
+      res: { id: 'revs', name: 'Revs', max: 5, start: 0, regen: 0, build: 1, spend: 'all', min: 1, per: 1,
+        how: 'Revs. Key 1 revs the engine up to 5, key 2 cashes every rev in at once.' },
       blurb: 'Melee damage. Stay out of the Foreman\'s front.',
       weapons: [
-        W('chainsaw', 'Chainsaw', 'Big hits, 50% more from behind, and two pips a hit from back there.',
-          { id: 'rip', name: 'Rip', kind: 'enemy', range: 4, procChance: 0.15, desc: 'Builds. Melee 80. From behind: 50% more and two pips.' },
-          { id: 'saw', name: 'Saw Through', kind: 'enemy', range: 4, desc: 'Spends. 80 + 70 a pip, 50% more from behind.' },
+        W('chainsaw', 'Chainsaw', 'Big hits, 50% more from behind, and two Revs a hit from back there.',
+          { id: 'rip', name: 'Rip', kind: 'enemy', range: 4, procChance: 0.15, desc: 'Melee 80 and a Rev. From behind: 50% more and two Revs.' },
+          { id: 'saw', name: 'Saw Through', kind: 'enemy', range: 4, desc: 'Spends all Revs. 80 + 70 a Rev, 50% more from behind.' },
           { id: 'overdrive', name: 'Overdrive', kind: 'enemy', range: 4, desc: 'Proc. 300, 50% more from behind.' }),
         W('ripper', 'Ripper', 'Mid-range blades that bounce between targets. Safer, less damage.',
-          { id: 'razor', name: 'Razor', kind: 'enemy', range: 18, procChance: 0.2, desc: 'Builds. Thrown blade for 120 at 18m.' },
-          { id: 'bounce', name: 'Ricochet', kind: 'enemy', range: 18, desc: 'Spends. 95 + 80 a pip, bouncing half of that to two more enemies.' },
+          { id: 'razor', name: 'Razor', kind: 'enemy', range: 18, procChance: 0.2, desc: 'Thrown blade for 120 at 18m. One Rev.' },
+          { id: 'bounce', name: 'Ricochet', kind: 'enemy', range: 18, desc: 'Spends all Revs. 95 + 80 a Rev, bouncing half of that to two more enemies.' },
           { id: 'storm', name: 'Blade Storm', kind: 'self', range: 18, desc: 'Proc. 320 to every enemy within 18m of you.' }),
         W('enforcers', 'Dual Enforcers', 'Mid-range pistols that hit 35% harder while you keep moving.',
-          { id: 'tap', name: 'Double Tap', kind: 'enemy', range: 10, procChance: 0.2, desc: 'Builds. 88, 35% more while moving.' },
-          { id: 'fan', name: 'Fan the Hammer', kind: 'enemy', range: 10, desc: 'Spends. One shot a pip plus one: 64 each, 35% more while moving.' },
+          { id: 'tap', name: 'Double Tap', kind: 'enemy', range: 10, procChance: 0.2, desc: '88, 35% more while moving. One Rev.' },
+          { id: 'fan', name: 'Fan the Hammer', kind: 'enemy', range: 10, desc: 'Spends all Revs. One shot a Rev plus one: 64 each, 35% more while moving.' },
           { id: 'draw', name: 'Quick Draw', kind: 'enemy', range: 10, desc: 'Proc. Instant 330, 35% more while moving.' })
       ],
       utils: [
         A({ id: 'dash', name: 'Dash', kind: 'enemy', range: 20, cd: 10, gcd: false, desc: 'Rush to your target, behind it if it is the Foreman.' }),
         A({ id: 'adren', name: 'Adrenaline', kind: 'self', range: 0, cd: 45, gcd: false, desc: '40% more damage for 8s.' })
       ],
-      ult: A({ id: 'slam', name: 'Counter-Slam', kind: 'enemy', range: 8, gcd: false, role: 'ult', desc: 'Ultimate. 450 to your target. Land it on the Foreman while he winds up a Haymaker to cancel it and stagger him for 5s.' })
+      ult: A({ id: 'slam', name: 'Wrecking Slam', kind: 'enemy', range: 8, gcd: false, role: 'ult', desc: 'Ultimate. 450 to your target and it staggers for 3s: it stops attacking and the whole squad hits it 30% harder.' })
     }
   };
   var BACKSTAB = { rip: 1, saw: 1, overdrive: 1 };
@@ -170,7 +183,7 @@
         t('chain', 'squad', 'Chain Heal', 'Heal where they bunch up.', 'Every heal you cast also gives 30% of it to the most hurt ally within 8m of the target.')
       ],
       util: [
-        t('livefire', 'aggressive', 'Live Fire', 'Every heal is a shot too.', 'Each pip you spend also fires a 35-damage bolt at your enemy target. Your crit chance is 15%.'),
+        t('livefire', 'aggressive', 'Live Fire', 'Every heal is a shot too.', 'Every heal on key 2 also fires a 105-damage bolt at your enemy target. Your crit chance is 15%.'),
         t('supply', 'steady', 'Supply Drop', 'Little and often.', 'Health Keg is ready every 12s instead of 20s, but heals 25% less.'),
         t('defib', 'squad', 'Defibrillator', 'Clear!', 'Once per raid, the first squad member to go down is shocked back up 3s later with 30% health.')
       ]
@@ -214,12 +227,12 @@
       ],
       implant: [
         t('rampage', 'aggressive', 'Rampage', 'Never stop swinging.', 'Each hit within 4s of your last adds 5% damage, up to 40%. A 4s gap resets it.'),
-        t('flanker', 'steady', 'Flanker', 'Hold the back line.', 'Your builder gives an extra pip when it hits from behind.'),
+        t('flanker', 'steady', 'Flanker', 'Hold the back line.', 'Key 1 gives an extra Rev when it hits from behind.'),
         t('hamstring', 'squad', 'Hamstring', 'Blunt his hits for the tank.', 'Your hits from behind make the target deal 15% less damage for 4s.')
       ],
       util: [
         t('opportunist', 'aggressive', 'Thrill Seeker', 'Dodge late, strike hard.', 'Leave a red zone in its last second and you deal and heal 30% more for 6s.'),
-        t('breaker', 'steady', 'Can Opener', 'Rip the shield open.', 'Your hits do 60% more to the overcharge shield. When it breaks, you get five pips.'),
+        t('breaker', 'steady', 'Can Opener', 'Rip the shield open.', 'Your hits do 60% more to the overcharge shield. When it breaks, your Revs are full.'),
         t('warcry', 'squad', 'War Cry', 'Lead the charge.', 'Dash gives every squad member within 10m 15% more damage for 5s.')
       ]
     }
@@ -253,13 +266,16 @@
        hold: seconds a key direction is held before re-deciding. aim: radians of error on a new direction.
        eightWay: WASD gives eight directions relative to the camera, not any angle. */
     hands: { holdMin: 0.12, holdMax: 0.34, aim: 0.22, release: 0.07, eightWay: true },
-    bossHp: 160000, bossMelee: 280, bossSwing: 2.0, cleaveMult: 0.7,
+    bossHp: 180000, bossMelee: 340, bossSwing: 2.0, cleaveMult: 0.7,
     barrageEvery: 12, barrageDelay: 2.6, barrageR: 6, barrageDmg: 560,
     // Overcharge shield: break it inside the window or the whole room takes the pulse. Breaking it staggers him.
     overEvery: 30, overShield: 5000, overWindow: 9, overDmg: 520, staggerDur: 4, staggerBonus: 1.3,
     // The Foreman leaps onto someone (long warning), and in phase three tears up sections of floor.
     leapEvery: 24, leapDelay: 2.6, leapR: 7, leapDmg: 400, p3At: 0.25,
     // Ultimates fill in about a minute. Hero moments call on one class at a time; missing one hurts, it never wipes.
+    // Scripted hero moments (the boss calls one class to answer with its ultimate) are built but switched off for
+    // the Foreman: ultimates are free-use here. A future boss turns them on.
+    heroMoments: false, slamStagger: 3,
     ultRate: 1.7, ultStart: 40, heroFirst: 35, heroEvery: 38, wallDur: 6,
     blastCast: 6, blastDmg: 520, meltCast: 3, radDur: 8, rocketDur: 7, rocketDmg: 520, haymakerCast: 5, haymakerDmg: 900,
     collapseEvery: 13, collapseDelay: 3.0, collapseDur: 12, collapseDps: 180, collapseR0: 7,
@@ -381,7 +397,7 @@
         weapon: 0, gear: validGear(sl.role, isHuman ? h.gear : BOT_GEAR[sl.role]), pump: 0, afterburn: 0, mark: null,
         cast: null, gcd: 0, cds: {}, queued: null,
         belt: 0, adren: 0, amp: 0, armor: 0, hot: 0, sludge: 0, sludgeAcc: 0,
-        pips: 0, procT: 0, ult: TUNE.ultStart,
+        pips: kit.res.start, procT: 0, ult: TUNE.ultStart,
         bot: { danger: 0, react: 0.35 + S.rng() * 0.3, think: S.rng() * 0.5, slow: 1 }
       };
       p.weapon = Math.max(0, kit.weapons.map(function (w) { return w.id; }).indexOf(p.gear.weapon));
@@ -417,7 +433,7 @@
   /* Fight metrics: what each player did and what hurt the squad. summary() turns them into one record per fight. */
   function met(S, id) {
     S.m = S.m || { p: {}, taken: {}, killers: {}, shields: { raised: 0, broken: 0 } };
-    return S.m.p[id] || (S.m.p[id] = { dmg: 0, heal: 0, taken: 0, deaths: 0, hits: 0, crits: 0, shield: 0, mvT: 0, liveT: 0, holdSum: 0, holdN: 0, redSum: 0, redN: 0 });
+    return S.m.p[id] || (S.m.p[id] = { dmg: 0, heal: 0, taken: 0, deaths: 0, hits: 0, crits: 0, shield: 0, ults: 0, mvT: 0, liveT: 0, holdSum: 0, holdN: 0, redSum: 0, redN: 0 });
   }
   function damageEnemy(S, src, tgt, amt, threatMult, label) {
     if (!tgt.alive) return 0;
@@ -442,7 +458,11 @@
       // Every hit rolls 85% to 115%, and some crit.
       amt *= 0.85 + S.rng() * 0.3;
       var q0 = met(S, src.id); q0.hits++;
-      if (S.rng() < critChance(S, src)) { amt *= CRIT_MULT; crit = true; src.critThis = true; q0.crits++; }
+      if (src.role === 'tank' && (src.pips || 0) >= 80) amt *= 1.15;   // Redline
+      if (S.rng() < critChance(S, src)) {
+        amt *= CRIT_MULT; crit = true; src.critThis = true; q0.crits++;
+        if (src.role === 'dps') src.pips = Math.min(src.kit.res.max, (src.pips || 0) + 10);
+      }
     }
     if (tgt.spotted > 0) amt *= 1.06;
     if (tgt.stagger > 0) amt *= TUNE.staggerBonus;
@@ -484,7 +504,7 @@
     players(S, true).forEach(function (q) {
       if (!T(q, 'breaker')) return;
       if (q.role === 'tank') { q.cds.challenge = 0; q.cds.belt = 0; }
-      else if (q.role === 'melee') q.pips = PIP_MAX;
+      else if (q.role === 'melee') q.pips = q.kit.res.max;
       else procUp(S, q);
     });
   }
@@ -537,6 +557,7 @@
       emit(S, { type: 'fx', fx: 'pump', src: p.id });
     }
     if (p.hp > 0 && srcId === S.bossId && label === 'Hit') {
+      if (p.role === 'tank') p.pips = Math.min(p.kit.res.max, (p.pips || 0) + 8);   // taking the hit heats you up
       // Impact Hammer: getting hit can light Impact Wave. Counterstrike: getting hit can light you up.
       if (p.kit.weapons[p.weapon].id === 'hammer' && S.rng() < 0.15) procUp(S, p);
       if (T(p, 'counter') && S.rng() < 0.25) { p.counter = 6; p.cds.challenge = 0; proc(S, p, 'counter', 'COUNTERSTRIKE'); }
@@ -636,7 +657,7 @@
     var out = { tgt: tgt, behind: BACKSTAB[ab.id] && tgt.kind === 'enemy' && (behind(p, tgt) || p.afterburn > 0), role: ab.role || null };
     if (ab.role === 'proc' && !(p.procT > 0)) out.state = 'locked';
     else if (ab.role === 'ult' && (p.ult || 0) < 100) out.state = 'locked';
-    else if (ab.role === 'spend' && (p.pips || 0) < (ab.min === undefined ? 1 : ab.min)) out.state = 'locked';
+    else if (ab.role === 'spend' && (p.pips || 0) < p.kit.res.min) out.state = 'locked';
     else if (ab.kind !== 'self' && dist(p, tgt) > reach(p, ab) + (tgt.radius || 0)) out.state = 'range';
     else if ((p.cds[ab.id] || 0) > 0) out.state = 'cd';
     else out.state = 'ok';
@@ -655,7 +676,7 @@
     if ((p.cds[ab.id] || 0) > 0) return fail(S, p, ab.name + ' is not ready');
     if (ab.role === 'proc' && !(p.procT > 0)) return fail(S, p, ab.name + ' has not procced');
     if (ab.role === 'ult' && (p.ult || 0) < 100) return fail(S, p, ab.name + ' is still charging');
-    if (ab.role === 'spend' && (p.pips || 0) < (ab.min === undefined ? 1 : ab.min)) return fail(S, p, 'No pips to spend');
+    if (ab.role === 'spend' && (p.pips || 0) < p.kit.res.min) return fail(S, p, 'Not enough ' + p.kit.res.name);
     if (ab.gcd && p.gcd > 0) return false;
     var tgt = resolveTarget(S, p, ab);
     if (!tgt) return fail(S, p, 'No target');
@@ -682,13 +703,18 @@
     p.boostNow = p.momentum > 0 && ab.kind !== 'self' && (!T(p, 'stim') || ab.kind === 'friend') ? 1.3 : 1;
     if (p.boostNow > 1) { p.momentum = 0; emit(S, { type: 'fx', fx: 'adren', src: p.id }); }
     // Spenders take every pip before they fire, so the effect knows how many it got. Procs use up the proc.
-    if (ab.role === 'spend') { p.spent = p.pips || 0; p.pips = 0; }
+    var R = p.kit.res;
+    // Key 2 pays in the class resource. p.spent is its power in "pips" (0 to 5) so every weapon's maths reads the same.
+    if (ab.role === 'spend') {
+      if (R.spend === 'all') { p.spent = (p.pips || 0) / R.per; p.pips = 0; }
+      else { p.spent = R.power; p.pips -= R.spend; }
+    }
     if (ab.role === 'proc') p.procT = 0;
-    if (ab.role === 'ult') p.ult = 0;
+    if (ab.role === 'ult') { p.ult = 0; met(S, p.id).ults++; }
     p.critThis = false;
     fireAbility(S, p, ab, tgt, G, back);
     if (ab.role === 'build') {
-      p.pips = Math.min(PIP_MAX, (p.pips || 0) + 1 + (T(p, 'flanker') && tgt.kind === 'enemy' && behind(p, tgt) ? 1 : 0));
+      p.pips = Math.min(R.max, (p.pips || 0) + R.build + (T(p, 'flanker') && tgt.kind === 'enemy' && behind(p, tgt) ? 1 : 0));
       if (p.critThis || S.rng() < (ab.procChance || 0)) procUp(S, p);
     }
     if (ab.role === 'spend' && p.spent > 0 && T(p, 'livefire')) {
@@ -762,11 +788,16 @@
           if (!de || de.kind !== 'enemy' || !de.alive) de = bossD;
           if (de && de.alive) { emit(S, { type: 'beam', src: p.id, dst: de.id, fx: 'core' }); damageEnemy(S, p, de, 700, 1, 'Deadeye!'); }
         }
+        p.pips = p.kit.res.max; procUp(S, p);
         break;
       case 'slam':
         emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'sawbig' });
         emit(S, { type: 'fx', fx: 'flak', src: p.id });
-        proc(S, p, 'slam', 'COUNTER-SLAM', 'all');
+        proc(S, p, 'slam', 'WRECKING SLAM', 'all');
+        if (tgt.alive && !(tgt.cast && tgt.cast.name === 'Haymaker')) {
+          tgt.stagger = Math.max(tgt.stagger || 0, TUNE.slamStagger);
+          emit(S, { type: 'log', id: p.id, text: p.name + ' staggers ' + (tgt.type === 'boss' ? 'the Foreman' : 'a drone') + '. Everything you have.', you: 'Staggered for ' + TUNE.slamStagger + 's. Everything you have.' });
+        }
         if (tgt.type === 'boss' && tgt.cast && tgt.cast.name === 'Haymaker') {
           heroDone(S, 'melee', true);
           tgt.cast = null; tgt.stagger = 5; S.hero = null;
@@ -859,8 +890,9 @@
       case 'spray':
         emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'bio' });
         heal(S, p, tgt, 70 + 35 * n, 'Spray');
-        (n >= PIP_MAX ? players(S, true).filter(function (q) { return dist(q, tgt) <= 7; }) : [tgt]).forEach(function (q) { q.hot = 6; q.hotSrc = p.id; });
-        if (n >= PIP_MAX) emit(S, { type: 'fx', fx: 'glob', src: tgt.id });
+        var flush = (p.pips || 0) >= p.kit.res.max / 2;
+        (flush ? players(S, true).filter(function (q) { return dist(q, tgt) <= 7; }) : [tgt]).forEach(function (q) { q.hot = 6; q.hotSrc = p.id; });
+        if (flush) emit(S, { type: 'fx', fx: 'glob', src: tgt.id });
         break;
       case 'glob':
         emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'bio' });
@@ -953,7 +985,7 @@
       case 'rip':
         emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'saw' });
         damageEnemy(S, p, tgt, 80 * back, 1, back > 1 ? 'Rip!' : 'Rip');
-        if (back > 1) p.pips = Math.min(PIP_MAX, (p.pips || 0) + 1);   // the builder adds the other one
+        if (back > 1) p.pips = Math.min(p.kit.res.max, (p.pips || 0) + 1);   // key 1 adds the other one
         break;
       case 'saw':
         emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'sawbig' });
@@ -1101,6 +1133,7 @@
     for (var k in p.cds) if (p.cds[k] > 0) p.cds[k] = Math.max(0, p.cds[k] - dt * cdRate);
     if (p.spreeT > 0) { p.spreeT -= dt; if (p.spreeT <= 0) p.spree = 0; }
     if (p.alive && S.t > 0) p.ult = Math.min(100, (p.ult || 0) + TUNE.ultRate * dt);
+    if (p.alive && p.kit.res.regen) p.pips = Math.max(0, Math.min(p.kit.res.max, (p.pips || 0) + p.kit.res.regen * dt));
     if (p.rad > 0 && p.alive) {
       // Meltdown radiation ramps up the longer it sits on you.
       var into = TUNE.radDur - p.rad; p.rad -= dt;
@@ -1277,7 +1310,7 @@
 
     // Hero moments: one class at a time gets a mechanic only their ultimate answers.
     T.hero += dt;
-    if (!S.hero && !boss.cast && !boss.charging && !boss.oshield && !(boss.stagger > 0) && T.hero >= (S.heroIdx ? TUNE.heroEvery : TUNE.heroFirst)) {
+    if (TUNE.heroMoments && !S.hero && !boss.cast && !boss.charging && !boss.oshield && !(boss.stagger > 0) && T.hero >= (S.heroIdx ? TUNE.heroEvery : TUNE.heroFirst)) {
       var ROT = ['tank', 'melee', 'healer', 'dps'];
       var role = ROT[S.heroIdx % ROT.length]; S.heroIdx++;
       if (alive.some(function (q) { return q.role === role; })) { T.hero = 0; startHero(S, boss, role, alive); }
@@ -1511,8 +1544,12 @@
       if (!t) return false;
       if (p.procT > 0 && PRC.kind !== 'friend' && inRange(PRC, t)) { inp.target = t.id; inp.ability = 2; return true; }
       if (p.gcd > 0) return false;
-      var spendAt = boss.oshield ? 3 : PIP_MAX - (S.rng() < 0.3 ? 1 : 0);
-      if (SPD.kind === 'enemy' && (p.pips || 0) >= spendAt && inRange(SPD, t) && !(SPD.cast > 0 && moving())) { inp.target = t.id; inp.ability = 1; return true; }
+      var RS = p.kit.res, hot = boss.oshield || boss.stagger > 0, spendAt;
+      if (RS.id === 'revs') spendAt = boss.oshield ? 3 : RS.max - (S.rng() < 0.3 ? 1 : 0);
+      else if (RS.id === 'heat') spendAt = boss.oshield ? 60 : 96;      // ride the Redline, vent before it is wasted
+      else spendAt = hot ? RS.min : 95;                                    // Striker: pool, then dump into a window
+      if (b.dump > 0 && (p.pips || 0) >= RS.min) spendAt = RS.min;
+      if (SPD.kind === 'enemy' && (p.pips || 0) >= spendAt && (b.dump = RS.id === 'cap' ? 1 : 0, true) && inRange(SPD, t) && !(SPD.cast > 0 && moving())) { inp.target = t.id; inp.ability = 1; return true; }
       if (inRange(BLD, t)) { inp.target = t.id; inp.ability = 0; return true; }
       return false;
     };
@@ -1541,6 +1578,25 @@
       }
     }
     if (p.role === 'tank' && bc && bc.name === 'Demolition Blast' && p.wall > 0) { inp.target = boss.id; return inp; }   // hold the wall in place
+    // Free use: each class spends its ultimate when it would do the most.
+    var osh = boss.alive && boss.oshield, lateShield = osh && osh.t > osh.dur - 1.6 && osh.hp > osh.max * 0.2;
+    if (ultUp && boss.alive && S.t > 8) {
+      if (p.role === 'tank' && (lateShield || p.hp < p.maxHp * 0.5 || S.telegraphs.some(function (g) { return g.leap; }))) { inp.ability = ULT; return inp; }
+      if (p.role === 'healer') {
+        var squadNow = players(S, true);
+        if (squadNow.filter(function (q) { return q.hp < q.maxHp * 0.6; }).length >= 2 || squadNow.some(function (q) { return q.hp < q.maxHp * 0.3; })) { inp.ability = ULT; return inp; }
+      }
+      if (p.role === 'dps' && (osh || boss.stagger > 0 || p.adren > 0)) { inp.target = boss.id; inp.ability = ULT; return inp; }
+      if (p.role === 'melee' && !osh && !(boss.stagger > 0) && !bc && dist(p, boss) <= 7 + boss.radius && b.think <= 0) { inp.target = boss.id; inp.ability = ULT; return inp; }
+    }
+    if (lateShield && p.role !== 'tank') {
+      // The shield is going to hold: get behind a Riot Wall if there is one.
+      var wallUp = players(S, true).filter(function (q) { return q.wall > 0; })[0];
+      if (wallUp && !sheltered(S, p)) {
+        var ux = wallUp.x - boss.x, uz = wallUp.z - boss.z, ul = Math.sqrt(ux * ux + uz * uz) || 1;
+        moveTo(wallUp.x + ux / ul * 5, wallUp.z + uz / ul * 5); return inp;
+      }
+    }
     if (p.role === 'healer' && ultUp && players(S, true).some(function (q) { return q.rad > 0 && q.rad < TUNE.radDur - 1.2 * slow; })) { inp.ability = ULT; return inp; }
     if (p.role === 'dps' && ultUp && S.missile && S.missile.t > 1.5 * slow) { inp.ability = ULT; return inp; }
     if (p.role === 'melee' && ultUp && bc && bc.name === 'Haymaker' && bc.t > 1.0 * slow) {
@@ -1562,7 +1618,7 @@
       if (canAct) {
         // A drone loose at range gets the spender to pull it; otherwise the usual rotation on the main target.
         var looseFar = loose.filter(function (f) { return f.type === 'drone' && dist(p, f) > 9; })[0];
-        if (looseFar && p.gcd <= 0 && (p.pips || 0) >= 1 && inRange(SPD, looseFar)) { inp.target = looseFar.id; inp.ability = 1; }
+        if (looseFar && p.gcd <= 0 && (p.pips || 0) >= p.kit.res.min && inRange(SPD, looseFar)) { inp.target = looseFar.id; inp.ability = 1; }
         else attack(main);
         if (inp.ability >= 0) b.think = 0.15 + S.rng() * 0.35;
         inp.target = inp.target === undefined ? main.id : inp.target;
@@ -1627,9 +1683,9 @@
     else if (p.gcd > 0) return inp;
     else if (sick && ready('purge')) aim(sick, idx('purge'));
     else if (hurt >= 3 && ready('keg')) inp.ability = idx('keg');
-    else if (low.hp < low.maxHp * 0.55) aim(low, 1);
-    else if (low.hp < low.maxHp * 0.85 && (p.pips || 0) >= 3) aim(low, 1);
-    else if (W === 'shield' && tank && tank.armor < 100 && (p.pips || 0) >= 2) aim(tank, 1);
+    else if (low.hp < low.maxHp * 0.55 && p.pips >= 25) aim(low, 1);
+    else if (low.hp < low.maxHp * 0.85 && p.pips >= 60) aim(low, 1);
+    else if (W === 'shield' && tank && tank.armor < 100 && p.pips >= 60) aim(tank, 1);
     else if (boss.alive) attack(boss);
     if (inp.ability >= 0) b.think = 0.2 + S.rng() * 0.4;
     return inp;
@@ -1789,7 +1845,7 @@
         return {
           role: p.role, human: p.human ? 1 : 0, weapon: p.gear.weapon, boots: p.gear.boots, rig: p.gear.rig, implant: p.gear.implant, util: p.gear.util,
           dmg: Math.round(q.dmg || 0), heal: Math.round(q.heal || 0), taken: Math.round(q.taken || 0),
-          deaths: q.deaths || 0, crit: q.hits ? Math.round(q.crits / q.hits * 100) : 0, shieldDmg: Math.round(q.shield || 0), alive: p.alive ? 1 : 0,
+          deaths: q.deaths || 0, crit: q.hits ? Math.round(q.crits / q.hits * 100) : 0, shieldDmg: Math.round(q.shield || 0), ults: q.ults || 0, alive: p.alive ? 1 : 0,
           // How this seat moved: average seconds a direction was held, share of the fight spent moving,
           // and average seconds spent standing in a red zone each time one caught you.
           move: q.liveT > 5 ? { hold: r2(q.holdN ? q.holdSum / q.holdN : 0), moving: Math.round(q.mvT / q.liveT * 100), red: r2(q.redN ? q.redSum / q.redN : 0), reds: q.redN } : null
@@ -1825,7 +1881,7 @@
       vengeance: function () { out.push(['Rage ' + Math.round(p.rage || 0), (p.rage || 0) >= 100]); },
       rampage: function () { out.push(['Rampage x' + (p.rampage || 0), (p.rampage || 0) >= 8]); },
       opportunist: function () { timed(p.opp, 'Thrill +30%', 'Thrill Seeker: dodge late'); },
-      counter: function () { timed(p.counter, 'Counterstrike +40%', 'Counterstrike: interrupt'); },
+      counter: function () { timed(p.counter, 'Counterstrike +40%', 'Counterstrike: get hit'); },
       spree: function () { out.push([(p.spree || 0) > 0 ? 'Spree x' + p.spree + ' +' + p.spree * 8 + '%' : 'Spree: land a highlight', (p.spree || 0) > 0]); },
       defib: function () { out.push([p.defibUsed ? 'Defibrillator spent' : 'Defibrillator charged', !p.defibUsed]); },
       livefire: function () { out.push(['Live Fire: crit 15%', true]); }
@@ -1843,7 +1899,7 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.10.0';
+  var VERSION = '0.11.0';
 
   var api = {
     VERSION: VERSION,

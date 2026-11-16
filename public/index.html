@@ -134,6 +134,12 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 #pips i { width: 22px; height: 7px; background: var(--plate); border: 1px solid var(--line); transform: skewX(-20deg); }
 #pips i.on { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 6px rgba(255, 176, 0, 0.5); }
 #pips.full i.on { background: #fff; border-color: #fff; }
+#pips .resbar { display: block; width: 180px; height: 8px; background: var(--plate); border: 1px solid var(--line); transform: skewX(-20deg); overflow: hidden; }
+#pips .resbar u { display: block; height: 100%; transform-origin: left; background: var(--amber); }
+#pips.res-nanites .resbar u { background: var(--heal); } #pips.res-cap .resbar u { background: var(--shock); } #pips.res-heat .resbar u { background: #ff8a30; }
+#pips.redline .resbar u { background: var(--danger); } #pips.redline .resnum { color: var(--danger); }
+#pips.low .resnum { color: var(--danger); } #pips.full .resbar { border-color: #fff; }
+#armoryRes { color: var(--text) !important; }
 .ab.proc { border-color: #fff; border-bottom-color: #fff; background: rgba(60, 46, 10, 0.95); box-shadow: 0 0 16px rgba(255, 220, 120, 0.55); animation: duty 0.5s ease-in-out infinite alternate; }
 .ab.proc .tl { color: #fff; }
 .ab .meter { position: absolute; inset: auto 0 0 0; height: 3px; background: var(--shock); transform-origin: left; pointer-events: none; }
@@ -360,9 +366,9 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
         <h2>Controls</h2>
         <dl class="keys">
           <dt><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></dt><dd>Move. Moving cancels a cast. Abilities queue if you press them a moment early.</dd>
-          <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Your weapon. 1 builds pips (and sometimes procs), 2 spends them all at once, 3 lights up when you proc.</dd>
+          <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Your weapon. 1 is your basic attack, 2 is the heavy one and spends your class resource (Heat, Nanites, Capacitor or Revs), 3 lights up when you proc.</dd>
           <dt><kbd>4</kbd> <kbd>5</kbd></dt><dd>Your class utilities.</dd>
-          <dt><kbd>6</kbd> or <kbd>R</kbd></dt><dd>Ultimate, once it's charged. Save it for your hero moment.</dd>
+          <dt><kbd>6</kbd> or <kbd>R</kbd></dt><dd>Ultimate. Charges in about a minute; use it whenever you judge it right.</dd>
           <dt><kbd>Space</kbd></dt><dd>Your tier 1 talent's move, if it has one.</dd>
           <dt><kbd>Tab</kbd></dt><dd>Next enemy. Clicking a model or frame also targets it.</dd>
           <dt><kbd>F1</kbd> to <kbd>F4</kbd></dt><dd>Target a squad member. <kbd>Shift</kbd>+<kbd>1</kbd> to <kbd>4</kbd> does the same.</dd>
@@ -372,7 +378,7 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
       </div>
       <div>
         <h2>The fight</h2>
-        <p>Step out of red circles, his charge lane and wherever he is about to leap. Don't stand in front of him unless you're the Juggernaut. When he raises an overcharge shield, everyone hits him: break it in time and he staggers, miss it and the room gets shocked. Every so often he calls on one class by name for a <b>hero moment</b>, answered with that class's ultimate: the Juggernaut's Riot Wall (everyone hides behind it), the Wrecker's Counter-Slam, the Medic's Field Hospital and the Striker's Deadeye. At half health he calls drones and Bio Sludge. At a quarter, sections of floor start giving way.</p>
+        <p>Step out of red circles, his charge lane and wherever he is about to leap. Don't stand in front of him unless you're the Juggernaut. When he raises an overcharge shield, everyone hits him: break it in time and he staggers, miss it and the room gets shocked. Ultimates are yours to time: the Juggernaut's Riot Wall blocks his damage for everyone behind it, the Wrecker's Wrecking Slam staggers him, the Medic's Field Hospital saves a squad in trouble and the Striker's Deadeye is one huge shot. At half health he calls drones and Bio Sludge. At a quarter, sections of floor start giving way.</p>
         <details>
           <summary>Swap in your own meshes</summary>
           <div class="meshes" id="meshSlots"></div>
@@ -410,6 +416,7 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
       <h1 id="armoryRole" class="display"></h1>
       <p class="mono" id="armoryWeapons"></p>
       <p class="armtheme display" id="armoryTheme"></p>
+      <p class="mono" id="armoryRes"></p>
       <p class="armnote">Gear is your weapon. Each class has its own talent tree, Mists of Pandaria style: one pick per tier, swap freely between pulls. Every tier offers three playstyles: Aggressive takes risks for bursts of power, Steady holds ground and stays consistent, Squad makes the people around you stronger.</p>
       <p class="mono" id="armoryLean"></p>
     </div>
