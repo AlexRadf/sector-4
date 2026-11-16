@@ -73,9 +73,9 @@ async function realPlayers() {
     line(`## Real players (${site})`);
     line(`${d.finished} finished fights, ${d.winRate == null ? '-' : d.winRate + '%'} won, average clear ${fmt(d.avgWinSecs)}. Rows under 10 fights are too thin to judge.`);
     line();
-    line(`| Role | Fights | Win rate | Died in | Interrupts missed |`);
+    line(`| Role | Fights | Win rate | Died in | Crit rate |`);
     line(`|---|---:|---:|---:|---:|`);
-    d.byRole.forEach((r) => line(`| ${r.title} | ${r.n} | ${r.winRate == null ? '-' : r.winRate + '%'} | ${r.deathRate == null ? '-' : r.deathRate + '%'} | ${r.interruptMiss == null ? '-' : r.interruptMiss + '%'} |`));
+    d.byRole.forEach((r) => line(`| ${r.title} | ${r.n} | ${r.winRate == null ? '-' : r.winRate + '%'} | ${r.deathRate == null ? '-' : r.deathRate + '%'} | ${r.crit == null ? '-' : r.crit + '%'} |`));
     line();
     if (d.killedBy.length) line(`What finishes people off: ${d.killedBy.slice(0, 4).map((k) => `${k.label} ${k.share}%`).join(', ')}.`);
   } catch (e) {

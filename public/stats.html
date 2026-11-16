@@ -83,6 +83,7 @@ tr:last-child td { border-bottom: 0; }
   <section><h2>Talent tier 2  /  Survival</h2><div class="wrap"><table id="rigs"></table></div></section>
   <section><h2>Talent tier 3  /  Specialty</h2><div class="wrap"><table id="implants"></table></div></section>
   <section><h2>Talent tier 4  /  Utility</h2><div class="wrap"><table id="utils"></table></div></section>
+  <section><h2>Hero moments</h2><p class="note">How often each class answered the Foreman's call with their ultimate.</p><div class="wrap"><table id="heroes"></table></div></section>
   <section><h2>How people move  /  how bots move</h2><p class="note">The same three measures for both. The bots' hands get fitted to the people row once it has 10 or more seats.</p><div class="wrap"><table id="movement"></table></div></section>
   <div class="two">
     <section><h2>Where the damage comes from</h2><div class="bars" id="taken"></div></section>
@@ -125,7 +126,7 @@ tr:last-child td { border-bottom: 0; }
     { label: 'Avg damage', num: true, get: function (r) { return big(r.dmg); } },
     { label: 'Avg healing', num: true, get: function (r) { return big(r.heal); } },
     { label: 'Died in', num: true, get: function (r) { return pct(r.deathRate); } },
-    { label: 'Interrupts missed', num: true, get: function (r) { return pct(r.interruptMiss); } }
+    { label: 'Crit rate', num: true, get: function (r) { return r.crit == null ? '-' : r.crit + '%'; } }
   ];
   function pickTable(id, rows) {
     table(id, [{ label: 'Role', cell: roleCell }, { label: 'Pick', get: function (r) { return r.name; } }].concat(seatCols), rows);
@@ -153,7 +154,8 @@ tr:last-child td { border-bottom: 0; }
     var tiles = $('#tiles'); tiles.innerHTML = '';
     [['Fights finished', d.finished, d.abandoned + ' abandoned'], ['Win rate', pct(d.winRate), d.wins + ' clears'],
      ['Average clear', fmt(d.avgWinSecs), 'minutes on the floor'], ['Foreman left on wipes', d.avgBossLeftOnWipe == null ? '-' : d.avgBossLeftOnWipe + '%', 'how close the losses were'],
-     ['Reached phase two', pct(d.reachedPhase2), 'of finished fights']].forEach(function (t) {
+     ['Reached phase two', pct(d.reachedPhase2), 'of finished fights'],
+     ['Shields broken', pct(d.shieldsBroken), 'overcharge shields cracked in time']].forEach(function (t) {
       var x = el('div', 'tile'); x.appendChild(el('span', null, t[0])); x.appendChild(el('b', null, String(t[1]))); x.appendChild(el('small', null, t[2])); tiles.appendChild(x);
     });
     $('#seatNote').textContent = d.seatsCounted === 'people'
@@ -163,6 +165,8 @@ tr:last-child td { border-bottom: 0; }
     pickTable('#weapons', d.byWeapon); pickTable('#boots', d.byBoots); pickTable('#rigs', d.byRig); pickTable('#implants', d.byImplant); pickTable('#utils', d.byUtil || []);
     bars('#taken', d.damageTaken); bars('#killers', d.killedBy);
     var mv = d.movement || { people: {}, bots: {} }, secs = function (v) { return v == null ? '-' : v.toFixed(2) + 's'; };
+    table('#heroes', [{ label: 'Class', cell: roleCell }, { label: 'Called', num: true, get: function (r) { return r.called; } },
+      { label: 'Answered', num: true, get: function (r) { return r.done; } }, { label: 'Landed', num: true, cell: function (r) { return rateCell(r.rate); } }], d.heroes || []);
     table('#movement', [{ label: 'Who', get: function (r) { return r.who; } },
       { label: 'Seats', num: true, get: function (r) { return r.n || 0; } },
       { label: 'Holds a direction for', num: true, get: function (r) { return secs(r.hold); } },

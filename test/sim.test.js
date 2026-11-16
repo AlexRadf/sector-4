@@ -144,3 +144,109 @@ test('fight records keep movement measures and stats compare people with bots', 
   assert.strictEqual(a.movement.people.n, 1);
   assert.strictEqual(a.movement.bots.n, 3);
 });
+
+/* v0.10: rotations, the overcharge shield, ultimates and hero moments. */
+function arena(role, gear) {
+  const S = Sim.create({ humanRole: role, gear, humanAuto: false, seed: 4 }); S.countdown = 0;
+  return { S, p: Sim.ent(S, S.humanId), boss: Sim.ent(S, S.bossId) };
+}
+const press = (S, i, extra) => Sim.step(S, 1 / 30, Object.assign({ ability: i }, extra || {}));
+const idle = (S, secs) => { for (let i = 0; i < secs * 30; i++) Sim.step(S, 1 / 30, {}); };
+
+test('builders add pips, spenders cash them all in, and a spender with no pips is refused', () => {
+  const { S, p, boss } = arena('dps', { weapon: 'rockets' });
+  p.x = boss.x; p.z = boss.z - 15;
+  press(S, 1, { target: boss.id });
+  assert.ok(S.events.some((e) => e.type === 'error' && /pips/i.test(e.text)));
+  for (let n = 0; n < 3; n++) { p.gcd = 0; press(S, 0, { target: boss.id }); }
+  assert.strictEqual(p.pips, 3);
+  S.events.length = 0; p.gcd = 0; press(S, 1, { target: boss.id });
+  assert.strictEqual(p.pips, 0);
+  assert.strictEqual(S.events.filter((e) => e.type === 'dmg' && e.label === 'Volley').length, 3);
+});
+
+test('a proc lights the third button for a while and using it spends the proc', () => {
+  const { S, p, boss } = arena('melee', { weapon: 'chainsaw' });
+  p.x = boss.x; p.z = boss.z - 5;
+  press(S, 2, { target: boss.id });
+  assert.ok(S.events.some((e) => e.type === 'error' && /procced/.test(e.text)));
+  p.procT = Sim.PROC_WINDOW; S.events.length = 0;
+  press(S, 2, { target: boss.id });
+  assert.ok(S.events.some((e) => e.type === 'dmg' && e.label === 'Overdrive!'));
+  assert.strictEqual(p.procT, 0);
+});
+
+test('every hit varies, and crits are flagged', () => {
+  const { S, p, boss } = arena('dps');
+  const seen = new Set(); let crits = 0;
+  for (let i = 0; i < 300; i++) { const before = S.events.length; Sim.damageEnemy(S, p, boss, 100, 1, 'Test'); const e = S.events[before]; seen.add(e.amt); if (e.crit) crits++; }
+  assert.ok(seen.size > 20, 'damage should vary');
+  assert.ok(crits > 10 && crits < 70, `crits: ${crits} of 300`);
+});
+
+test('breaking the overcharge shield staggers the Foreman; letting it run shocks everyone', () => {
+  const { S, p, boss } = arena('dps');
+  boss.oshield = { hp: 300, max: 300, t: 0, dur: 9 };
+  for (let i = 0; i < 10 && boss.oshield; i++) Sim.damageEnemy(S, p, boss, 100, 1, 'Test');
+  assert.strictEqual(boss.oshield, null);
+  assert.ok(boss.stagger > 0);
+  const b = arena('dps');
+  b.boss.oshield = { hp: 9999, max: 9999, t: 8.9, dur: 9 };
+  const soft = Sim.players(b.S).filter((q) => q.role !== 'tank'), hp = soft.map((q) => q.hp);   // the tank's plating may soak it
+  idle(b.S, 0.2);
+  assert.ok(soft.every((q, i) => q.hp < hp[i]), 'everyone takes the pulse');
+});
+
+test('Riot Wall: standing behind the Juggernaut blocks the Demolition Blast', () => {
+  const { S, p, boss } = arena('tank');
+  p.ult = 100; p.x = boss.x; p.z = boss.z - 8;
+  const safe = Sim.players(S).find((q) => q.role === 'healer'), exposed = Sim.players(S).find((q) => q.role === 'dps');
+  safe.x = p.x; safe.z = p.z - 5; exposed.x = boss.x + 12; exposed.z = boss.z;
+  press(S, 5);
+  assert.ok(p.wall > 0);
+  const h0 = safe.hp, e0 = exposed.hp;
+  Sim.damagePlayer(S, S.bossId, safe, 500, 'Demolition Blast');
+  Sim.damagePlayer(S, S.bossId, exposed, 500, 'Demolition Blast');
+  assert.strictEqual(safe.hp, h0);
+  assert.ok(exposed.hp < e0);
+});
+
+test('Counter-Slam during a Haymaker cancels it and staggers the Foreman', () => {
+  const { S, p, boss } = arena('melee');
+  p.ult = 100; p.x = boss.x; p.z = boss.z - 5;
+  S.hero = { role: 'melee', t: 0 };
+  boss.cast = { name: 'Haymaker', t: 1, dur: 5, done: () => {} };
+  press(S, 5, { target: boss.id });
+  assert.strictEqual(boss.cast, null);
+  assert.ok(boss.stagger > 0);
+  assert.strictEqual(S.m.heroes.melee[1], 1);
+});
+
+test('Deadeye shoots the Heavy Rocket down; Field Hospital clears radiation', () => {
+  const a = arena('dps');
+  a.p.ult = 100;
+  a.S.missile = { x: 0, z: 0, x0: 0, z0: 0, tgt: Sim.players(a.S)[1].id, t: 2, dur: 7 };
+  a.S.hero = { role: 'dps', t: 0 };
+  press(a.S, 5);
+  assert.strictEqual(a.S.missile, null);
+  assert.strictEqual(a.S.m.heroes.dps[1], 1);
+  const b = arena('healer');
+  b.p.ult = 100; b.S.hero = { role: 'healer', t: 0, melt: true };
+  Sim.players(b.S).forEach((q) => { q.rad = 5; });
+  press(b.S, 5);
+  assert.ok(Sim.players(b.S).every((q) => !(q.rad > 0)));
+  assert.strictEqual(b.S.m.heroes.healer[1], 1);
+});
+
+test('collapsing floor sections only catch people standing on them', () => {
+  const g = { shape: 'sector', a0: 0, a1: Math.PI / 3, r0: 7, r1: 30 };
+  assert.ok(Sim.inTele(g, { x: Math.sin(0.5) * 15, z: Math.cos(0.5) * 15 }));
+  assert.ok(!Sim.inTele(g, { x: Math.sin(2) * 15, z: Math.cos(2) * 15 }));
+  assert.ok(!Sim.inTele(g, { x: Math.sin(0.5) * 4, z: Math.cos(0.5) * 4 }));
+});
+
+test('bots answer every kind of hero moment over a fight', () => {
+  const r = runFight({ seed: 5 });
+  for (const role of ['tank', 'healer', 'dps', 'melee']) assert.ok(r.heroes[role][0] >= 1, role + ' was never called');
+  assert.ok(Object.values(r.heroes).every(([called, done]) => done >= 1 || called === 0));
+});

@@ -128,7 +128,23 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 #myCast > i { background: var(--amber); }
 #myHp { height: 18px; }
 #myHp > i { background: linear-gradient(#5fe8a0, #2a9c62); }
-#actions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+#actions { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+/* Pips: the weapon's charge. Builders fill them, the spender empties them. */
+#pips { display: flex; gap: 5px; align-items: center; font-family: var(--font-mono); font-size: 11px; color: var(--dim); }
+#pips i { width: 22px; height: 7px; background: var(--plate); border: 1px solid var(--line); transform: skewX(-20deg); }
+#pips i.on { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 6px rgba(255, 176, 0, 0.5); }
+#pips.full i.on { background: #fff; border-color: #fff; }
+.ab.proc { border-color: #fff; border-bottom-color: #fff; background: rgba(60, 46, 10, 0.95); box-shadow: 0 0 16px rgba(255, 220, 120, 0.55); animation: duty 0.5s ease-in-out infinite alternate; }
+.ab.proc .tl { color: #fff; }
+.ab .meter { position: absolute; inset: auto 0 0 0; height: 3px; background: var(--shock); transform-origin: left; pointer-events: none; }
+.ab.ultready { border-color: var(--shock); border-bottom-color: var(--shock); box-shadow: 0 0 14px rgba(185, 140, 255, 0.55); }
+.ab.ultready .tl { color: var(--shock); }
+.ab.hero { border-color: #fff; background: rgba(50, 30, 80, 0.95); box-shadow: 0 0 20px rgba(185, 140, 255, 0.9); animation: duty 0.35s ease-in-out infinite alternate; }
+.ab.hero .tl { color: #fff; }
+#bossCast.shield > i { background: #7fd0ff; }
+#bossCast.shield { border-color: #7fd0ff; box-shadow: 0 0 12px rgba(127, 208, 255, 0.5); }
+#bossCast.hero { border-color: var(--shock); box-shadow: 0 0 14px rgba(185, 140, 255, 0.6); }
+#bossCast.hero > i { background: var(--shock); }
 .ab { position: relative; min-height: 64px; padding: 6px 8px; background: var(--steel); border: 1px solid var(--line); border-bottom: 3px solid var(--amber); text-align: left; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
 .ab:hover { border-color: var(--amber); }
 .ab .row { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; min-width: 0; }
@@ -179,6 +195,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .plate.boss .bar { width: 120px; }
 .float { position: absolute; font-family: var(--font-display); font-style: italic; font-weight: 800; font-size: 26px; text-shadow: 0 2px 0 #000; animation: rise 0.9s ease-out forwards; }
 .float.out { color: #fff; } .float.in { color: var(--danger); } .float.heal { color: var(--heal); }
+.float.crit { font-size: 38px; color: #ffd36b; } .float.crit.heal { color: #9dffc8; } .float.sh { color: #7fd0ff; }
 @keyframes rise { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -54px); } }
 
 /* ---------- briefing and debrief ---------- */
@@ -299,6 +316,7 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
     <div id="gearline"></div>
     <div id="myCast" class="bar"><i></i><span></span></div>
     <div id="myHp" class="bar"><i></i><span></span></div>
+    <div id="pips" aria-label="Pips"></div>
     <div id="actions"></div>
   </div>
 </div>
@@ -342,9 +360,10 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
         <h2>Controls</h2>
         <dl class="keys">
           <dt><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></dt><dd>Move. Moving cancels a cast. Abilities queue if you press them a moment early.</dd>
-          <dt><kbd>1</kbd> to <kbd>4</kbd></dt><dd>Use an ability on your target.</dd>
-          <dt><kbd>5</kbd></dt><dd>Interrupt. Press it when the Foreman's cast bar says it's your turn.</dd>
-          <dt><kbd>Space</kbd></dt><dd>Leap, if you wear Jump Boots.</dd>
+          <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Your weapon. 1 builds pips (and sometimes procs), 2 spends them all at once, 3 lights up when you proc.</dd>
+          <dt><kbd>4</kbd> <kbd>5</kbd></dt><dd>Your class utilities.</dd>
+          <dt><kbd>6</kbd> or <kbd>R</kbd></dt><dd>Ultimate, once it's charged. Save it for your hero moment.</dd>
+          <dt><kbd>Space</kbd></dt><dd>Your tier 1 talent's move, if it has one.</dd>
           <dt><kbd>Tab</kbd></dt><dd>Next enemy. Clicking a model or frame also targets it.</dd>
           <dt><kbd>F1</kbd> to <kbd>F4</kbd></dt><dd>Target a squad member. <kbd>Shift</kbd>+<kbd>1</kbd> to <kbd>4</kbd> does the same.</dd>
           <dt><kbd>M</kbd></dt><dd>Sound on or off.</dd>
@@ -353,7 +372,7 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
       </div>
       <div>
         <h2>The fight</h2>
-        <p>Step out of red circles and out of the Foreman's charge lane. Don't stand in front of him unless you're the Juggernaut. Overcharge is interrupted in turns by the Juggernaut, Striker and Wrecker, and the cast bar names whose turn it is. Nobody covers a missed turn unless that player is down. At half health he calls drones that hunt the Medic and coats people in Bio Sludge.</p>
+        <p>Step out of red circles, his charge lane and wherever he is about to leap. Don't stand in front of him unless you're the Juggernaut. When he raises an overcharge shield, everyone hits him: break it in time and he staggers, miss it and the room gets shocked. Every so often he calls on one class by name for a <b>hero moment</b>, answered with that class's ultimate: the Juggernaut's Riot Wall (everyone hides behind it), the Wrecker's Counter-Slam, the Medic's Field Hospital and the Striker's Deadeye. At half health he calls drones and Bio Sludge. At a quarter, sections of floor start giving way.</p>
         <details>
           <summary>Swap in your own meshes</summary>
           <div class="meshes" id="meshSlots"></div>

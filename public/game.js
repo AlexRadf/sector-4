@@ -65,6 +65,10 @@
       death: function () { tone(300, 0.6, 'sawtooth', 0.08, 40); },
       error: function () { tone(120, 0.08, 'square', 0.05); },
       tick: function () { tone(1000, 0.06, 'square', 0.05); },
+      crit: function () { tone(1800, 0.08, 'square', 0.06, 2600); noise(0.08, 0.12, 3000); },
+      proc: function () { [880, 1320].forEach(function (f, i) { tone(f, 0.12, 'triangle', 0.08, null, i * 0.07); }); },
+      hero: function () { [196, 262, 330, 392].forEach(function (f, i) { tone(f, 0.5, 'sawtooth', 0.07, null, i * 0.09); }); },
+      ult: function () { noise(0.6, 0.3, 400); [220, 330, 440, 660].forEach(function (f, i) { tone(f, 0.7, 'sawtooth', 0.06, null, i * 0.05); }); },
       good: function () { [392, 494, 587].forEach(function (f, i) { tone(f, 0.6, 'sawtooth', 0.05, null, i * 0.03); }); },
       bad: function () { [196, 233, 277].forEach(function (f, i) { tone(f, 0.7, 'sawtooth', 0.05, null, i * 0.03); }); }
     };
@@ -363,12 +367,13 @@
     role = r; running = false; showPlates(false);
     var k = Sim.KITS[r], host = $('#armorySlots');
     $('#armoryRole').textContent = k.title; $('#armoryRole').className = 'display role-' + r;
-    $('#armoryWeapons').textContent = 'Always carried: ' + k.utils.map(function (a) { return a.name; }).join(', ') + ', Interrupt';
+    $('#armoryWeapons').textContent = 'Always carried: ' + k.utils.map(function (a) { return a.name; }).join(', ') + '. Ultimate: ' + k.ult.name;
     $('#armoryGo').textContent = armoryCtx === 'lobby' ? 'Back to squad' : 'Clock in as ' + k.title;
     $('#armoryBack').style.display = armoryCtx === 'lobby' ? 'none' : '';
     host.innerHTML = '';
     var weaponItems = k.weapons.map(function (w) {
-      return { id: w.id, name: w.name, desc: w.pitch, list: w.abilities.map(function (a, i) { return (i + 1) + '  ' + a.name + (a.cd ? ' (' + a.cd + 's)' : '') + (a.cast ? ', ' + a.cast + 's cast' : ''); }) };
+      var tag = { build: 'builds', spend: 'spends', proc: 'proc' };
+      return { id: w.id, name: w.name, desc: w.pitch, list: w.abilities.map(function (a, i) { return (i + 1) + '  ' + a.name + '  /  ' + tag[a.role] + (a.cast ? ', ' + a.cast + 's cast' : ''); }) };
     });
     var tree = Sim.TALENTS[r];
     $('#armoryTheme').textContent = tree.theme; $('#armoryTheme').className = 'armtheme display role-' + r;
@@ -430,7 +435,7 @@
       };
       card.appendChild(el('div', 'kit-w', 'Weapon, pick one in the armory'));
       k.weapons.forEach(function (w) { var d = el('p', 'kit-opt'); d.appendChild(el('b', null, w.name + '. ')); d.appendChild(document.createTextNode(w.pitch)); card.appendChild(d); });
-      addList('Always carried', k.utils.concat([Sim.KICK]), 3);
+      addList('Always carried', k.utils.concat([k.ult]), 4);
       var b = el('button', 'go', 'Gear up as ' + k.title); b.type = 'button';
       b.addEventListener('click', function () { openArmory(r); });
       card.appendChild(b); host.appendChild(card);
@@ -458,9 +463,14 @@
       var row = el('span', 'row'), tl = el('span', 'tl'); row.appendChild(el('span', 'k', String(i + 1))); row.appendChild(tl); b.appendChild(row);
       b.appendChild(el('span', 'n display', a.name));
       var cool = el('span', 'cool'), sec = el('span', 'sec display'); b.appendChild(cool); b.appendChild(sec);
+      var meter = null; if (a.role === 'ult') { meter = el('span', 'meter'); b.appendChild(meter); }
       b.addEventListener('click', function () { input.ability = i; });
-      acts.appendChild(b); hud.abs.push({ a: a, el: b, cool: cool, sec: sec, tl: tl, state: '' });
+      acts.appendChild(b); hud.abs.push({ a: a, el: b, cool: cool, sec: sec, tl: tl, meter: meter, state: '' });
     });
+    var pips = $('#pips'); pips.innerHTML = ''; hud.pips = [];
+    pips.appendChild(el('span', null, 'PIPS'));
+    for (var n = 0; n < Sim.PIP_MAX; n++) { var pi = el('i'); pips.appendChild(pi); hud.pips.push(pi); }
+    hud.pipState = -1;
   }
   function setBar(fill, frac) { fill.style.transform = 'scaleX(' + Math.max(0, Math.min(1, frac)).toFixed(3) + ')'; }
   function fmtTime(t) { t = Math.max(0, Math.floor(t)); return Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2); }
@@ -479,10 +489,23 @@
     $('#bossHp > span').textContent = Math.ceil(boss.hp) + '  /  ' + Math.round(boss.hp / boss.maxHp * 100) + '%';
     $('#phaseTag').textContent = S.enraged ? 'OVERTIME' : 'PHASE ' + S.phase;
     var bc = $('#bossCast');
-    if (boss.cast) { bc.classList.add('on'); setBar(bc.firstElementChild, boss.cast.t / boss.cast.dur); var on = boss.cast.assigned != null ? Sim.ent(S, boss.cast.assigned) : null;
-      bc.lastElementChild.textContent = boss.cast.name.toUpperCase() + (boss.cast.interruptible ? '  /  INTERRUPT: ' + (on ? (on === human && !watching ? 'YOU, PRESS 5' : on.name) : 'ANYONE') : '  /  GET CLEAR');
-      bc.classList.toggle('mine', !!on && on === human && !watching); }
-    else bc.classList.remove('on');
+    var HERO_ANSWER = { 'Demolition Blast': ['tank', 'GET BEHIND THE JUGGERNAUT'], Haymaker: ['melee', 'WRECKER: COUNTER-SLAM'], Meltdown: ['healer', 'MEDIC: FIELD HOSPITAL'] };
+    if (boss.oshield) {
+      bc.className = 'bar on shield'; setBar(bc.firstElementChild, boss.oshield.hp / boss.oshield.max);
+      bc.lastElementChild.textContent = 'OVERCHARGE SHIELD ' + Math.ceil(boss.oshield.hp) + '  /  BREAK IT: ' + Math.max(0, Math.ceil(boss.oshield.dur - boss.oshield.t)) + 'S';
+    } else if (boss.stagger > 0) {
+      bc.className = 'bar on'; setBar(bc.firstElementChild, boss.stagger / 5);
+      bc.lastElementChild.textContent = 'STAGGERED  /  EVERYTHING YOU HAVE';
+    } else if (S.missile) {
+      var mt = Sim.ent(S, S.missile.tgt);
+      bc.className = 'bar on hero' + (human.role === 'dps' && !watching ? ' mine' : ''); setBar(bc.firstElementChild, S.missile.t / S.missile.dur);
+      bc.lastElementChild.textContent = 'HEAVY ROCKET ON ' + (mt ? mt.name : '?') + '  /  STRIKER: DEADEYE';
+    } else if (boss.cast) {
+      var ha = HERO_ANSWER[boss.cast.name];
+      bc.className = 'bar on' + (ha ? ' hero' : '') + (ha && ha[0] === human.role && !watching ? ' mine' : '');
+      setBar(bc.firstElementChild, boss.cast.t / boss.cast.dur);
+      bc.lastElementChild.textContent = boss.cast.name.toUpperCase() + '  /  ' + (ha ? ha[1] : 'GET CLEAR');
+    } else bc.className = 'bar';
     var left = Sim.TUNE.enrageAt - S.t, ot = $('#overtime');
     ot.textContent = S.enraged ? 'THE FOREMAN IS ON OVERTIME' : 'OVERTIME IN ' + fmtTime(left);
     ot.className = left < 45 ? 'hot' : '';
@@ -491,7 +514,7 @@
     hud.party.forEach(function (h) {
       var p = h.p; setBar(h.fill, p.hp / p.maxHp);
       var aggro = Sim.enemies(S).some(function (e) { return e.target === p.id; });
-      var bcast = Sim.ent(S, S.bossId).cast, onKick = !!(bcast && bcast.interruptible && bcast.assigned === p.id);
+      var onKick = S.hero && S.hero.role === p.role;
       var st = (p === human && watching ? 'f' : '') + (p.alive ? '' : 'd') + (human.target === p.id ? 's' : '') + (p.sludge > 0 ? 'g' : '') + (p.belt > 0 ? 'b' : '') + (aggro ? 'a' : '') + (p.amp > 0 ? 'm' : '') + (p.armor > 0 ? 'r' : '') + (p.adren > 0 ? 'n' : '') + (p.hot > 0 ? 'h' : '') + (p.pump > 0 ? 'p' : '') + (onKick ? 'k' : '');
       if (st !== h.state) {
         h.state = st;
@@ -499,7 +522,7 @@
         h.chips.innerHTML = '';
         if (!p.alive) h.chips.appendChild(el('span', 'chip aggro', 'DOWN'));
         if (aggro && p.alive) h.chips.appendChild(el('span', 'chip aggro', 'AGGRO'));
-        if (onKick) h.chips.appendChild(el('span', 'chip kick', 'INTERRUPT'));
+        if (onKick) h.chips.appendChild(el('span', 'chip kick', 'HERO'));
         if (p.sludge > 0) h.chips.appendChild(el('span', 'chip sludge', 'SLUDGE'));
         if (p.belt > 0) h.chips.appendChild(el('span', 'chip belt', 'BELT'));
         if (p.armor > 0) h.chips.appendChild(el('span', 'chip belt', 'ARMOR'));
@@ -556,27 +579,34 @@
       if (cd > g) frac = cd / h.a.cd; else if (g > 0) frac = g / Sim.GCD;
       h.cool.style.height = (frac * 100).toFixed(0) + '%';
       h.sec.textContent = cd > 1.5 ? Math.ceil(cd) : '';
-      var u = Sim.usable(S, human, i), label = '', duty = false;
-      if (h.a.id === 'kick') {
-        var bc0 = Sim.ent(S, S.bossId).cast;
-        if (bc0 && bc0.interruptible && bc0.assigned != null) {
-          var who = Sim.ent(S, bc0.assigned);
-          duty = bc0.assigned === human.id;
-          label = duty ? 'YOUR TURN' : (who ? who.name + "'S TURN" : '');
-        }
+      var u = Sim.usable(S, human, i), label = '', duty = false, glow = '';
+      if (h.a.role === 'ult') {
+        var full = (human.ult || 0) >= 100;
+        if (h.meter) h.meter.style.transform = 'scaleX(' + Math.min(1, (human.ult || 0) / 100).toFixed(2) + ')';
+        duty = full && !!S.hero && S.hero.role === human.role;
+        label = duty ? 'HERO MOMENT' : full ? 'READY' : Math.floor(human.ult || 0) + '%';
+        glow = duty ? 'hero' : full ? 'ultready' : '';
       }
+      else if (h.a.role === 'proc' && human.procT > 0) { label = 'PROC ' + Math.ceil(human.procT) + 's'; glow = 'proc'; }
+      else if (h.a.role === 'spend' && u.state !== 'range') label = (human.pips || 0) + ' PIPS';
       else if (u.state === 'range') label = 'OUT OF RANGE';
       else if (u.behind) label = 'BEHIND +50%';
       else if (h.a.kind === 'friend' && u.tgt) label = u.tgt.id === human.id ? 'ON YOU' : 'ON ' + u.tgt.name;
       else if (h.a.cast > 0 && human.moving && u.state === 'ok' && human.gear.boots !== 'mag' && !(human.momentum > 0 && human.gear.boots === 'stim')) label = 'STAND STILL';
-      var st = u.state + label + duty;
+      var st = u.state + label + glow;
       if (st !== h.state) {
         h.state = st; h.tl.textContent = label;
-        h.el.classList.toggle('duty', duty);
+        ['proc', 'ultready', 'hero'].forEach(function (c) { h.el.classList.toggle(c, glow === c); });
         h.el.classList.toggle('oor', u.state === 'range' || label === 'STAND STILL');
-        h.el.classList.toggle('na', u.state === 'notarget' || u.state === 'dead' || u.state === 'idle');
+        h.el.classList.toggle('na', u.state === 'notarget' || u.state === 'dead' || u.state === 'idle' || (u.state === 'locked' && !glow));
       }
     });
+    var pipN = human.pips || 0;
+    if (hud.pips && pipN !== hud.pipState) {
+      hud.pipState = pipN;
+      hud.pips.forEach(function (pi, n) { pi.classList.toggle('on', n < pipN); });
+      $('#pips').classList.toggle('full', pipN >= Sim.PIP_MAX);
+    }
     var danger = human.alive && S.telegraphs.some(function (g) { return Sim.inTele(g, human); });
     $('#hud').classList.toggle('danger', danger);
     if (toastT > 0) { toastT -= 1 / 60; if (toastT <= 0) $('#toast').textContent = ''; }
@@ -648,7 +678,10 @@
           var dst = Sim.ent(S, ev.dst);
           if (stats[ev.src] && (!dst || dst.kind === 'enemy')) stats[ev.src].dmg += ev.amt;
           if (stats[ev.dst]) stats[ev.dst].taken += ev.amt;
-          if (ev.src === human.id) floatText(ev.dst, String(ev.amt) + (/!$/.test(ev.label) ? '!' : ''), 'out');
+          if (ev.src === human.id) {
+            floatText(ev.dst, String(ev.amt) + (ev.crit || /!$/.test(ev.label) ? '!' : ''), 'out' + (ev.crit ? ' crit' : '') + (ev.sh ? ' sh' : ''));
+            if (ev.crit) Snd.play('crit');
+          }
           else if (ev.dst === human.id) {
             floatText(ev.dst, '-' + ev.amt, 'in'); Snd.play('hurt');
             if (ev.amt >= 250) hitFlash();
@@ -656,7 +689,7 @@
           break;
         case 'heal':
           if (stats[ev.src]) stats[ev.src].heal += ev.amt;
-          if (ev.amt > 0 && (ev.src === human.id || ev.dst === human.id)) floatText(ev.dst, '+' + ev.amt, 'heal');
+          if (ev.amt > 0 && (ev.src === human.id || ev.dst === human.id)) floatText(ev.dst, '+' + ev.amt + (ev.crit ? '!' : ''), 'heal' + (ev.crit ? ' crit' : ''));
           break;
         case 'beam': beamFx(ev.src, ev.dst, ev.fx); if (ev.src === human.id) Snd.play(FX_SOUND[ev.fx]); break;
         case 'fx':
@@ -672,6 +705,10 @@
           else if (ev.fx === 'opportunist') { ringFx(x, z, 0.5, 4, 0xff4a36, 0.5); if (ev.src === human.id && !watching) { announce('OPPORTUNIST', 'good', true); Snd.play('challenge'); } }
           else if (ev.fx === 'lifeline') { ringFx(x, z, 0.5, 4, 0x4fd88f, 0.6); if (ev.src === human.id && !watching) announce('LIFELINE', 'good', true); }
           else if (ev.fx === 'combo') { ringFx(x, z, 1, 6, 0xd9b8ff, 0.4); Snd.play('combo'); }
+          else if (ev.fx === 'wall' || ev.fx === 'hospital') { ringFx(x, z, 0.5, ev.fx === 'wall' ? 14 : 40, ev.fx === 'wall' ? 0xffb000 : 0x4fd88f, 0.9); Snd.play('ult'); }
+          else if (ev.fx === 'oshield') { ringFx(x, z, 6, 3, 0x7fd0ff, 0.6); Snd.play('alarm'); }
+          else if (ev.fx === 'shieldbreak') { ringFx(x, z, 3, 12, 0x7fd0ff, 0.7); ringFx(x, z, 2, 8, 0xffffff, 0.4); Snd.play('boom'); }
+          else if (ev.fx === 'leap') { ringFx(x, z, 1, 9, 0xff8a30, 0.6); Snd.play('boom'); hitFlash(); }
           if (ev.fx === 'barrage') Snd.play('alarm');
           if (ev.fx === 'flak') ringFx(x, z, 1, 8, 0xffb000, 0.35);
           else if (ev.fx === 'challenge') ringFx(x, z, 1, 30, 0xff4a36, 0.6);
@@ -682,6 +719,14 @@
         case 'boom': Snd.play('boom'); ringFx(ev.x, ev.z, 0.5, ev.r, 0xff7a30, 0.5); ringFx(ev.x, ev.z, 0.2, ev.r * 0.6, 0xffe0a0, 0.3); break;
         case 'blink': if (ev.id === human.id) Snd.play(ev.fx === 'dash' ? 'saw' : 'trans'); v = views[ev.id]; if (v) { ringFx(ev.fromX, ev.fromZ, 0.3, 2.5, 0xb98cff, 0.4); var e = Sim.ent(S, ev.id); v.g.position.set(e.x, 0, e.z); ringFx(e.x, e.z, 2.5, 0.3, 0xb98cff, 0.4); } break;
         case 'proc': procFx(ev); break;
+        case 'procready':
+          v = views[ev.id];
+          if (v) ringFx(v.g.position.x, v.g.position.z, 0.3, 3, ROLE_COLOR[ev.role] || 0xffffff, 0.35);
+          if (ev.id === human.id && !watching) { Snd.play('proc'); logLine(ev.name + ' is ready. Press 3.'); }
+          break;
+        case 'hero': if (ev.role === human.role) Snd.play('hero'); break;
+        case 'collapse': Snd.play('boom'); hitFlash(); break;
+        case 'missiledown': Snd.play('boom'); ringFx(ev.x, ev.z, 0.5, 6, 0xffd36b, 0.6); ringFx(ev.x, ev.z, 0.2, 3, 0xffffff, 0.4); break;
         case 'revive':
           v = views[ev.id]; if (v) { ringFx(v.g.position.x, v.g.position.z, 4, 0.3, ROLE_COLOR.healer, 0.8); ringFx(v.g.position.x, v.g.position.z, 0.3, 6, 0xffffff, 0.4); }
           Snd.play('combo'); break;
@@ -691,7 +736,7 @@
           if (ev.id === human.id && !watching) { announce('YOUR INTERRUPT', 'neutral', true); Snd.play('alarm'); }
           break;
         case 'absorb':
-          if (ev.id === human.id) { floatText(ev.id, 'PLATED ' + ev.amt, 'heal'); Snd.play('belt'); }
+          if (ev.id === human.id) { floatText(ev.id, (ev.wall ? 'WALLED ' : 'PLATED ') + ev.amt, 'heal'); Snd.play('belt'); }
           v = views[ev.id]; if (v) ringFx(v.g.position.x, v.g.position.z, 0.5, 2.5, 0xffb000, 0.4);
           break;
         case 'knock': if (ev.id === human.id) hitFlash(); break;
@@ -716,13 +761,15 @@
       if (e.type === 'drone') v.holder.position.y = 0.5 + Math.sin(S.t * 3 + e.id) * 0.2;
       v.ring.visible = human.target === e.id && e.alive;
       if (v.ring.visible) v.ring.material.color.setHex(e.kind === 'player' ? 0x4fd88f : 0xff4a36);
-      v.aura.visible = e.kind === 'player' && e.alive && (e.belt > 0 || e.sludge > 0);
-      if (v.aura.visible) v.aura.material.color.setHex(e.belt > 0 ? 0xffb000 : 0x9be25a);
+      v.aura.visible = e.kind === 'player' && e.alive && (e.belt > 0 || e.sludge > 0 || e.dome > 0 || e.rad > 0);
+      if (v.aura.visible) v.aura.material.color.setHex(e.dome > 0 ? 0x4fd88f : e.rad > 0 ? 0xd4ff3a : e.belt > 0 ? 0xffb000 : 0x9be25a);
+      if (e.type === 'boss') v.holder.rotation.z = e.stagger > 0 ? 0.22 * Math.sin(S.t * 9) : 0;
       var pt = project(v.g.position.x, entHeight(e) + 0.5, v.g.position.z);
       if (pt) { v.plate.style.display = ''; v.plate.style.left = pt.x + 'px'; v.plate.style.top = pt.y + 'px'; setBar(v.fill, e.hp / e.maxHp); }
       else v.plate.style.display = 'none';
     });
     for (var id in views) if (!seen[id]) dropView(id);
+    syncSpecials();
 
     var tseen = {};
     S.telegraphs.forEach(function (g) {
@@ -740,6 +787,15 @@
         m.position.set((g.x1 + g.x2) / 2, 0.09, (g.z1 + g.z2) / 2); m.rotation.y = Math.atan2(g.x2 - g.x1, g.z2 - g.z1);
         fxRoot.add(m); teleViews[g.id] = m;
       }
+      if (!m && g.shape === 'sector') {
+        // A floor section: our angles run from +z towards +x; three's ring theta runs from +x, so shift by a quarter turn.
+        m = new THREE.Group();
+        var th0 = g.a0 - Math.PI / 2, thl = g.a1 - g.a0;
+        var sb = new THREE.Mesh(new THREE.RingGeometry(g.r0, g.r1, 40, 1, th0, thl), new THREE.MeshBasicMaterial({ color: 0xff4a36, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }));
+        var se = new THREE.Mesh(new THREE.RingGeometry(g.r0, g.r0 + 0.25, 40, 1, th0, thl), new THREE.MeshBasicMaterial({ color: 0xff4a36, side: THREE.DoubleSide }));
+        se.position.z = 0.02; m.add(sb); m.add(se); m.fill = sb; m.sector = true;
+        m.rotation.x = -Math.PI / 2; m.position.y = 0.08; fxRoot.add(m); teleViews[g.id] = m;
+      }
       if (!m) {
         m = new THREE.Group();
         var base = new THREE.Mesh(new THREE.CircleGeometry(g.r, 40), new THREE.MeshBasicMaterial({ color: 0xff4a36, transparent: true, opacity: 0.22, depthWrite: false }));
@@ -749,7 +805,12 @@
         m.rotation.x = -Math.PI / 2; m.position.set(g.x, 0.08, g.z); fxRoot.add(m); teleViews[g.id] = m;
       }
       var s = Math.max(0.01, g.t / g.dur);
-      if (g.shape === 'line') m.fill.scale.set(s, 1, 1); else m.fill.scale.set(s, s, 1);
+      if (m.sector) {
+        if (g.down) { m.fill.material.color.setHex(0x2a0806); m.fill.material.opacity = 0.85; }
+        else m.fill.material.opacity = 0.15 + 0.45 * Math.min(1, s);
+      }
+      else if (g.shape === 'line') m.fill.scale.set(s, 1, 1); else m.fill.scale.set(s, s, 1);
+      if (g.leap && !m.tinted) { m.tinted = true; m.children.forEach(function (c) { if (c.material) c.material.color.setHex(0xff8a30); }); }
     });
     for (var t in teleViews) if (!tseen[t]) { fxRoot.remove(teleViews[t]); delete teleViews[t]; }
 
@@ -834,6 +895,44 @@
 
   function setMute(m) { $('#mute').textContent = m ? 'Sound off' : 'Sound on'; $('#mute').setAttribute('aria-pressed', m ? 'false' : 'true'); }
 
+  /* Things that aren't entities: the overcharge bubble, Riot Walls and their shelter, the Heavy Rocket. */
+  var special = { walls: {} };
+  function syncSpecials() {
+    var boss = Sim.ent(S, S.bossId), bv = boss && views[boss.id];
+    if (!special.bubble) {
+      special.bubble = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0x7fd0ff, transparent: true, opacity: 0.22, depthWrite: false }));
+      special.rocket = new THREE.Mesh(new THREE.SphereGeometry(0.6, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffd36b }));
+      fxRoot.add(special.bubble); fxRoot.add(special.rocket);
+    }
+    special.bubble.visible = !!(boss && boss.alive && boss.oshield && bv);
+    if (special.bubble.visible) {
+      var rr = (boss.radius || 3.5) + 1.8; special.bubble.scale.set(rr, rr * 1.4, rr);
+      special.bubble.position.set(bv.g.position.x, 2.5, bv.g.position.z);
+      special.bubble.material.opacity = 0.12 + 0.18 * (boss.oshield.hp / boss.oshield.max);
+    }
+    special.rocket.visible = !!S.missile;
+    if (S.missile) special.rocket.position.set(S.missile.x, 3 + Math.sin(S.t * 10) * 0.2, S.missile.z);
+    var seenW = {};
+    Sim.players(S).forEach(function (p) {
+      if (!(p.wall > 0) || !p.alive || !boss || !boss.alive) return;
+      seenW[p.id] = 1;
+      var w = special.walls[p.id];
+      if (!w) {
+        w = new THREE.Group();
+        var pane = new THREE.Mesh(new THREE.PlaneGeometry(7, 4), new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }));
+        pane.position.set(0, 2, 2.2); w.add(pane);
+        // The shelter: a wedge on the floor behind the tank, away from the Foreman.
+        var shade = new THREE.Mesh(new THREE.CircleGeometry(14, 32, Math.PI / 4, Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x4fd88f, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }));
+        shade.rotation.x = -Math.PI / 2; shade.position.y = 0.07; w.add(shade);
+        fxRoot.add(w); special.walls[p.id] = w;
+      }
+      var pv2 = views[p.id] ? views[p.id].g.position : p;
+      w.position.set(pv2.x, 0, pv2.z);
+      w.rotation.y = Math.atan2(boss.x - pv2.x, boss.z - pv2.z);
+    });
+    for (var wid in special.walls) if (!seenW[wid]) { fxRoot.remove(special.walls[wid]); delete special.walls[wid]; }
+  }
+
   /* ---------- input ---------- */
   function cycleEnemy(dir) {
     var list = Sim.enemies(S); if (!list.length) return;
@@ -856,7 +955,8 @@
     if (/^Digit[1-4]$/.test(c) && ev.shiftKey) { var q = Sim.players(S)[+c[5] - 1]; if (q) input.target = q.id; return; }
     if (c === 'KeyM') { setMute(Snd.toggle()); return; }
     if (c === 'Space') { ev.preventDefault(); input.jump = true; return; }
-    if (/^Digit[1-5]$/.test(c)) { input.ability = +c[5] - 1; var h = hud.abs[input.ability]; if (h) { h.el.classList.add('flash'); setTimeout(function () { h.el.classList.remove('flash'); }, 120); } return; }
+    if (c === 'KeyR') c = 'Digit6';
+    if (/^Digit[1-6]$/.test(c)) { input.ability = +c[5] - 1; var h = hud.abs[input.ability]; if (h) { h.el.classList.add('flash'); setTimeout(function () { h.el.classList.remove('flash'); }, 120); } return; }
     if (c === 'Escape') { input.target = null; return; }
     if (c.indexOf('Arrow') === 0 || c === 'Space') ev.preventDefault();
     keys[c] = true;
