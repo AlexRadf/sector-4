@@ -169,7 +169,11 @@ test('Striker Capacitor: recharges by itself, the heavy shot drains 50', () => {
   p.x = boss.x; p.z = boss.z - 15; p.pips = 100;
   S.events.length = 0; press(S, 1, { target: boss.id });
   assert.ok(p.pips <= 60.5 && p.pips >= 49, String(p.pips));   // 50 spent, crits refund 10
-  assert.strictEqual(S.events.filter((e) => e.type === 'dmg' && e.label === 'Volley').length, 4);
+  assert.strictEqual(S.events.filter((e) => e.type === 'dmg' && /^Volley/.test(e.label)).length, 2, 'two rockets with no Lock-on');
+  p.pips = 100;
+  for (let n = 0; n < 3; n++) { p.gcd = 0; press(S, 0, { target: boss.id }); }
+  S.events.length = 0; p.gcd = 0; press(S, 1, { target: boss.id });
+  assert.strictEqual(S.events.filter((e) => e.type === 'dmg' && /^Volley/.test(e.label)).length, 5, 'three Lock-ons add three rockets');
   p.pips = 0; idle(S, 2);
   assert.ok(p.pips > 12, 'recharges');
 });
@@ -295,4 +299,26 @@ test('scripted hero moments still work when a boss switches them on', () => {
     const r = runFight({ seed: 5 });
     for (const role of ['tank', 'healer', 'dps', 'melee']) assert.ok(r.heroes[role][0] >= 1, role + ' was never called');
   } finally { Sim.TUNE.heroMoments = false; }
+});
+
+test('weapon signatures: Trick Shot every third tap, Steady Aim crit, Chainsaw bleed, Link tether', () => {
+  const a = arena('melee', { weapon: 'enforcers' });
+  a.p.x = a.boss.x; a.p.z = a.boss.z - 8;
+  for (let n = 0; n < 3; n++) { a.p.gcd = 0; press(a.S, 0, { target: a.boss.id }); }
+  const taps = a.S.events.filter((e) => e.type === 'dmg' && /Tap|Trick/.test(e.label));
+  assert.ok(taps[2].label === 'Trick Shot!' && taps[2].crit === 1);
+
+  const c = arena('melee', { weapon: 'chainsaw' });
+  c.p.x = c.boss.x; c.p.z = c.boss.z - 5; c.p.pips = 5;
+  press(c.S, 1, { target: c.boss.id });
+  assert.ok(c.boss.bleed > 8);
+
+  const l = arena('healer', { weapon: 'link' });
+  const ally = Sim.players(l.S).find((q) => q.role === 'tank');
+  l.p.x = l.boss.x; l.p.z = l.boss.z - 15; ally.hp = 500;
+  l.S.events.length = 0;
+  press(l.S, 1, { target: ally.id }); idle(l.S, 1.2);
+  assert.ok(l.p.tether && l.p.tether.id === ally.id);
+  ally.hp = 1000; l.p.gcd = 0; l.S.events.length = 0; press(l.S, 0, { target: l.boss.id });
+  assert.ok(l.S.events.some((e) => e.type === 'heal' && e.label === 'Tether'));
 });

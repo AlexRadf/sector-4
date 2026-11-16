@@ -4,6 +4,11 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.12.0 (2026-11-16)
+- Every weapon has its own rotation mechanic: Flak airburst, Hammer self-heal, Minigun ramp; Link tether, Bio Bloom scaling,
+  Shield refunds; Shock combo, Rocket lock-on, Sniper Steady Aim; Chainsaw bleed, Ripper returning blades, Enforcer Trick Shot.
+- Retuned: the Foreman's barrage, leap, overcharge and floor collapse hit harder; the overcharge shield is tougher (7,000).
+
 ## 0.11.0 (2026-11-16)
 - Ultimates are free-use: big buttons you press when you judge it right, not answers to a scripted call.
   Wrecking Slam staggers any target for 3s; Deadeye is 700 damage, five pips and a lit proc; Riot Wall and Field Hospital as before.
