@@ -74,11 +74,11 @@ function solo(role, gear) {
 function run(S, secs, inp) { for (let i = 0; i < secs * 30; i++) { Sim.step(S, 1 / 30, i === 0 && inp ? inp : {}); } }
 
 test('Riot Charge closes the gap to the target', () => {
-  const { S, p, boss } = solo('tank', { boots: 'charge' });
+  const { S, p, boss } = solo('tank', { boots: 'ram' });
   const before = Math.hypot(p.x - boss.x, p.z - boss.z);
   run(S, 0.1, { target: boss.id, jump: true });
   assert.ok(Math.hypot(p.x - boss.x, p.z - boss.z) < before - 5);
-  assert.ok(p.cds.leap > 9);
+  assert.strictEqual(p.charges, 0);
 });
 
 test('Medevac leaps to the most hurt ally and shields them', () => {
@@ -201,27 +201,57 @@ test('Flak Cannon: blasts load Ammo, Flak Screen spends it and cuts hits by 60%'
   assert.ok(h - p.hp <= 420 && h - p.hp >= 300, String(h - p.hp));
 });
 
-test('Impact Hammer: Recoil Strike heals for damage just taken', () => {
-  const { S, p, boss } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
-  p.x = boss.x; p.z = boss.z - 6; p.armor = 0;
-  Sim.damagePlayer(S, S.bossId, p, 900, 'Crusher');
-  const low = p.hp; p.pips = 50;
-  press(S, 2, { aim: Math.atan2(boss.x - p.x, boss.z - p.z) });
-  assert.ok(p.hp - low >= 250, 'healed ' + (p.hp - low));
-});
-
-test('Impact Hammer: a held smash hits harder than a tap, and only what is in front', () => {
+test('Impact Hammer: swing, swing, slam, and holding key 1 keeps the chain going', () => {
   const { S, p, boss } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
   p.x = boss.x; p.z = boss.z - 6;
   const face = Math.atan2(boss.x - p.x, boss.z - p.z);
-  const smashes = () => S.events.filter((e) => e.type === 'dmg' && /^Smash/.test(e.label) && e.dst === boss.id);
-  S.events.length = 0; press(S, 0, { aim: face });
-  const tap = smashes()[0].amt;
-  for (let i = 0; i < 4 * 30; i++) Sim.step(S, 1 / 30, { aim: face, hold: [i < 50, false] });
-  const full = smashes().map((e) => e.amt);
-  assert.ok(full.some((a) => a > tap * 2.5), `tap ${tap}, held ${full}`);
+  S.events.length = 0;
+  for (let i = 0; i < 3 * 30; i++) Sim.step(S, 1 / 30, { aim: face, hold: [true, false] });
+  const hits = S.events.filter((e) => e.type === 'dmg' && e.dst === boss.id && /^(Swing|Slam)/.test(e.label)).map((e) => e.label);
+  assert.ok(hits.length >= 4, hits.join(','));
+  assert.deepStrictEqual(hits.slice(0, 3), ['Swing', 'Swing', 'Slam!']);
   S.events.length = 0; p.gcd = 0; press(S, 0, { aim: face + Math.PI });
-  assert.strictEqual(smashes().length, 0, 'facing away misses');
+  assert.ok(!S.events.some((e) => e.type === 'dmg' && e.dst === boss.id), 'facing away misses');
+});
+
+test('Impact Hammer: Kinetic Shockwave hits everything down a lane in front of you', () => {
+  const { S, p, boss } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
+  p.x = boss.x; p.z = boss.z - 15; p.pips = 50;
+  const drone = { id: 998, kind: 'enemy', type: 'drone', x: p.x, z: p.z + 6, radius: 1, hp: 900, maxHp: 900, alive: true, threat: {}, target: null };
+  const aside = { id: 999, kind: 'enemy', type: 'drone', x: p.x + 9, z: p.z + 6, radius: 1, hp: 900, maxHp: 900, alive: true, threat: {}, target: null };
+  S.ents.push(drone, aside); S.events.length = 0;
+  press(S, 2, { aim: 0 });
+  const hit = new Set(S.events.filter((e) => e.type === 'dmg' && e.label === 'Shockwave').map((e) => e.dst));
+  assert.ok(hit.has(boss.id) && hit.has(998) && !hit.has(999));
+  assert.ok(p.pips <= 10.5);
+});
+
+test('Aegis Dome: nobody inside takes damage while it lasts', () => {
+  const { S, p, boss } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
+  p.ult = 100; p.x = 0; p.z = -10;
+  const inside = Sim.players(S).find((q) => q.role === 'healer'), outside = Sim.players(S).find((q) => q.role === 'dps');
+  inside.x = 3; inside.z = -10; outside.x = 20; outside.z = -10; inside.armor = 0; outside.armor = 0;
+  press(S, 5);
+  const h = [inside.hp, outside.hp];
+  Sim.damagePlayer(S, S.bossId, inside, 400, 'Rocket'); Sim.damagePlayer(S, S.bossId, outside, 400, 'Rocket');
+  assert.strictEqual(inside.hp, h[0]); assert.ok(outside.hp < h[1]);
+  idle(S, 5.5);
+  assert.strictEqual(S.domes.length, 0);
+});
+
+test('Riot Charge: every Juggernaut has it, Twin Thrusters holds two, Intercept shields an ally', () => {
+  const a = arena('tank', { weapon: 'flak', boots: 'twincharge' });
+  a.p.x = a.boss.x; a.p.z = a.boss.z - 22;
+  Sim.step(a.S, 1 / 30, { target: a.boss.id, jump: true });
+  assert.strictEqual(a.p.charges, 1);
+  a.p.x = a.boss.x; a.p.z = a.boss.z - 22;
+  Sim.step(a.S, 1 / 30, { target: a.boss.id, jump: true });
+  assert.strictEqual(a.p.charges, 0);
+  const b = arena('tank', { weapon: 'flak', boots: 'intercept' });
+  const ally = Sim.players(b.S).find((q) => q.role === 'healer');
+  ally.x = b.p.x + 30; ally.z = b.p.z; ally.armor = 0;
+  Sim.step(b.S, 1 / 30, { target: ally.id, jump: true });
+  assert.ok(Math.hypot(b.p.x - ally.x, b.p.z - ally.z) < 4 && ally.armor >= 250);
 });
 
 test('Impact Hammer: the barrier covers you and whoever is behind you, then breaks', () => {

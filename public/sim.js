@@ -57,19 +57,19 @@
           [{ id: 'flak', name: 'Flak Blast', kind: 'enemy', range: 8, desc: '75 to every enemy within 8m. Loads 15 Ammo, plus 10 per extra enemy.' },
            { id: 'shell', name: 'Flak Shell', kind: 'enemy', range: 25, cost: 30, desc: '30 Ammo. 190 at up to 25m and very high threat. Slows the target 4s. Pulls drones from range.' },
            { id: 'screen', name: 'Flak Screen', kind: 'self', range: 0, cost: 50, gcd: false, desc: '50 Ammo. For 3s every hit on you is cut by 60%, and each one sprays 100 shrapnel back. Time it for the Crusher.' }]),
-        TW('hammer', 'Impact Hammer', 'Aimed melee, Reinhardt-style. Hold 1 to wind up a smash across everything in front of you; hold 2 to raise an energy barrier that covers you and anyone behind you. You can\'t do both.',
+        TW('hammer', 'Impact Hammer', 'The plate-wearing mitigator. Aimed melee: swing, swing, slam across everything in front of you, and get the barrier between the boss and the squad when the big hit comes. No self-healing: you block, the Medic heals.',
           { id: 'kinetic', name: 'Kinetic', max: 100, start: 0, regen: -2, build: 0,
-            how: 'Kinetic. Smashes store 10 to 30 (more the longer the wind-up) and every hit you take stores 8. Recoil Strike spends 40 to heal you for what you just took. Your barrier has its own health (top right of the action bar).' },
-          [{ id: 'smash', name: 'Charged Smash', kind: 'aim', range: 6, hold: 'charge', desc: 'Hold to wind up (up to 1.5s), release to smash everything in a wide arc in front of you: 80 tapped, up to 330 fully charged. You move slower while winding up.' },
-           { id: 'ebarrier', name: 'Energy Barrier', kind: 'aim', range: 0, hold: 'channel', gcd: false, desc: 'Hold to raise a barrier facing where you aim. It blocks enemy hits on you and anyone behind you until its 1,800 health runs out. Regenerates while lowered; breaks for 5s if emptied. No smashing while it\'s up.' },
-           { id: 'recoil', name: 'Recoil Strike', kind: 'aim', range: 6, cost: 40, desc: '40 Kinetic. Hits the nearest enemy in front of you for 170 and heals you for 35% of the damage you took in the last few seconds (at least 6% of your health).' }],
-          { aim: true }),
+            how: 'Kinetic. Each swing stores 10, the slam 20, and every hit you take 8; it leaks away slowly. Spend 40 on a Kinetic Shockwave. Your barrier has its own health, shown on key 2.' },
+          [{ id: 'combo', name: 'Hammer Combo', kind: 'aim', range: 6, hold: 'repeat', desc: 'Swing, swing, slam. Hits everything in an arc in front of you: 95, 95, then a wider 230 slam. Hold or tap to keep the chain going; a 1.6s pause resets it.' },
+           { id: 'ebarrier', name: 'Energy Barrier', kind: 'aim', range: 0, hold: 'channel', gcd: false, desc: 'Hold to raise a barrier facing where you aim. It blocks enemy hits on you and anyone behind you until its 1,800 health runs out. Regenerates while lowered; breaks for 5s if emptied. No swinging while it\'s up.' },
+           { id: 'shockwave', name: 'Kinetic Shockwave', kind: 'aim', range: 20, cost: 40, desc: '40 Kinetic. Slam a wave along the ground in a straight line: 200 to everything in a 20m lane in front of you, high threat.' }],
+          { aim: true, ult: A({ id: 'aegis', name: 'Aegis Dome', kind: 'self', range: 0, gcd: false, role: 'ult', desc: 'Ultimate. A dome 9m across forms around you: nobody inside takes any damage for 5s. Buy the squad time.' }) }),
         TW('minigun', 'Minigun', 'Wild card. The hotter the barrels, the faster it fires. Vent the heat into a shield at the right moment: past 85 is a Perfect Vent, 100 jams the gun.',
           { id: 'spin', name: 'Barrel Heat', max: 100, start: 0, regen: -5, build: 12,
             how: 'Barrel Heat. Every burst adds 12 and fires faster the hotter you are. Vent turns heat into a shield; vent at 85 or more for a Perfect Vent (half again, and you keep half your heat). At 100 the gun jams for 3s.' },
           [{ id: 'spin', name: 'Minigun Burst', kind: 'enemy', range: 20, desc: 'Up to 80 depending on heat, high threat. Adds 12 heat and fires faster the hotter you are.' },
            { id: 'sweep', name: 'Barrel Sweep', kind: 'enemy', range: 20, cd: 8, desc: '120 to every enemy in a wide arc in front of you, high threat. Adds 20 heat.' },
-           { id: 'vent', name: 'Vent', kind: 'self', range: 8, needs: 30, gcd: false, desc: 'Needs 30 heat. Dumps it all into a shield of 6 per point (Perfect Vent above 85: half again) and scalds everything within 8m.' }])
+           { id: 'vent', name: 'Vent', kind: 'self', range: 8, needs: 30, gcd: false, desc: 'Needs 30 heat. Dumps it all into a shield of 8 per point (Perfect Vent above 85: half again) and scalds everything within 8m.' }])
       ],
       utils: [
         A({ id: 'challenge', name: 'Challenge', kind: 'enemy', range: 30, cd: 8, gcd: false, desc: 'Taunt your target: it attacks you for 3s and you jump to the top of its threat.' }),
@@ -167,11 +167,11 @@
   var TALENTS = {
     tank: {
       theme: 'Riot enforcer. Hold the line, punish anything that hits you, protect whoever is behind you.',
-      tiers: ['Stance', 'Armor', 'Enforcement', 'Command'],
+      tiers: ['Charge', 'Armor', 'Enforcement', 'Command'],
       boots: [
-        t('charge', 'aggressive', 'Riot Charge', 'Crash into the fight.', 'Space charges up to 25m into your enemy target (10s). Your next weapon hit within 3s does 30% more damage and threat.'),
-        t('mag', 'steady', 'Mag-Lock Soles', 'Plant your feet.', 'Stand still for 2s to Brace: casts 25% faster, 15% less damage taken, and charges can\'t knock you back. Moving breaks it.'),
-        t('escort', 'squad', 'Phalanx', 'Move as one.', 'You and every squad member within 8m of you move 20% faster.')
+        t('ram', 'aggressive', 'Battering Ram', 'Through them, not around them.', 'Riot Charge hits everything you plough through for 200 and high threat.'),
+        t('twincharge', 'steady', 'Twin Thrusters', 'Always have a way in.', 'Riot Charge holds two charges.'),
+        t('intercept', 'squad', 'Intercept', 'Go to whoever needs you.', 'Riot Charge reaches 40m, and with a squad member targeted it charges to them and gives them a 250 shield.')
       ],
       rig: [
         t('vengeance', 'aggressive', 'Vengeance', 'Take hits, hit back.', '20% of the damage you take is stored as Rage, up to 500. Your next weapon hit unleashes all of it as extra damage and threat.'),
@@ -268,7 +268,7 @@
   SLOTS.forEach(function (slot) { GEAR[slot] = {}; Object.keys(TALENTS).forEach(function (r) { GEAR[slot][r] = TALENTS[r][slot]; }); });
   /* What the bots take: a mix of styles, close to an average person's build. */
   var BOT_GEAR = {
-    tank: { weapon: 'hammer', boots: 'mag', rig: 'plate', implant: 'recharge', util: 'breaker' },
+    tank: { weapon: 'hammer', boots: 'twincharge', rig: 'plate', implant: 'recharge', util: 'breaker' },
     healer: { weapon: 'link', boots: 'mag', rig: 'lifeline', implant: 'overflow', util: 'supply' },
     dps: { weapon: 'rockets', boots: 'dodge', rig: 'pump', implant: 'spotter', util: 'breaker' },
     melee: { weapon: 'chainsaw', boots: 'escort', rig: 'pump', implant: 'flanker', util: 'breaker' }
@@ -291,7 +291,7 @@
        hold: seconds a key direction is held before re-deciding. aim: radians of error on a new direction.
        eightWay: WASD gives eight directions relative to the camera, not any angle. */
     hands: { holdMin: 0.12, holdMax: 0.34, aim: 0.22, release: 0.07, eightWay: true },
-    bossHp: 165000, bossMelee: 360, bossSwing: 2.0, cleaveMult: 0.7,
+    bossHp: 175000, bossMelee: 360, bossSwing: 2.0, cleaveMult: 0.7,
     barrageEvery: 12, barrageDelay: 2.6, barrageR: 6, barrageDmg: 660,
     // Overcharge shield: break it inside the window or the whole room takes the pulse. Breaking it staggers him.
     overEvery: 30, overShield: 7000, overWindow: 9, overDmg: 600, staggerDur: 4, staggerBonus: 1.3,
@@ -306,9 +306,10 @@
     collapseEvery: 13, collapseDelay: 3.0, collapseDur: 12, collapseDps: 240, collapseR0: 7,
     chargeEvery: 19, chargeDelay: 1.8, chargeW: 4.5, chargeDmg: 380,
     // Crusher: a telegraphed tank buster on whoever the Foreman is fighting. Mitigate it or eat most of your health.
-    // Impact Hammer: charge time for a full smash, barrier health and how it recovers.
-    smashCharge: 1.5, barrierHp: 1800, barrierRegen: 180, barrierRest: 1.5, barrierBreak: 5,
-    busterEvery: 15, busterCast: 2.5, busterDmg: 1050,
+    // Impact Hammer: combo pacing, Aegis Dome size, Riot Charge recharge, and how the barrier holds and recovers.
+    swingGcd: 0.6, slamGcd: 0.9, comboReset: 1.6, aegisR: 9, aegisDur: 5, chargeCd: 10,
+    barrierHp: 1800, barrierRegen: 180, barrierRest: 1.5, barrierBreak: 5,
+    busterEvery: 15, busterCast: 2.5, busterDmg: 1300,
     droneEvery: 32, droneHp: 1600, droneMelee: 90, droneSwing: 1.5,
     sludgeEvery: 15, sludgeDur: 12, sludgeTick: 75,
     enrageAt: 300, shiftEnd: 420
@@ -340,7 +341,7 @@
       return along <= 0.5 && along >= -9 && lat <= 4;
     })[0] || null;
   }
-  function abilitiesOf(p) { return p.kit.weapons[p.weapon].abilities.concat(p.kit.utils, [p.kit.ult]); }
+  function abilitiesOf(p) { var w = p.kit.weapons[p.weapon]; return w.abilities.concat(p.kit.utils, [w.ult || p.kit.ult]); }
   /* Riot Wall: standing in the Juggernaut's shadow (behind them, away from the Foreman, within 14m) blocks his damage. */
   function sheltered(S, q) {
     var boss = ent(S, S.bossId);
@@ -419,7 +420,7 @@
     var humans = opts.humans || (opts.humanRole ? [{ role: opts.humanRole, gear: opts.gear, name: 'YOU' }] : []);
     var S = {
       t: 0, phase: 1, result: null, enraged: false, countdown: 4,
-      ents: [], telegraphs: [], events: [], revives: [], nextId: 1,
+      ents: [], telegraphs: [], events: [], revives: [], domes: [], nextId: 1,
       m: { p: {}, taken: {}, killers: {}, shields: { raised: 0, broken: 0 }, heroes: { tank: [0, 0], healer: [0, 0], dps: [0, 0], melee: [0, 0] } },
       rng: makeRng(opts.seed || 12345),
       timers: { buster: 11, barrage: 8, over: 22, drone: 4, sludge: 7, charge: 13, leap: 30, collapse: 6, hero: 0 },
@@ -450,6 +451,7 @@
       };
       p.weapon = Math.max(0, kit.weapons.map(function (w) { return w.id; }).indexOf(p.gear.weapon));
       p.pips = resOf(p).start;
+      if (p.role === 'tank') p.charges = T(p, 'twincharge') ? 2 : 1;
       if (isHuman && S.humanId == null) S.humanId = p.id;
       S.ents.push(p);
     });
@@ -577,6 +579,11 @@
     if (p.belt > 0) amt = amt * 0.5;
     if (p.pump > 0) amt = amt * 0.75;
     if (braced(p)) amt = amt * 0.85;
+    if (srcId !== p.id && S.domes.some(function (d) { return Math.hypot(p.x - d.x, p.z - d.z) <= d.r; })) {
+      // Aegis Dome: nothing gets through while it lasts.
+      emit(S, { type: 'absorb', id: p.id, amt: Math.round(amt), barrier: 1 });
+      return;
+    }
     var BLOCKABLE = label !== 'Sludge' && label !== 'Collapse' && label !== 'Radiation';
     var bsrc = !guarded && BLOCKABLE ? ent(S, srcId) : null;
     var wallBy = bsrc ? barrierFor(S, p, bsrc) : null;
@@ -739,7 +746,7 @@
     else if ((ab.cost && (p.pips || 0) < ab.cost) || (ab.needs && (p.pips || 0) < ab.needs)) out.state = 'locked';
     else if (p.jam > 0 && (ab.id === 'spin' || ab.id === 'sweep')) out.state = 'locked';
     else if (ab.id === 'ebarrier' && p.barrierBroken > 0) out.state = 'locked';
-    else if (ab.id === 'smash' && p.barrierUp) out.state = 'locked';
+    else if ((ab.id === 'combo' || ab.id === 'shockwave') && p.barrierUp) out.state = 'locked';
     else if (ab.kind !== 'self' && ab.kind !== 'aim' && dist(p, tgt) > reach(p, ab) + (tgt.radius || 0)) out.state = 'range';
     else if ((p.cds[ab.id] || 0) > 0) out.state = 'cd';
     else out.state = 'ok';
@@ -762,7 +769,7 @@
     if ((ab.cost && (p.pips || 0) < ab.cost) || (ab.needs && (p.pips || 0) < ab.needs)) return fail(S, p, 'Not enough ' + resOf(p).name);
     if (p.jam > 0 && (ab.id === 'spin' || ab.id === 'sweep')) return fail(S, p, 'Minigun jammed');
     if (ab.id === 'ebarrier' && p.barrierBroken > 0) return fail(S, p, 'Barrier is broken');
-    if ((ab.id === 'smash' || ab.id === 'recoil') && p.barrierUp) return fail(S, p, 'Lower the barrier first');
+    if ((ab.id === 'combo' || ab.id === 'shockwave') && p.barrierUp) return fail(S, p, 'Lower the barrier first');
     if (ab.gcd && p.gcd > 0) return false;
     var tgt = resolveTarget(S, p, ab);
     if (!tgt) return fail(S, p, 'No target');
@@ -919,25 +926,36 @@
         emit(S, { type: 'fx', fx: 'guard', src: p.id });
         proc(S, p, 'screen', 'FLAK SCREEN');
         break;
-      case 'smash':
-        // Tapped from the action bar or a bot: a quick smash. Held: hammerHold sets p.smashPower first.
-        var pw = p.smashPower || 0; p.smashPower = 0;
-        var hitList = inCone(S, p, ab.range, 0.5);
-        emit(S, { type: 'fx', fx: 'smash', src: p.id, pw: Math.round(pw * 10) / 10 });
-        var rageAdd = T(p, 'vengeance') && p.rage >= 1 ? Math.round(p.rage) : 0;
-        if (rageAdd && hitList.length) p.rage = 0;
-        hitList.forEach(function (e, i) { damageEnemy(S, p, e, 80 + 250 * pw + (i === 0 ? rageAdd : 0), 6 + 2 * pw, pw >= 0.95 ? 'Smash!' : 'Smash'); });
-        p.pips = Math.min(resOf(p).max, (p.pips || 0) + 10 + 20 * pw);
-        p.gcd = Math.max(p.gcd, 0.7 + 0.3 * pw);
+      case 'combo':
+        // Swing, swing, slam. The chain resets after a pause.
+        if (S.t - (p.comboT == null ? -99 : p.comboT) > TUNE.comboReset) p.comboStep = 0;
+        var step = p.comboStep || 0, slam = step === 2;
+        var hitList = inCone(S, p, ab.range + (slam ? 1 : 0), slam ? 0.25 : 0.5);
+        emit(S, { type: 'fx', fx: 'smash', src: p.id, pw: slam ? 1 : 0.3 });
+        var rageAdd = T(p, 'vengeance') && p.rage >= 1 && hitList.length ? Math.round(p.rage) : 0;
+        if (rageAdd) p.rage = 0;
+        hitList.forEach(function (e, i) { damageEnemy(S, p, e, (slam ? 230 : 95) + (i === 0 ? rageAdd : 0), slam ? 8 : 6, slam ? 'Slam!' : 'Swing'); });
+        p.pips = Math.min(resOf(p).max, (p.pips || 0) + (slam ? 20 : 10));
+        p.comboStep = (step + 1) % 3; p.comboT = S.t;
+        p.gcd = slam ? TUNE.slamGcd : TUNE.swingGcd;
         break;
       case 'ebarrier':
         p.barrierHoldT = 1.2;   // a tap (bar click, bot) raises it briefly; holding the key keeps it up
         break;
-      case 'recoil':
-        emit(S, { type: 'fx', fx: 'smash', src: p.id, pw: 0.5 });
-        var rTgt = inCone(S, p, ab.range, 0.5)[0];
-        if (rTgt) damageEnemy(S, p, rTgt, 170, 8, 'Recoil Strike');
-        heal(S, p, p, Math.max(p.maxHp * 0.06, (p.recoil || 0) * 0.35), 'Recoil Strike');
+      case 'shockwave':
+        var fxw = Math.sin(p.facing), fzw = Math.cos(p.facing);
+        var lane = { x1: p.x, z1: p.z, x2: p.x + fxw * ab.range, z2: p.z + fzw * ab.range };
+        emit(S, { type: 'fx', fx: 'shockwave', src: p.id, x2: Math.round(lane.x2 * 10) / 10, z2: Math.round(lane.z2 * 10) / 10 });
+        enemies(S).forEach(function (e) {
+          var sd = segDist(e.x, e.z, lane);
+          if (sd.d <= 1.5 + (e.radius || 0) && ((e.x - p.x) * fxw + (e.z - p.z) * fzw) > -1) damageEnemy(S, p, e, 200, 8, 'Shockwave');
+        });
+        break;
+      case 'aegis':
+        S.domes.push({ id: S.nextId++, x: p.x, z: p.z, r: TUNE.aegisR, t: TUNE.aegisDur, by: p.id });
+        emit(S, { type: 'fx', fx: 'aegis', src: p.id });
+        proc(S, p, 'aegis', 'AEGIS DOME', 'all');
+        emit(S, { type: 'log', id: p.id, text: p.name + ' throws up an Aegis Dome. Get inside.', you: 'Aegis Dome up for 5s. Get the squad inside.' });
         break;
       case 'spin':
         emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'spin' });
@@ -956,7 +974,7 @@
         break;
       case 'vent':
         var heatNow = p.pips || 0, perfect = heatNow >= 85;
-        shieldUp(p, p, heatNow * 6 * (perfect ? 1.5 : 1), 900);
+        shieldUp(p, p, heatNow * 8 * (perfect ? 1.5 : 1), 1200);
         emit(S, { type: 'fx', fx: 'guard', src: p.id }); emit(S, { type: 'fx', fx: 'flak', src: p.id });
         enemies(S).forEach(function (e) { if (dist(p, e) <= ab.range + (e.radius || 0)) damageEnemy(S, p, e, heatNow * 2, 6, perfect ? 'Perfect Vent!' : 'Vent'); });
         p.pips = perfect ? heatNow / 2 : 0;
@@ -1187,7 +1205,7 @@
       if (typeof inp.aim === 'number' && isFinite(inp.aim)) p.facing = inp.aim;
       hammerHold(S, p, inp.hold || [], dt);
     }
-    if (inp.jump && (p.cds.leap || 0) <= 0) spaceTalent(S, p);
+    if (inp.jump && (p.role === 'tank' || (p.cds.leap || 0) <= 0)) spaceTalent(S, p);
     if (inp.ability != null && inp.ability >= 0) p.queued = { idx: inp.ability, t: 0.45 };
     if (p.queued) {
       if (tryUse(S, p, p.queued.idx)) p.queued = null;
@@ -1195,23 +1213,15 @@
     }
   }
 
-  /* Impact Hammer held inputs: hold[0] winds up a smash and releases it, hold[1] keeps the barrier up. */
+  /* Impact Hammer held inputs: hold[0] keeps the combo swinging, hold[1] keeps the barrier up. */
   function hammerHold(S, p, hold, dt) {
     if (p.barrier == null) p.barrier = TUNE.barrierHp;
     var wantBar = (!!hold[1] || p.barrierHoldT > 0) && !(p.barrierBroken > 0) && p.barrier > 0 && !p.cast;
-    if (wantBar && !p.barrierUp) { p.barrierUp = 1; p.charge = 0; p.charging = 0; emit(S, { type: 'fx', fx: 'barrierup', src: p.id }); }
+    if (wantBar && !p.barrierUp) { p.barrierUp = 1; emit(S, { type: 'fx', fx: 'barrierup', src: p.id }); }
     else if (!wantBar && p.barrierUp) { p.barrierUp = 0; p.barrierRestT = 0; }
     if (p.barrierUp) return;
-    if (hold[0]) {
-      if (!p.charging && p.gcd <= 0 && !p.cast) { p.charging = 1; p.charge = 0; }
-      if (p.charging) p.charge = Math.min(TUNE.smashCharge, (p.charge || 0) + dt);
-    } else if (p.charging) {
-      var power = (p.charge || 0) / TUNE.smashCharge;
-      p.charging = 0; p.charge = 0;
-      var ab = p.kit.weapons[p.weapon].abilities[0];
-      p.smashPower = power;
-      p.gcd = GCD; fire(S, p, ab, p);
-    }
+    // Holding key 1 keeps the combo going whenever the next swing is ready.
+    if (hold[0] && p.gcd <= 0 && !p.cast) tryUse(S, p, 0);
   }
   /* Bot hands. The bot brain decides where it wants to be every frame with perfect precision; a person doesn't.
      This sits between the two: it presses one of eight directions relative to a lazily following camera, holds it
@@ -1254,6 +1264,34 @@
     else if (tr.red > 0) { q.redSum += tr.red; q.redN++; tr.red = 0; }
   }
   /* Space does whatever this class's tier 1 talent says: Riot Charge, Stim Leap, Medevac or Dodge Jump. */
+  /* Riot Charge: every Juggernaut's gap closer on Space. Tier 1 talents change it (Ram, Twin Thrusters, Intercept).
+     Aimed weapons charge at whatever is in front of you; others at your target, or the Foreman. */
+  function riotCharge(S, p, ox, oz) {
+    if ((p.charges || 0) < 1) return;
+    var reachC = T(p, 'intercept') ? 40 : 25, ally = null, foe = null;
+    var t0 = p.target != null ? ent(S, p.target) : null;
+    if (T(p, 'intercept') && t0 && t0.kind === 'player' && t0 !== p && t0.alive) ally = t0;
+    if (!ally) {
+      if (aimWeapon(p)) foe = inCone(S, p, reachC, 0.85)[0] || null;
+      if (!foe && t0 && t0.kind === 'enemy' && t0.alive) foe = t0;
+      if (!foe) foe = ent(S, S.bossId);
+    }
+    var dest = ally || foe;
+    if (!dest || !dest.alive) return;
+    var dx = dest.x - p.x, dz = dest.z - p.z, l = Math.sqrt(dx * dx + dz * dz), stop = (dest.radius || 1) + 1.5;
+    if (l > reachC + (dest.radius || 0) || l <= stop) return;
+    var ex = dest.x - dx / l * stop, ez = dest.z - dz / l * stop;
+    if (T(p, 'ram')) {
+      var seg = { x1: p.x, z1: p.z, x2: ex, z2: ez };
+      enemies(S).forEach(function (e) { if (segDist(e.x, e.z, seg).d <= 2 + (e.radius || 0)) damageEnemy(S, p, e, 200, 8, 'Battering Ram'); });
+    }
+    p.x = ex; p.z = ez; clampArena(p); p.momentum = 3; p.still = 0; p.cast = null;
+    p.facing = Math.atan2(dx, dz);
+    p.charges -= 1;
+    if (ally) { shieldUp(ally, p, 250, 450); emit(S, { type: 'fx', fx: 'guard', src: ally.id }); }
+    emit(S, { type: 'blink', id: p.id, fromX: ox, fromZ: oz, fx: 'dash' });
+    emit(S, { type: 'fx', fx: 'charge', src: p.id });
+  }
   function spaceTalent(S, p) {
     var ox = p.x, oz = p.z, dir = function () { return p.moving ? [p.inMx, p.inMz] : [Math.sin(p.facing), Math.cos(p.facing)]; };
     var land = function (x, z, cd, momentum, fx) {
@@ -1263,16 +1301,7 @@
     };
     if (T(p, 'dodge')) { var d1 = dir(); land(p.x + d1[0] * 7, p.z + d1[1] * 7, 4, 2, 'leap'); return; }
     if (T(p, 'stim')) { var d2 = dir(); land(p.x + d2[0] * 9, p.z + d2[1] * 9, 8, 3, 'leap'); return; }
-    if (T(p, 'charge')) {
-      var foe = p.target != null ? ent(S, p.target) : null;
-      if (!foe || foe.kind !== 'enemy' || !foe.alive) foe = ent(S, S.bossId);
-      if (!foe || !foe.alive) return;
-      var dx = foe.x - p.x, dz = foe.z - p.z, l = Math.sqrt(dx * dx + dz * dz), stop = (foe.radius || 1) + 1.5;
-      if (l > 25 + (foe.radius || 0) || l <= stop) return;
-      land(foe.x - dx / l * stop, foe.z - dz / l * stop, 10, 3, 'dash');
-      p.facing = Math.atan2(dx, dz);
-      return;
-    }
+    if (p.role === 'tank') { riotCharge(S, p, ox, oz); return; }
     if (T(p, 'medevac')) {
       var hurt = players(S, true).filter(function (q) { return q !== p && q.hp < q.maxHp && dist(q, p) <= 25; })
         .sort(function (a, c) { return a.hp / a.maxHp - c.hp / c.maxHp; })[0];
@@ -1282,7 +1311,7 @@
       shieldUp(hurt, p, 150, 400); emit(S, { type: 'fx', fx: 'guard', src: hurt.id });
     }
   }
-  function moveSpeed(S, p) { return p.speed * (nearby(S, p, 'escort', 8) ? 1.2 : 1) * (p.barrierUp ? 0.5 : p.charging ? 0.65 : 1); }
+  function moveSpeed(S, p) { return p.speed * (nearby(S, p, 'escort', 8) ? 1.2 : 1) * (p.barrierUp ? 0.5 : 1); }
   function tickPlayer(S, p, dt) {
     if (!p.alive) return;
     if (p.gcd > 0) p.gcd = Math.max(0, p.gcd - dt);
@@ -1299,6 +1328,11 @@
       if (p.rad < 0) p.rad = 0;
     }
     if (p.recoil > 0) p.recoil = Math.max(0, p.recoil - p.recoil * dt / 3);
+    if (p.role === 'tank') {
+      var maxC = T(p, 'twincharge') ? 2 : 1;
+      if ((p.charges || 0) < maxC) { p.chargeT = (p.chargeT || 0) + dt; if (p.chargeT >= TUNE.chargeCd) { p.chargeT = 0; p.charges = (p.charges || 0) + 1; } }
+      else p.chargeT = 0;
+    }
     if (p.barrier != null && !p.barrierUp) {
       p.barrierRestT = (p.barrierRestT || 0) + dt;
       if (!(p.barrierBroken > 0) && p.barrierRestT >= TUNE.barrierRest) p.barrier = Math.min(TUNE.barrierHp, p.barrier + TUNE.barrierRegen * dt);
@@ -1627,6 +1661,7 @@
   }
 
   function tickWorld(S, dt) {
+    for (var di = S.domes.length - 1; di >= 0; di--) { S.domes[di].t -= dt; if (S.domes[di].t <= 0) S.domes.splice(di, 1); }
     if (S.hero && S.hero.melt) {
       // Meltdown is over once the radiation is gone, whether cleansed or not.
       S.hero.t += dt;
@@ -1775,6 +1810,8 @@
       if (p.role === 'dps' && (osh || boss.stagger > 0 || p.adren > 0)) { inp.target = boss.id; inp.ability = ULT; return inp; }
       if (p.role === 'melee' && !osh && !(boss.stagger > 0) && !bc && dist(p, boss) <= 7 + boss.radius && b.think <= 0) { inp.target = boss.id; inp.ability = ULT; return inp; }
     }
+    var domeNear = S.domes.filter(function (dm) { return dm.t > 1 && Math.hypot(p.x - dm.x, p.z - dm.z) > dm.r - 1.5 && Math.hypot(p.x - dm.x, p.z - dm.z) < 22; })[0];
+    if (domeNear && p.role !== 'tank') { moveTo(domeNear.x, domeNear.z); return inp; }
     if (lateShield && p.role !== 'tank') {
       // The shield is going to hold: get behind a Riot Wall if there is one.
       var wallUp = players(S, true).filter(function (q) { return q.wall > 0; })[0];
@@ -1797,12 +1834,12 @@
       inp.target = main.id;
       var d = dist(p, main) - (main.radius || 0), heat = p.pips || 0;
       if (d > 3.5) moveTo(main.x, main.z);
-      if (d > 10 && T(p, 'charge') && !S.telegraphs.length) inp.jump = true;   // never charge back into a telegraph
+      if (d > 10 && (p.charges || 0) >= 1 && !S.telegraphs.length) inp.jump = true;   // charge in, but never back into a telegraph
       var fire0 = function (i, t) { inp.target = (t || main).id; inp.ability = i; b.think = 0.15 + S.rng() * 0.35; return inp; };
       if (W === 'hammer') inp.aim = Math.atan2(main.x - p.x, main.z - p.z);
       if (b.lazy) { if (canAct && p.gcd <= 0 && !(p.jam > 0)) fire0(0); return inp; }   // the one-button tank, for the report
       if (W === 'hammer') {
-        // Aim at the main target. Raise the barrier for the Crusher and a failing shield; otherwise wind up smashes.
+        // Aim at the main target. Raise the barrier for the Crusher and a failing shield; otherwise keep the combo going.
         var bcH = boss.alive && boss.cast;
         var crushH = bcH && bcH.name === 'Crusher' && bcH.target === p.id && bcH.t > 0.6 * slow;
         var oshH = boss.alive && boss.oshield && boss.oshield.t > boss.oshield.dur - 1.0 && boss.oshield.hp > boss.oshield.max * 0.15;
@@ -1813,9 +1850,9 @@
         var looseH = foes.filter(function (f) { return f.target !== p.id && !(f.fixate && f.fixate.id === p.id); })
           .sort(function (a2, c2) { return dist(p, a2) - dist(p, c2); });
         if (looseH.length && ready('challenge') && dist(p, looseH[0]) <= 30 + (looseH[0].radius || 0)) return fire0(idx('challenge'), looseH[0]);
-        if (heat >= 40 && p.gcd <= 0 && !p.charging && (p.hp < p.maxHp * 0.65 || heat >= 90)) return fire0(2, p);
-        if (b.chgT > 0) { b.chgT -= dt; inp.hold = [b.chgT > 0, false]; return inp; }
-        if (p.gcd <= 0 && d <= 6 && canAct) { b.chgT = (0.5 + S.rng() * 1.0) * Math.min(slow, 1.5); inp.hold = [true, false]; }
+        var laneHits = foes.filter(function (f) { return f !== main && dist(p, f) <= 20; }).length;
+        if (heat >= 40 && p.gcd <= 0 && (laneHits >= 1 || heat >= 90 || d > 6)) return fire0(2, p);
+        if (d <= 6 && canAct) { inp.hold = [true, false]; b.think = 0.05 + S.rng() * 0.2 * slow; }
         return inp;
       }
       // The Crusher is coming at me: mitigate in the weapon's own way, a beat after it starts.
@@ -1979,6 +2016,7 @@
     var snap = { t: r2(S.t), ph: S.phase, en: S.enraged ? 1 : 0, r: S.result || 0, cd: r2(S.countdown), p: [], e: [], g: [], ev: [] };
     if (S.missile) snap.ms = [r1(S.missile.x), r1(S.missile.z), S.missile.tgt, r2(S.missile.t), S.missile.dur];
     if (S.hero) snap.hr = S.hero.role;
+    if (S.domes.length) snap.dm = S.domes.map(function (d) { return [r1(d.x), r1(d.z), d.r, r1(d.t)]; });
     S.ents.forEach(function (e) {
       if (e.kind === 'player') {
         var cds = {}; for (var k in e.cds) if (e.cds[k] > 0) cds[k] = r1(e.cds[k]);
@@ -1988,7 +2026,7 @@
         if (e.defibUsed) o.du = 1;
         if (e.lastDeath) o.ld = [e.lastDeath.label, e.lastDeath.t];
         if (e.cast) o.k = [e.cast.ab.id, r2(e.cast.t), r2(e.cast.dur), e.cast.targetId];
-        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'charge', 'charging'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
+        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
         snap.p.push(o);
       } else {
         var q = { i: e.id, ty: e.type, n: e.name, x: r2(e.x), z: r2(e.z), f: r2(e.facing), h: Math.round(e.hp), mh: e.maxHp, a: e.alive ? 1 : 0, tg: e.target, ra: e.radius };
@@ -2021,12 +2059,13 @@
     M.t = snap.t; M.phase = snap.ph; M.enraged = !!snap.en; M.result = snap.r || null; M.countdown = snap.cd;
     M.missile = snap.ms ? { x: snap.ms[0], z: snap.ms[1], tgt: snap.ms[2], t: snap.ms[3], dur: snap.ms[4] } : null;
     M.hero = snap.hr ? { role: snap.hr } : null;
+    M.domes = (snap.dm || []).map(function (d) { return { x: d[0], z: d[1], r: d[2], t: d[3] }; });
     snap.p.forEach(function (o) {
       var p = ent(M, o.i); if (!p) return;
       p.x = o.x; p.z = o.z; p.facing = o.f; p.hp = o.h; p.alive = !!o.a; p.target = o.tg; p.gcd = o.g; p.cds = o.c || {};
       p.moving = !!o.mv; p.auto = !!o.au || !p.human; p.defibUsed = !!o.du;
       p.lastDeath = o.ld ? { label: o.ld[0], t: o.ld[1] } : null;
-      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'charge', 'charging'].forEach(function (f) { p[f] = o[f] || 0; });
+      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT'].forEach(function (f) { p[f] = o[f] || 0; });
       if (o.k) {
         var ab = abilitiesOf(p).filter(function (a) { return a.id === o.k[0]; })[0];
         p.cast = ab ? { ab: ab, t: o.k[1], dur: o.k[2], targetId: o.k[3] } : null;
@@ -2092,8 +2131,12 @@
     var timed = function (v, on, off) { out.push([v > 0 ? on + ' ' + Math.ceil(v) + 's' : off, v > 0]); };
     var named = function (slot) { out.push([gearName(slot, g[slot], p.role), true]); };
     var still = (p.still || 0) >= 1;
+    var tankCharge = function () {
+      var n = p.charges || 0;
+      out.push([p.momentum > 0 ? 'Charged: next hit +30%' : 'Riot Charge [Space] ' + (n > 0 ? 'x' + n : Math.ceil(TUNE.chargeCd - (p.chargeT || 0)) + 's'), n > 0 || p.momentum > 0]);
+    };
     var CHIP = {
-      charge: function () { space('Riot Charge', 'Charged: next hit +30%'); },
+      ram: function () { tankCharge(); }, twincharge: function () { tankCharge(); }, intercept: function () { tankCharge(); },
       stim: function () { space('Stim Leap', 'Stimmed: next heal instant'); },
       dodge: function () { space('Dodge', 'Dodged: next shot +30%'); },
       medevac: function () { out.push(['Medevac [Space] ' + cd('leap'), ready('leap')]); },
@@ -2122,8 +2165,7 @@
     if (wid === 'flak') out.push([p.screen > 0 ? 'Flak Screen ' + Math.ceil(p.screen) + 's' : 'Screen down', p.screen > 0]);
     if (wid === 'hammer') {
       out.push([p.barrierBroken > 0 ? 'Barrier broken ' + Math.ceil(p.barrierBroken) + 's' : (p.barrierUp ? 'Barrier UP ' : 'Barrier ') + Math.round(p.barrier == null ? TUNE.barrierHp : p.barrier), !!p.barrierUp]);
-      if (p.charging) out.push(['Winding up ' + Math.round((p.charge || 0) / TUNE.smashCharge * 100) + '%', (p.charge || 0) >= TUNE.smashCharge]);
-      out.push(['Recoil heals ' + Math.round(Math.max(p.maxHp * 0.06, (p.recoil || 0) * 0.35)), (p.recoil || 0) > 300]);
+      out.push([['Swing', 'Swing', 'SLAM next'][p.comboStep || 0], (p.comboStep || 0) === 2]);
     }
     if (wid === 'minigun') out.push([p.jam > 0 ? 'JAMMED ' + Math.ceil(p.jam) + 's' : (p.pips || 0) >= 85 ? 'Perfect Vent ready' : 'Heat ' + Math.floor(p.pips || 0), !(p.jam > 0) && (p.pips || 0) >= 85]);
     if (wid === 'rockets' && p.lock > 0) out.push(['Lock-on x' + p.lock, p.lock >= 3]);
@@ -2139,7 +2181,7 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.14.0';
+  var VERSION = '0.15.0';
 
   var api = {
     VERSION: VERSION,

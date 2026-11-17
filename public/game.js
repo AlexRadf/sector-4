@@ -367,7 +367,7 @@
     role = r; running = false; showPlates(false);
     var k = Sim.KITS[r], host = $('#armorySlots');
     $('#armoryRole').textContent = k.title; $('#armoryRole').className = 'display role-' + r;
-    $('#armoryWeapons').textContent = 'Always carried: ' + k.utils.map(function (a) { return a.name; }).join(', ') + '. Ultimate: ' + k.ult.name;
+
     $('#armoryGo').textContent = armoryCtx === 'lobby' ? 'Back to squad' : 'Clock in as ' + k.title;
     $('#armoryBack').style.display = armoryCtx === 'lobby' ? 'none' : '';
     host.innerHTML = '';
@@ -383,6 +383,7 @@
     var showRes = function () {
       var wi = Math.max(0, k.weapons.map(function (w) { return w.id; }).indexOf(gearFor[r].weapon));
       $('#armoryRes').textContent = (k.weapons[wi].res || k.res).how;
+      $('#armoryWeapons').textContent = 'Always carried: ' + k.utils.map(function (u) { return u.name; }).join(', ') + '. Ultimate: ' + (k.weapons[wi].ult || k.ult).name + (r === 'tank' ? '. Space: Riot Charge' : '');
     };
     showRes();
     $('#armoryTheme').textContent = tree.theme; $('#armoryTheme').className = 'armtheme display role-' + r;
@@ -610,7 +611,7 @@
       }
       else if (h.a.role === 'proc' && human.procT > 0) { label = 'PROC ' + Math.ceil(human.procT) + 's'; glow = 'proc'; }
       else if (h.a.role === 'spend' && u.state !== 'range') label = Sim.resOf(human).spend === 'all' ? Math.floor(human.pips || 0) + ' ' + Sim.resOf(human).name.toUpperCase() : 'COSTS ' + Sim.resOf(human).spend;
-      else if (h.a.id === 'smash') { label = human.charging ? 'WINDING ' + Math.round((human.charge || 0) / Sim.TUNE.smashCharge * 100) + '%' : human.barrierUp ? 'BARRIER UP' : 'HOLD'; if (human.charging && human.charge >= Sim.TUNE.smashCharge) glow = 'proc'; }
+      else if (h.a.id === 'combo') { label = human.barrierUp ? 'BARRIER UP' : ['SWING', 'SWING', 'SLAM'][human.comboStep || 0]; if ((human.comboStep || 0) === 2 && !human.barrierUp) glow = 'proc'; }
       else if (h.a.id === 'ebarrier') { label = human.barrierBroken > 0 ? 'BROKEN ' + Math.ceil(human.barrierBroken) + 's' : (human.barrierUp ? 'UP ' : 'HOLD ') + Math.round((human.barrier == null ? Sim.TUNE.barrierHp : human.barrier) / Sim.TUNE.barrierHp * 100) + '%'; if (human.barrierUp) glow = 'ultready'; }
       else if (h.a.id === 'vent' && (human.pips || 0) >= 85) { label = 'PERFECT'; glow = 'proc'; }
       else if (h.a.id === 'screen' && human.screen > 0) label = 'UP ' + Math.ceil(human.screen) + 's';
@@ -743,6 +744,12 @@
             ringFx(x + Math.sin(ff) * 3, z + Math.cos(ff) * 3, 0.5, 3 + 4 * (ev.pw || 0), 0xffb000, 0.4);
             Snd.play('hammer'); if (ev.src === human.id && ev.pw >= 0.95) hitFlash();
           }
+          else if (ev.fx === 'shockwave') {
+            for (var sw = 1; sw <= 5; sw++) ringFx(x + (ev.x2 - x) * sw / 5, z + (ev.z2 - z) * sw / 5, 0.3, 2.2, 0xffb000, 0.25 + sw * 0.05);
+            Snd.play('boom');
+          }
+          else if (ev.fx === 'aegis') { ringFx(x, z, 0.5, Sim.TUNE.aegisR, 0xffd36b, 0.8); Snd.play('ult'); }
+          else if (ev.fx === 'charge' && Sim.ent(S, ev.src) && Sim.ent(S, ev.src).kind === 'player') { ringFx(x, z, 0.5, 4, 0xffb000, 0.4); }
           else if (ev.fx === 'barrierup') { if (ev.src === human.id) Snd.play('belt'); }
           else if (ev.fx === 'barrierbreak') { ringFx(x, z, 0.5, 6, 0x5cc8ff, 0.6); Snd.play('boom'); }
           else if (ev.fx === 'leap') { ringFx(x, z, 1, 9, 0xff8a30, 0.6); Snd.play('boom'); hitFlash(); }
@@ -986,6 +993,17 @@
       bw.material.opacity = 0.15 + 0.4 * ((p.barrier || 0) / Sim.TUNE.barrierHp);
     });
     for (var bid in special.barriers) if (!seenB[bid]) { fxRoot.remove(special.barriers[bid]); delete special.barriers[bid]; }
+    // Aegis Domes: a golden hemisphere for as long as it lasts.
+    special.domes = special.domes || [];
+    var domes = S.domes || [];
+    while (special.domes.length < domes.length) {
+      var dmm = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffd36b, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }));
+      fxRoot.add(dmm); special.domes.push(dmm);
+    }
+    special.domes.forEach(function (m, i) {
+      var d = domes[i]; m.visible = !!d;
+      if (d) { m.position.set(d.x, 0, d.z); m.scale.set(d.r, d.r * 0.7, d.r); m.material.opacity = 0.12 + 0.12 * Math.min(1, d.t); }
+    });
     var showArc = running && !watching && human && human.alive && Sim.aimWeapon(human) && !human.barrierUp;
     if (!special.arc) {
       special.arc = new THREE.Mesh(new THREE.CircleGeometry(6.5, 24, Math.PI / 2 - Math.PI / 3, Math.PI * 2 / 3), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide }));
@@ -996,7 +1014,9 @@
       var hp0 = views[human.id] ? views[human.id].g.position : human;
       special.arc.position.set(hp0.x, 0.09, hp0.z);
       special.arc.rotation.set(-Math.PI / 2, human.facing + Math.PI, 0);
-      special.arc.material.opacity = 0.22 + (human.charging ? 0.4 * Math.min(1, (human.charge || 0) / Sim.TUNE.smashCharge) : 0);
+      var slamNext = (human.comboStep || 0) === 2;   // the slam reaches further and wider
+      special.arc.scale.set(slamNext ? 1.15 : 1, slamNext ? 1.15 : 1, 1);
+      special.arc.material.opacity = slamNext ? 0.4 : 0.22;
     }
   }
 
