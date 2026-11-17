@@ -203,11 +203,44 @@ test('Flak Cannon: blasts load Ammo, Flak Screen spends it and cuts hits by 60%'
 
 test('Impact Hammer: Recoil Strike heals for damage just taken', () => {
   const { S, p, boss } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
-  p.x = boss.x; p.z = boss.z - 5; p.armor = 0;
+  p.x = boss.x; p.z = boss.z - 6; p.armor = 0;
   Sim.damagePlayer(S, S.bossId, p, 900, 'Crusher');
   const low = p.hp; p.pips = 50;
-  press(S, 1, { target: boss.id });
+  press(S, 2, { aim: Math.atan2(boss.x - p.x, boss.z - p.z) });
   assert.ok(p.hp - low >= 250, 'healed ' + (p.hp - low));
+});
+
+test('Impact Hammer: a held smash hits harder than a tap, and only what is in front', () => {
+  const { S, p, boss } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
+  p.x = boss.x; p.z = boss.z - 6;
+  const face = Math.atan2(boss.x - p.x, boss.z - p.z);
+  const smashes = () => S.events.filter((e) => e.type === 'dmg' && /^Smash/.test(e.label) && e.dst === boss.id);
+  S.events.length = 0; press(S, 0, { aim: face });
+  const tap = smashes()[0].amt;
+  for (let i = 0; i < 4 * 30; i++) Sim.step(S, 1 / 30, { aim: face, hold: [i < 50, false] });
+  const full = smashes().map((e) => e.amt);
+  assert.ok(full.some((a) => a > tap * 2.5), `tap ${tap}, held ${full}`);
+  S.events.length = 0; p.gcd = 0; press(S, 0, { aim: face + Math.PI });
+  assert.strictEqual(smashes().length, 0, 'facing away misses');
+});
+
+test('Impact Hammer: the barrier covers you and whoever is behind you, then breaks', () => {
+  const { S, p, boss } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
+  p.x = boss.x; p.z = boss.z - 8; p.armor = 0;
+  const face = Math.atan2(boss.x - p.x, boss.z - p.z);
+  const behindAlly = Sim.players(S).find((q) => q.role === 'healer'), sideAlly = Sim.players(S).find((q) => q.role === 'dps');
+  behindAlly.x = p.x; behindAlly.z = p.z - 4; behindAlly.armor = 0;
+  sideAlly.x = boss.x + 10; sideAlly.z = boss.z; sideAlly.armor = 0;
+  Sim.step(S, 1 / 30, { aim: face, hold: [false, true] });
+  assert.ok(p.barrierUp);
+  const h = [p.hp, behindAlly.hp, sideAlly.hp];
+  Sim.damagePlayer(S, S.bossId, p, 500, 'Crusher');
+  Sim.damagePlayer(S, S.bossId, behindAlly, 500, 'Rocket');
+  Sim.damagePlayer(S, S.bossId, sideAlly, 500, 'Rocket');
+  assert.strictEqual(p.hp, h[0]); assert.strictEqual(behindAlly.hp, h[1]);
+  assert.ok(sideAlly.hp < h[2], 'someone off to the side is not covered');
+  Sim.damagePlayer(S, S.bossId, p, 2000, 'Crusher');
+  assert.ok(!p.barrierUp && p.barrierBroken > 0);
 });
 
 test('Minigun: heat speeds it up, Perfect Vent shields big, 100 jams it', () => {
@@ -365,4 +398,15 @@ test('weapon signatures: Trick Shot every third tap, Steady Aim crit, Chainsaw b
   assert.ok(l.p.tether && l.p.tether.id === ally.id);
   ally.hp = 1000; l.p.gcd = 0; l.S.events.length = 0; press(l.S, 0, { target: l.boss.id });
   assert.ok(l.S.events.some((e) => e.type === 'heal' && e.label === 'Tether'));
+});
+
+test('no two abilities share an id across classes (Adrenaline is shared on purpose)', () => {
+  const seen = {};
+  for (const r of Object.keys(Sim.KITS)) {
+    const k = Sim.KITS[r];
+    k.weapons.forEach((w) => w.abilities.forEach((a) => { (seen[a.id] = seen[a.id] || []).push(r + '/' + w.id); }));
+    k.utils.concat([k.ult]).forEach((a) => { (seen[a.id] = seen[a.id] || []).push(r); });
+  }
+  const dups = Object.entries(seen).filter(([id, at]) => at.length > 1 && id !== 'adren');
+  assert.deepStrictEqual(dups, []);
 });

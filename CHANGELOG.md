@@ -4,6 +4,17 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.14.0 (2026-11-17) Aimed Impact Hammer prototype
+- The Impact Hammer is aimed, not tab-targeted: it hits whatever is in front of where the camera faces.
+  - Hold 1 to wind up a smash (up to 1.5s): 80 tapped, up to 330 fully charged, across a wide arc. A floor arc shows what it will hit.
+  - Hold 2 to raise an Energy Barrier: blocks enemy hits on you and anyone behind you until its 1,800 health runs out;
+    regenerates while lowered, breaks for 5s if emptied. No smashing while it's up, and you move at half speed.
+  - 3 Recoil Strike: heals you for 35% of the damage you just took.
+- Q and E turn the camera for aiming without the mouse.
+- Basic controller support: left stick moves, right stick aims, RT/LT are weapon buttons 1 and 2 (held for the Hammer),
+  X = 3, RB = 4, B = 5, Y = ultimate, A = Space, LB = next enemy.
+- Fixed: the Medic's Shield Gun Barrier could be swallowed by another ability with the same name; a test now stops that.
+
 ## 0.13.0 (2026-11-17) Tank pass
 - The Foreman winds up a Crusher (2.5s cast) on the tank every 15s: a telegraphed tank buster you have to mitigate.
 - The three Juggernaut weapons now play differently, each with its own resource and key 3 defensive:

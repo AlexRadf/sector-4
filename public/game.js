@@ -473,7 +473,11 @@
       b.appendChild(el('span', 'n display', a.name));
       var cool = el('span', 'cool'), sec = el('span', 'sec display'); b.appendChild(cool); b.appendChild(sec);
       var meter = null; if (a.role === 'ult') { meter = el('span', 'meter'); b.appendChild(meter); }
-      b.addEventListener('click', function () { input.ability = i; });
+      if (a.hold && i < 2) {
+        var key = 'Digit' + (i + 1);
+        b.addEventListener('pointerdown', function () { keys[key] = true; });
+        ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (evn) { b.addEventListener(evn, function () { keys[key] = false; }); });
+      } else b.addEventListener('click', function () { input.ability = i; });
       acts.appendChild(b); hud.abs.push({ a: a, el: b, cool: cool, sec: sec, tl: tl, meter: meter, state: '' });
     });
     // The class resource: Revs show as five pips, the others as a bar.
@@ -606,6 +610,8 @@
       }
       else if (h.a.role === 'proc' && human.procT > 0) { label = 'PROC ' + Math.ceil(human.procT) + 's'; glow = 'proc'; }
       else if (h.a.role === 'spend' && u.state !== 'range') label = Sim.resOf(human).spend === 'all' ? Math.floor(human.pips || 0) + ' ' + Sim.resOf(human).name.toUpperCase() : 'COSTS ' + Sim.resOf(human).spend;
+      else if (h.a.id === 'smash') { label = human.charging ? 'WINDING ' + Math.round((human.charge || 0) / Sim.TUNE.smashCharge * 100) + '%' : human.barrierUp ? 'BARRIER UP' : 'HOLD'; if (human.charging && human.charge >= Sim.TUNE.smashCharge) glow = 'proc'; }
+      else if (h.a.id === 'ebarrier') { label = human.barrierBroken > 0 ? 'BROKEN ' + Math.ceil(human.barrierBroken) + 's' : (human.barrierUp ? 'UP ' : 'HOLD ') + Math.round((human.barrier == null ? Sim.TUNE.barrierHp : human.barrier) / Sim.TUNE.barrierHp * 100) + '%'; if (human.barrierUp) glow = 'ultready'; }
       else if (h.a.id === 'vent' && (human.pips || 0) >= 85) { label = 'PERFECT'; glow = 'proc'; }
       else if (h.a.id === 'screen' && human.screen > 0) label = 'UP ' + Math.ceil(human.screen) + 's';
       else if ((h.a.id === 'spin' || h.a.id === 'sweep') && human.jam > 0) label = 'JAMMED';
@@ -732,6 +738,13 @@
           else if (ev.fx === 'wall' || ev.fx === 'hospital') { ringFx(x, z, 0.5, ev.fx === 'wall' ? 14 : 40, ev.fx === 'wall' ? 0xffb000 : 0x4fd88f, 0.9); Snd.play('ult'); }
           else if (ev.fx === 'oshield') { ringFx(x, z, 6, 3, 0x7fd0ff, 0.6); Snd.play('alarm'); }
           else if (ev.fx === 'shieldbreak') { ringFx(x, z, 3, 12, 0x7fd0ff, 0.7); ringFx(x, z, 2, 8, 0xffffff, 0.4); Snd.play('boom'); }
+          else if (ev.fx === 'smash') {
+            var sp = Sim.ent(S, ev.src), ff = sp ? sp.facing : 0;
+            ringFx(x + Math.sin(ff) * 3, z + Math.cos(ff) * 3, 0.5, 3 + 4 * (ev.pw || 0), 0xffb000, 0.4);
+            Snd.play('hammer'); if (ev.src === human.id && ev.pw >= 0.95) hitFlash();
+          }
+          else if (ev.fx === 'barrierup') { if (ev.src === human.id) Snd.play('belt'); }
+          else if (ev.fx === 'barrierbreak') { ringFx(x, z, 0.5, 6, 0x5cc8ff, 0.6); Snd.play('boom'); }
           else if (ev.fx === 'leap') { ringFx(x, z, 1, 9, 0xff8a30, 0.6); Snd.play('boom'); hitFlash(); }
           if (ev.fx === 'barrage') Snd.play('alarm');
           if (ev.fx === 'flak') ringFx(x, z, 1, 8, 0xffb000, 0.35);
@@ -760,7 +773,7 @@
           if (ev.id === human.id && !watching) { announce('YOUR INTERRUPT', 'neutral', true); Snd.play('alarm'); }
           break;
         case 'absorb':
-          if (ev.id === human.id) { floatText(ev.id, (ev.wall ? 'WALLED ' : 'PLATED ') + ev.amt, 'heal'); Snd.play('belt'); }
+          if (ev.id === human.id || ev.by === human.id) { floatText(ev.id, (ev.barrier ? 'BLOCKED ' : ev.wall ? 'WALLED ' : 'PLATED ') + ev.amt, 'heal'); if (ev.id === human.id) Snd.play('belt'); }
           v = views[ev.id]; if (v) ringFx(v.g.position.x, v.g.position.z, 0.5, 2.5, 0xffb000, 0.4);
           break;
         case 'knock': if (ev.id === human.id) hitFlash(); break;
@@ -956,6 +969,35 @@
       w.rotation.y = Math.atan2(boss.x - pv2.x, boss.z - pv2.z);
     });
     for (var wid in special.walls) if (!seenW[wid]) { fxRoot.remove(special.walls[wid]); delete special.walls[wid]; }
+    // Impact Hammer barriers, and your own aim arc so you can see what a smash will hit.
+    special.barriers = special.barriers || {};
+    var seenB = {};
+    Sim.players(S).forEach(function (p) {
+      if (!p.barrierUp || !p.alive) return;
+      seenB[p.id] = 1;
+      var bw = special.barriers[p.id];
+      if (!bw) {
+        bw = new THREE.Mesh(new THREE.PlaneGeometry(8, 3.6), new THREE.MeshBasicMaterial({ color: 0x5cc8ff, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false }));
+        fxRoot.add(bw); special.barriers[p.id] = bw;
+      }
+      var bp = views[p.id] ? views[p.id].g.position : p;
+      bw.position.set(bp.x + Math.sin(p.facing) * 1.6, 1.8, bp.z + Math.cos(p.facing) * 1.6);
+      bw.rotation.y = p.facing;
+      bw.material.opacity = 0.15 + 0.4 * ((p.barrier || 0) / Sim.TUNE.barrierHp);
+    });
+    for (var bid in special.barriers) if (!seenB[bid]) { fxRoot.remove(special.barriers[bid]); delete special.barriers[bid]; }
+    var showArc = running && !watching && human && human.alive && Sim.aimWeapon(human) && !human.barrierUp;
+    if (!special.arc) {
+      special.arc = new THREE.Mesh(new THREE.CircleGeometry(6.5, 24, Math.PI / 2 - Math.PI / 3, Math.PI * 2 / 3), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide }));
+      special.arc.rotation.order = 'YXZ'; fxRoot.add(special.arc);
+    }
+    special.arc.visible = !!showArc;
+    if (showArc) {
+      var hp0 = views[human.id] ? views[human.id].g.position : human;
+      special.arc.position.set(hp0.x, 0.09, hp0.z);
+      special.arc.rotation.set(-Math.PI / 2, human.facing + Math.PI, 0);
+      special.arc.material.opacity = 0.22 + (human.charging ? 0.4 * Math.min(1, (human.charge || 0) / Sim.TUNE.smashCharge) : 0);
+    }
   }
 
   /* ---------- input ---------- */
@@ -981,6 +1023,8 @@
     if (c === 'KeyM') { setMute(Snd.toggle()); return; }
     if (c === 'Space') { ev.preventDefault(); input.jump = true; return; }
     if (c === 'KeyR') c = 'Digit6';
+    // Aimed weapons (the Impact Hammer): 1 and 2 are held, not pressed.
+    if ((c === 'Digit1' || c === 'Digit2') && Sim.aimWeapon(human)) { keys[c] = true; return; }
     if (/^Digit[1-6]$/.test(c)) { input.ability = +c[5] - 1; var h = hud.abs[input.ability]; if (h) { h.el.classList.add('flash'); setTimeout(function () { h.el.classList.remove('flash'); }, 120); } return; }
     if (c === 'Escape') { input.target = null; return; }
     if (c.indexOf('Arrow') === 0 || c === 'Space') ev.preventDefault();
@@ -1012,9 +1056,12 @@
   renderer.domElement.addEventListener('wheel', function (ev) { ev.preventDefault(); cam.dist = Math.max(8, Math.min(42, cam.dist + ev.deltaY * 0.02)); }, { passive: false });
   renderer.domElement.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
 
+  /* Where you are aiming: straight ahead of the camera. Held buttons: keyboard 1/2 or the controller's triggers. */
+  function aimAngle() { return cam.yaw + Math.PI; }
+  function readHold() { return [!!(keys.Digit1 || pad.hold[0]), !!(keys.Digit2 || pad.hold[1])]; }
   function readMove() {
-    var f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
-    var r = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+    var f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + pad.f;
+    var r = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + pad.r;
     var fx_ = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
     return { mx: fx_ * f + rx * r, mz: fz * f + rz * r };
   }
@@ -1334,6 +1381,7 @@
       var a = Net.acts[p.id] || {};
       ins[p.id] = {
         mx: +inn.mx || 0, mz: +inn.mz || 0,
+        aim: typeof inn.am === 'number' ? inn.am : undefined, hold: [!!((inn.h | 0) & 1), !!((inn.h | 0) & 2)],
         target: a.target !== undefined ? a.target : (inn.tg === null || typeof inn.tg === 'number' ? inn.tg : undefined),
         ability: a.ability != null ? a.ability : -1, jump: !!a.jump
       };
@@ -1356,6 +1404,11 @@
     var tg = input.target !== undefined ? input.target : human.target;
     if (input.target !== undefined) human.target = input.target;
     var inn = { mx: Math.round(mv.mx * 10) / 10, mz: Math.round(mv.mz * 10) / 10, tg: tg == null ? null : tg };
+    if (Sim.aimWeapon(human)) {
+      var hd = readHold();
+      inn.am = Math.round(aimAngle() * 20) / 20; inn.h = (hd[0] ? 1 : 0) | (hd[1] ? 2 : 0);
+      human.facing = aimAngle();
+    }
     var key = JSON.stringify(inn);
     if (key !== Net.lastIn) { Net.lastIn = key; netSetPresence({ in: inn }); }
     if (input.ability >= 0 || input.jump || input.target !== undefined) {
@@ -1378,7 +1431,7 @@
     acc += dt;
     while (acc >= STEP) {
       var mv = document.hidden ? { mx: 0, mz: 0 } : readMove(), ins = {};
-      ins[human.id] = { mx: mv.mx, mz: mv.mz, ability: input.ability, target: input.target, jump: input.jump };
+      ins[human.id] = { mx: mv.mx, mz: mv.mz, ability: input.ability, target: input.target, jump: input.jump, aim: aimAngle(), hold: document.hidden ? [] : readHold() };
       if (Net.mode === 'host') netHostInputs(ins);
       Sim.step(S, STEP, ins);
       input.ability = -1; input.target = undefined; input.jump = false; acc -= STEP;
@@ -1395,9 +1448,37 @@
     if (Net.mode === 'host' && running && document.hidden) simTick();
     else if (Net.mode === 'host' && !running && Net.postEnd > 0) { Net.postEnd -= 0.05; netHostSend(0.05); }
   }, 50);
+  /* Controller (any standard gamepad). Left stick moves, right stick turns the camera.
+     RT and LT are weapon buttons 1 and 2 (held for aimed weapons), X = 3, RB = 4, B = 5, Y = ultimate,
+     A = Space, LB = next enemy. Keyboard Q and E turn the camera too, for aiming without the mouse. */
+  var pad = { f: 0, r: 0, hold: [false, false], prev: [] };
+  function pollPad(dt) {
+    if (running && !watching) cam.yaw += ((keys.KeyQ ? 1 : 0) - (keys.KeyE ? 1 : 0)) * 2.2 * dt;
+    var gp = navigator.getGamepads ? Array.prototype.filter.call(navigator.getGamepads(), Boolean)[0] : null;
+    if (!gp) { pad.f = 0; pad.r = 0; pad.hold = [false, false]; return; }
+    var dz = function (v) { return Math.abs(v) < 0.2 ? 0 : v; }, ax = gp.axes || [];
+    pad.r = dz(ax[0] || 0); pad.f = -dz(ax[1] || 0);
+    cam.yaw -= dz(ax[2] || 0) * 2.6 * dt; cam.pitch = Math.max(0.12, Math.min(1.35, cam.pitch + dz(ax[3] || 0) * 1.4 * dt));
+    var btn = function (i) { var b = gp.buttons[i]; return !!b && (b.pressed || b.value > 0.5); };
+    var down = function (i) { return btn(i) && !pad.prev[i]; };
+    if (running && !watching) {
+      var aimW = Sim.aimWeapon(human);
+      pad.hold = aimW ? [btn(7), btn(6)] : [false, false];
+      if (!aimW && down(7)) input.ability = 0;
+      if (!aimW && down(6)) input.ability = 1;
+      if (down(2)) input.ability = 2;
+      if (down(5)) input.ability = 3;
+      if (down(1)) input.ability = 4;
+      if (down(3)) input.ability = 5;
+      if (down(0)) input.jump = true;
+      if (down(4)) cycleEnemy(1);
+    }
+    pad.prev = gp.buttons.map(function (b) { return b.pressed || b.value > 0.5; });
+  }
   function frame(now) {
     requestAnimationFrame(frame);
     var dt = Math.min(0.1, (now - last) / 1000 || 0); last = now;
+    pollPad(dt);
     mixers.forEach(function (m) { m.update(dt); });
     if (S && (running || $('#end').classList.contains('on') || S.result)) {
       if (running && Net.mode === 'spy') {
