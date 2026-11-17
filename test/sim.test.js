@@ -59,7 +59,8 @@ test('each class has its own four tiers of three talents', () => {
     for (const slot of Sim.SLOTS) {
       const list = Sim.talentList(slot, role);
       assert.strictEqual(list.length, 3, `${role} ${slot}`);
-      assert.deepStrictEqual(list.map((t) => t.style), ['aggressive', 'steady', 'squad']);
+      const want = role === 'tank' && slot !== 'boots' ? ['active', 'passive', 'modifier'] : ['aggressive', 'steady', 'squad'];
+      assert.deepStrictEqual(list.map((t) => t.style), want, `${role} ${slot}`);
       list.forEach((t) => { seen[t.name] = (seen[t.name] || 0) + 1; });
     }
   }
@@ -229,7 +230,7 @@ test('Impact Hammer: Kinetic Shockwave hits everything down a lane in front of y
 test('Aegis Dome: nobody inside takes damage while it lasts', () => {
   const { S, p, boss } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
   p.ult = 100; p.x = 0; p.z = -10;
-  const ULT = Sim.abilitiesOf(p).length - 1;
+  const ULT = Sim.abilitiesOf(p).findIndex((a) => a.role === 'ult');
   const inside = Sim.players(S).find((q) => q.role === 'healer'), outside = Sim.players(S).find((q) => q.role === 'dps');
   inside.x = 3; inside.z = -10; outside.x = 20; outside.z = -10; inside.armor = 0; outside.armor = 0;
   press(S, ULT);
@@ -467,4 +468,23 @@ test('no two abilities share an id across classes (Adrenaline is shared on purpo
   }
   const dups = Object.entries(seen).filter(([id, at]) => at.length > 1 && id !== 'adren');
   assert.deepStrictEqual(dups, []);
+});
+
+test('Juggernaut Active talents add buttons on Q, E and F; passives and modifiers add none', () => {
+  const all = arena('tank', { weapon: 'hammer', rig: 'reactive', implant: 'uppercut', util: 'rallycry' });
+  const slots = Sim.abilitiesOf(all.p).filter((a) => a.slot).map((a) => a.slot);
+  assert.deepStrictEqual(slots, ['Q', 'E', 'F']);
+  const none = arena('tank', { weapon: 'hammer', rig: 'plate', implant: 'vengeance', util: 'bash' });
+  assert.strictEqual(Sim.abilitiesOf(none.p).filter((a) => a.slot).length, 0);
+  const { S, p, boss } = all;
+  p.x = boss.x; p.z = boss.z - 5; p.armor = 0;
+  const at = (id) => Sim.abilitiesOf(p).findIndex((a) => a.id === id);
+  press(S, at('reactive'));
+  assert.ok(p.reactive > 0);
+  const h = p.hp; Sim.damagePlayer(S, S.bossId, p, 300, 'Rocket');
+  assert.ok(h - p.hp <= 190, 'reactive plating soaks 40%');
+  press(S, at('rallycry'));
+  assert.ok(Sim.players(S).filter((q) => q.rallied > 0).length >= 1);
+  S.events.length = 0; press(S, at('uppercut'), { aim: Math.atan2(boss.x - p.x, boss.z - p.z) });
+  assert.ok(S.events.some((e) => e.type === 'dmg' && e.label === 'Uppercut') && boss.weak > 0);
 });

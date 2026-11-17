@@ -4,6 +4,16 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.17.0 (2026-11-17) Juggernaut talents: Active, Passive or Modifier
+- Juggernaut talent rows 2 to 4 each offer an Active (a new button), a Passive (always on) and a Modifier (changes a button you have).
+  Pick passives for a simple bar, actives for a busy one: up to three extra buttons on Q, E and F (D-pad left, right, up).
+  - Armor: Reactive Plating (Q, soak 40% for 4s then blast it back) / Ablative Plating / Linked Belt (Shield Belt covers nearby allies).
+  - Enforcement: Uppercut (E, 260, knocks drones down, weakens the Foreman) / Vengeance / Guardian Link.
+  - Command: Rally Cry (F, squad takes 20% less for 5s) / Counterstrike / Shield Bash.
+- The armory shows how many extra buttons your build adds.
+- Keyboard camera turning for aimed weapons moves from Q/E to the arrow keys.
+- Saved Juggernaut builds that used Rapid Recharge, Bodyguard, Breach Protocol or Hold the Line fall back to the first pick in that row.
+
 ## 0.16.0 (2026-11-17) Mouse-aimed Hammer, boosted charge, planted shield phase
 - Overcharge rework: the Foreman's energy bar fills; when full he walks to the middle, plants himself and channels the shield.
   No moving or swinging while it's up, a damage pulse on the whole room every 2s, 14s to break it, and a 7s stagger if you do.

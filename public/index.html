@@ -130,7 +130,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 #myCast > i { background: var(--amber); }
 #myHp { height: 18px; }
 #myHp > i { background: linear-gradient(#5fe8a0, #2a9c62); }
-#actions { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+#actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 6px; }
 /* Pips: the weapon's charge. Builders fill them, the spender empties them. */
 #pips { display: flex; gap: 5px; align-items: center; font-family: var(--font-mono); font-size: 11px; color: var(--dim); }
 #pips i { width: 22px; height: 7px; background: var(--plate); border: 1px solid var(--line); transform: skewX(-20deg); }
@@ -243,6 +243,7 @@ h2 { margin: 0; font-family: var(--font-mono); font-size: 12px; font-weight: 400
 .gopt { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; text-align: left; padding: 12px 14px; background: var(--steel); border: 1px solid var(--line); border-left: 4px solid var(--line); }
 .gstyle { font-style: normal; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; padding-left: 8px; border-left: 3px solid currentColor; }
 .gstyle.aggressive { color: var(--danger); } .gstyle.steady { color: var(--amber); } .gstyle.squad { color: var(--heal); }
+.gstyle.active { color: var(--shock); } .gstyle.passive { color: var(--dim); } .gstyle.modifier { color: #5cc8ff; }
 #armoryLean { color: var(--text) !important; }
 #verHud { position: fixed; right: 8px; bottom: 4px; font-family: var(--font-mono); font-size: 10px; color: var(--dim); opacity: 0.6; pointer-events: none; z-index: 5; }
 .armtheme { font-size: clamp(14px, 1.6vw, 18px); margin: 4px 0 6px; letter-spacing: .02em; overflow-wrap: normal; }
@@ -372,7 +373,8 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
           <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Your weapon. 1 is your basic attack and 2 your heavy one. For most classes 3 lights up when you proc; the Juggernaut's 3 is the weapon's defensive.</dd>
           <dt><kbd>4</kbd> <kbd>5</kbd></dt><dd>Your class utilities.</dd>
           <dt><kbd>6</kbd> or <kbd>R</kbd></dt><dd>Ultimate. Charges in about a minute; use it whenever you judge it right.</dd>
-          <dt>Mouse aim</dt><dd>Aimed weapons (the Impact Hammer): click the arena to lock the mouse, which then turns the camera. Left click swings, right click holds the barrier; 1 to 4 and R are your other abilities. Esc releases the mouse. <kbd>Q</kbd> <kbd>E</kbd> also turn the camera.</dd>
+          <dt>Mouse aim</dt><dd>Aimed weapons (the Impact Hammer): click the arena to lock the mouse, which then turns the camera. Left click swings, right click holds the barrier; 1 to 4 and R are your other abilities. Esc releases the mouse. The left and right arrow keys also turn the camera.</dd>
+          <dt><kbd>Q</kbd> <kbd>E</kbd> <kbd>F</kbd></dt><dd>Talent actives. Juggernaut talent rows 2 to 4 each offer an Active (a new button here), a Passive and a Modifier, so you choose how many buttons you play with. On a controller: D-pad left, right and up.</dd>
           <dt>Controller</dt><dd>Left stick moves, right stick aims the camera. RT and LT are your weapon (swing and barrier on the Hammer), X is 3, RB is 4, B is 5, Y is your ultimate, A is Space (Riot Charge for the Juggernaut). LB picks the next enemy, or is Iron Roar on the Hammer.</dd>
           <dt><kbd>Space</kbd></dt><dd>Your tier 1 talent's move, if it has one.</dd>
           <dt><kbd>Tab</kbd></dt><dd>Next enemy. Clicking a model or frame also targets it.</dd>

@@ -414,6 +414,16 @@
     });
     showLeaning();
     function showLeaning() {
+      if (r === 'tank') {
+        // Juggernaut rows are Active / Passive / Modifier: show how many extra buttons this build adds.
+        var keysOn = [];
+        Sim.SLOTS.forEach(function (slot) {
+          var it = Sim.talentList(slot, r).filter(function (x) { return x.id === gearFor[r][slot]; })[0];
+          if (it && it.style === 'active') keysOn.push({ rig: 'Q', implant: 'E', util: 'F' }[slot]);
+        });
+        $('#armoryLean').textContent = keysOn.length ? 'Extra buttons: ' + keysOn.join(' ') + '.  Pick passives or modifiers for fewer.' : 'No extra buttons: the core kit only.';
+        return;
+      }
       var count = { aggressive: 0, steady: 0, squad: 0 };
       Sim.SLOTS.forEach(function (slot) {
         var it = Sim.talentList(slot, r).filter(function (x) { return x.id === gearFor[r][slot]; })[0];
@@ -467,7 +477,11 @@
     $('#enemies').innerHTML = ''; hud.enemies = {};
   }
   /* The key shown on each action button. Aimed weapons put the weapon on the mouse buttons. */
-  function keyCap(i) { return Sim.aimWeapon(human) && !watching ? ['LMB', 'RMB', '1', '2', '3', '4', 'R'][i] || '' : String(i + 1); }
+  function keyCap(i) {
+    var a = Sim.abilitiesOf(human)[i];
+    if (a && a.slot) return a.slot;
+    return Sim.aimWeapon(human) && !watching ? ['LMB', 'RMB', '1', '2', '3', '4', 'R'][i] || '' : String(i + 1);
+  }
   function buildActions() {
     var acts = $('#actions'); acts.innerHTML = ''; hud.abs = [];
     hud.wpn = human.weapon;
@@ -485,6 +499,7 @@
       acts.appendChild(b); hud.abs.push({ a: a, el: b, cool: cool, sec: sec, tl: tl, meter: meter, state: '' });
     });
     // The class resource: Revs show as five pips, the others as a bar.
+    acts.style.gridTemplateColumns = 'repeat(' + hud.abs.length + ', minmax(0, 1fr))';   // one row, however many buttons
     var pips = $('#pips'), RS = Sim.resOf(human); pips.innerHTML = ''; hud.pips = []; hud.resBar = null;
     pips.className = 'res-' + RS.id; pips.title = RS.how;
     pips.appendChild(el('span', null, RS.name.toUpperCase()));
@@ -1054,6 +1069,13 @@
     if (/^Digit[1-4]$/.test(c) && ev.shiftKey) { var q = Sim.players(S)[+c[5] - 1]; if (q) input.target = q.id; return; }
     if (c === 'KeyM') { setMute(Snd.toggle()); return; }
     if (c === 'Space') { ev.preventDefault(); input.jump = true; return; }
+    // Talent actives live on Q, E and F.
+    var tslot = { KeyQ: 'Q', KeyE: 'E', KeyF: 'F' }[c];
+    if (tslot) {
+      var ti = Sim.abilitiesOf(human).findIndex(function (a) { return a.slot === tslot; });
+      if (ti >= 0) { input.ability = ti; var ht = hud.abs[ti]; if (ht) { ht.el.classList.add('flash'); setTimeout(function () { ht.el.classList.remove('flash'); }, 120); } }
+      return;
+    }
     // Aimed weapons (the Impact Hammer): the mouse buttons are the weapon, so 1 to 4 and R are the slots after it.
     if (Sim.aimWeapon(human)) {
       var slot = { Digit1: 2, Digit2: 3, Digit3: 4, Digit4: 5, Digit5: 6, KeyR: 6 }[c];
@@ -1115,7 +1137,8 @@
   function readHold() { return [!!(mouse.l || pad.hold[0]), !!(mouse.r || pad.hold[1])]; }
   function readMove() {
     var f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + pad.f;
-    var r = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + pad.r;
+    var turnArrows = running && human && Sim.aimWeapon(human);   // arrows turn the camera for aimed weapons
+    var r = (keys.KeyD || (!turnArrows && keys.ArrowRight) ? 1 : 0) - (keys.KeyA || (!turnArrows && keys.ArrowLeft) ? 1 : 0) + pad.r;
     var fx_ = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
     return { mx: fx_ * f + rx * r, mz: fz * f + rz * r };
   }
@@ -1508,7 +1531,7 @@
      A = Space, LB = next enemy. Keyboard Q and E turn the camera too, for aiming without the mouse. */
   var pad = { f: 0, r: 0, hold: [false, false], prev: [] };
   function pollPad(dt) {
-    if (running && !watching) cam.yaw += ((keys.KeyQ ? 1 : 0) - (keys.KeyE ? 1 : 0)) * 2.2 * dt;
+    if (running && !watching && human && Sim.aimWeapon(human)) cam.yaw += ((keys.ArrowLeft ? 1 : 0) - (keys.ArrowRight ? 1 : 0)) * 2.2 * dt;
     var gp = navigator.getGamepads ? Array.prototype.filter.call(navigator.getGamepads(), Boolean)[0] : null;
     if (!gp) { pad.f = 0; pad.r = 0; pad.hold = [false, false]; return; }
     var dz = function (v) { return Math.abs(v) < 0.2 ? 0 : v; }, ax = gp.axes || [];
@@ -1536,6 +1559,12 @@
         if (down(4)) cycleEnemy(1);
       }
       if (down(0)) input.jump = true;
+      // D-pad left / right / up: talent actives on Q / E / F.
+      [[14, 'Q'], [15, 'E'], [12, 'F']].forEach(function (m) {
+        if (!down(m[0])) return;
+        var di = Sim.abilitiesOf(human).findIndex(function (a) { return a.slot === m[1]; });
+        if (di >= 0) input.ability = di;
+      });
     }
     pad.prev = gp.buttons.map(function (b) { return b.pressed || b.value > 0.5; });
   }
