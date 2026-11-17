@@ -4,6 +4,17 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.13.0 (2026-11-17) Tank pass
+- The Foreman winds up a Crusher (2.5s cast) on the tank every 15s: a telegraphed tank buster you have to mitigate.
+- The three Juggernaut weapons now play differently, each with its own resource and key 3 defensive:
+  - Flak Cannon: active mitigation. Blasts load Ammo; spend it on Shells (threat, pulls) or a 3s Flak Screen that cuts hits by 60%.
+  - Impact Hammer: heal after the fact. Hits store Kinetic; Recoil Strike heals 35% of recent damage; Ground Pound is the AoE and weakens.
+  - Minigun: wild card. Heat makes it fire faster; Vent turns heat into a shield (Perfect Vent above 85), and 100 jams the gun.
+- Challenge is now a single-target taunt (8s). AoE threat comes from each weapon's area attack.
+- A Juggernaut pressing only key 1 now loses most fights (15% in sims).
+- The end screen says what took you down, and when.
+- Drones hit harder, so the phase two adds can't be ignored.
+
 ## 0.12.0 (2026-11-16)
 - Every weapon has its own rotation mechanic: Flak airburst, Hammer self-heal, Minigun ramp; Link tether, Bio Bloom scaling,
   Shield refunds; Shock combo, Rocket lock-on, Sniper Steady Aim; Chainsaw bleed, Ripper returning blades, Enforcer Trick Shot.

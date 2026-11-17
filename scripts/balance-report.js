@@ -36,6 +36,10 @@ for (const role of Object.keys(Sim.KITS)) {
   line(`| Slower ${Sim.KITS[role].title} | ${slow.winRate}% | ${fmt(slow.avgWinSecs)} |`);
   if (drop < 0) checks.push(`A slower ${Sim.KITS[role].title} doesn't lower the win rate at all: that role may not matter enough.`);
 }
+const lazy = batch({ role: 'tank', lazy: true, offset: 3 });
+report.roles.lazyTank = lazy;
+line(`| One-button Juggernaut (key 1 only) | ${lazy.winRate}% | ${fmt(lazy.avgWinSecs)} |`);
+if (lazy.winRate > base.winRate - 30) checks.push(`A Juggernaut pressing only key 1 still wins ${lazy.winRate}%: tanking isn't asking enough.`);
 line();
 
 line(`## Weapons and talents`);

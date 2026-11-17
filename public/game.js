@@ -372,11 +372,19 @@
     $('#armoryBack').style.display = armoryCtx === 'lobby' ? 'none' : '';
     host.innerHTML = '';
     var weaponItems = k.weapons.map(function (w) {
-      var tag = { build: 'basic', spend: 'spends ' + k.res.name, proc: 'proc' };
-      return { id: w.id, name: w.name, desc: w.pitch, list: w.abilities.map(function (a, i) { return (i + 1) + '  ' + a.name + '  /  ' + tag[a.role] + (a.cast ? ', ' + a.cast + 's cast' : ''); }) };
+      var wr = w.res || k.res;
+      var tag = function (a) {
+        if (a.role === 'skill') return a.cost ? a.cost + ' ' + wr.name : a.needs ? 'needs ' + a.needs + ' ' + wr.name : a.cd ? a.cd + 's cooldown' : 'skill';
+        return { build: 'basic', spend: 'spends ' + wr.name, proc: 'proc' }[a.role];
+      };
+      return { id: w.id, name: w.name, desc: w.pitch, list: w.abilities.map(function (a, i) { return (i + 1) + '  ' + a.name + '  /  ' + tag(a) + (a.cast ? ', ' + a.cast + 's cast' : ''); }) };
     });
     var tree = Sim.TALENTS[r];
-    $('#armoryRes').textContent = k.res.how;
+    var showRes = function () {
+      var wi = Math.max(0, k.weapons.map(function (w) { return w.id; }).indexOf(gearFor[r].weapon));
+      $('#armoryRes').textContent = (k.weapons[wi].res || k.res).how;
+    };
+    showRes();
     $('#armoryTheme').textContent = tree.theme; $('#armoryTheme').className = 'armtheme display role-' + r;
     [['weapon', 'Gear  /  Weapon', weaponItems]].concat(Sim.SLOTS.map(function (slot, i) {
       return [slot, 'Talent tier ' + (i + 1) + '  /  ' + tree.tiers[i], Sim.talentList(slot, r)];
@@ -395,7 +403,7 @@
           gearFor[r][slot[0]] = item.id;
           try { localStorage.setItem('s4-gear-' + r, JSON.stringify(gearFor[r])); } catch (e) {}
           Array.prototype.forEach.call(row.children, function (c) { c.setAttribute('aria-pressed', c === b ? 'true' : 'false'); });
-          showLeaning();
+          showLeaning(); showRes();
           Snd.ensure(); Snd.play('swap');
         });
         row.appendChild(b);
@@ -469,7 +477,7 @@
       acts.appendChild(b); hud.abs.push({ a: a, el: b, cool: cool, sec: sec, tl: tl, meter: meter, state: '' });
     });
     // The class resource: Revs show as five pips, the others as a bar.
-    var pips = $('#pips'), RS = human.kit.res; pips.innerHTML = ''; hud.pips = []; hud.resBar = null;
+    var pips = $('#pips'), RS = Sim.resOf(human); pips.innerHTML = ''; hud.pips = []; hud.resBar = null;
     pips.className = 'res-' + RS.id; pips.title = RS.how;
     pips.appendChild(el('span', null, RS.name.toUpperCase()));
     if (RS.max <= 5) for (var n = 0; n < RS.max; n++) { var pi = el('i'); pips.appendChild(pi); hud.pips.push(pi); }
@@ -504,6 +512,11 @@
       var mt = Sim.ent(S, S.missile.tgt);
       bc.className = 'bar on hero' + (human.role === 'dps' && !watching ? ' mine' : ''); setBar(bc.firstElementChild, S.missile.t / S.missile.dur);
       bc.lastElementChild.textContent = 'HEAVY ROCKET ON ' + (mt ? mt.name : '?') + '  /  STRIKER: DEADEYE';
+    } else if (boss.cast && boss.cast.name === 'Crusher') {
+      var cv = Sim.ent(S, boss.cast.target), onMe = cv === human && !watching;
+      bc.className = 'bar on hero' + (onMe ? ' mine' : '');
+      setBar(bc.firstElementChild, boss.cast.t / boss.cast.dur);
+      bc.lastElementChild.textContent = 'CRUSHER ON ' + (cv ? cv.name : '?') + '  /  ' + (onMe ? 'MITIGATE NOW' : 'TANK BUSTER');
     } else if (boss.cast) {
       var ha = HERO_ANSWER[boss.cast.name];
       bc.className = 'bar on' + (ha ? ' hero' : '') + (ha && ha[0] === human.role && !watching ? ' mine' : '');
@@ -592,7 +605,11 @@
         glow = duty ? 'hero' : full ? 'ultready' : '';
       }
       else if (h.a.role === 'proc' && human.procT > 0) { label = 'PROC ' + Math.ceil(human.procT) + 's'; glow = 'proc'; }
-      else if (h.a.role === 'spend' && u.state !== 'range') label = human.kit.res.spend === 'all' ? Math.floor(human.pips || 0) + ' ' + human.kit.res.name.toUpperCase() : 'COSTS ' + human.kit.res.spend;
+      else if (h.a.role === 'spend' && u.state !== 'range') label = Sim.resOf(human).spend === 'all' ? Math.floor(human.pips || 0) + ' ' + Sim.resOf(human).name.toUpperCase() : 'COSTS ' + Sim.resOf(human).spend;
+      else if (h.a.id === 'vent' && (human.pips || 0) >= 85) { label = 'PERFECT'; glow = 'proc'; }
+      else if (h.a.id === 'screen' && human.screen > 0) label = 'UP ' + Math.ceil(human.screen) + 's';
+      else if ((h.a.id === 'spin' || h.a.id === 'sweep') && human.jam > 0) label = 'JAMMED';
+      else if (h.a.cost && u.state !== 'range') label = 'COSTS ' + h.a.cost;
       else if (u.state === 'range') label = 'OUT OF RANGE';
       else if (u.behind) label = 'BEHIND +50%';
       else if (h.a.kind === 'friend' && u.tgt) label = u.tgt.id === human.id ? 'ON YOU' : 'ON ' + u.tgt.name;
@@ -605,13 +622,13 @@
         h.el.classList.toggle('na', u.state === 'notarget' || u.state === 'dead' || u.state === 'idle' || (u.state === 'locked' && !glow));
       }
     });
-    var pipN = Math.floor(human.pips || 0), RS2 = human.kit.res;
+    var pipN = Math.floor(human.pips || 0), RS2 = Sim.resOf(human);
     if (hud.pips && pipN !== hud.pipState) {
       hud.pipState = pipN;
       hud.pips.forEach(function (pi, n) { pi.classList.toggle('on', n < pipN); });
-      if (hud.resBar) { hud.resBar.style.transform = 'scaleX(' + (pipN / RS2.max).toFixed(2) + ')'; hud.resNum.textContent = pipN + (RS2.id === 'heat' && pipN >= 80 ? '  REDLINE' : ''); }
+      if (hud.resBar) { hud.resBar.style.transform = 'scaleX(' + (pipN / RS2.max).toFixed(2) + ')'; hud.resNum.textContent = pipN + (RS2.id === 'spin' && human.jam > 0 ? '  JAMMED' : RS2.id === 'spin' && pipN >= 85 ? '  PERFECT VENT' : ''); }
       $('#pips').classList.toggle('full', pipN >= RS2.max);
-      $('#pips').classList.toggle('redline', RS2.id === 'heat' && pipN >= 80);
+      $('#pips').classList.toggle('redline', RS2.id === 'spin' && pipN >= 85);
       $('#pips').classList.toggle('low', RS2.id === 'nanites' && pipN < RS2.min);
     }
     var danger = human.alive && S.telegraphs.some(function (g) { return Sim.inTele(g, human); });
@@ -874,7 +891,8 @@
     recordFight(false);
     var win = S.result === 'win', boss = Sim.ent(S, S.bossId);
     var t = $('#endTitle'); t.textContent = win ? 'Floor cleared' : 'Squad terminated'; t.className = 'display ' + (win ? 'win' : 'wipe');
-    $('#endLine').textContent = win ? 'The lift to floor 02 is unlocked.' : 'The Foreman had ' + Math.ceil(boss.hp / boss.maxHp * 100) + '% left.';
+    $('#endLine').textContent = (win ? 'The lift to floor 02 is unlocked.' : 'The Foreman had ' + Math.ceil(boss.hp / boss.maxHp * 100) + '% left.')
+      + (human.lastDeath ? '  ' + (watching ? human.name + ' went' : 'You went') + ' down to ' + human.lastDeath.label + ' at ' + fmtTime(human.lastDeath.t) + '.' : '');
     var best = null, isNew = false, key = 's4-best-' + role;
     try { best = parseFloat(localStorage.getItem(key)) || null; } catch (e) {}
     if (win && !watching && (!best || S.t < best)) { isNew = true; best = S.t; try { localStorage.setItem(key, String(S.t)); } catch (e) {} }

@@ -189,15 +189,59 @@ test('Medic Nanites: heals cost them, shooting harvests them', () => {
   assert.ok(p.pips >= before + 11);
 });
 
-test('Juggernaut Heat: swings and hits build it, venting spends it all, Redline hits harder', () => {
-  const { S, p, boss } = arena('tank', { weapon: 'hammer' });
-  p.x = boss.x; p.z = boss.z - 4;
+test('Flak Cannon: blasts load Ammo, Flak Screen spends it and cuts hits by 60%', () => {
+  const { S, p, boss } = arena('tank', { weapon: 'flak' });
+  p.x = boss.x; p.z = boss.z - 5; p.pips = 0;
   press(S, 0, { target: boss.id });
-  assert.ok(p.pips >= 14);
-  const h = p.pips; Sim.damagePlayer(S, S.bossId, p, 50, 'Hit');
-  assert.ok(p.pips > h);
-  p.pips = 100; p.gcd = 0; press(S, 1, { target: boss.id });
-  assert.ok(p.pips < 3);
+  assert.ok(p.pips >= 15);
+  p.pips = 60; press(S, 2);
+  assert.ok(p.screen > 2 && p.pips <= 10.5);
+  p.armor = 0; const h = p.hp;
+  Sim.damagePlayer(S, S.bossId, p, 1000, 'Crusher');
+  assert.ok(h - p.hp <= 420 && h - p.hp >= 300, String(h - p.hp));
+});
+
+test('Impact Hammer: Recoil Strike heals for damage just taken', () => {
+  const { S, p, boss } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
+  p.x = boss.x; p.z = boss.z - 5; p.armor = 0;
+  Sim.damagePlayer(S, S.bossId, p, 900, 'Crusher');
+  const low = p.hp; p.pips = 50;
+  press(S, 1, { target: boss.id });
+  assert.ok(p.hp - low >= 250, 'healed ' + (p.hp - low));
+});
+
+test('Minigun: heat speeds it up, Perfect Vent shields big, 100 jams it', () => {
+  const { S, p, boss } = arena('tank', { weapon: 'minigun', rig: 'vengeance' });
+  p.x = boss.x; p.z = boss.z - 10;
+  p.pips = 0; press(S, 0, { target: boss.id }); const cold = p.gcd;
+  p.pips = 80; p.gcd = 0; press(S, 0, { target: boss.id });
+  assert.ok(p.gcd < cold * 0.7, 'hot barrels fire faster');
+  p.pips = 90; p.armor = 0; press(S, 2);
+  assert.ok(p.armor >= 800 && p.pips > 43 && p.pips <= 45, 'perfect vent');
+  p.pips = 95; p.gcd = 0; press(S, 0, { target: boss.id });
+  assert.ok(p.jam > 0);
+  p.gcd = 0; press(S, 0, { target: boss.id });
+  assert.ok(S.events.some((e) => e.type === 'error' && /jammed/i.test(e.text)));
+});
+
+test('Challenge taunts one target, not the room', () => {
+  const { S, p, boss } = arena('tank');
+  p.x = boss.x; p.z = boss.z - 5;
+  const drone = { id: 999, kind: 'enemy', type: 'drone', x: p.x + 3, z: p.z, radius: 1, hp: 100, maxHp: 100, alive: true, threat: {}, target: null };
+  S.ents.push(drone);
+  press(S, 3, { target: boss.id });
+  assert.ok(boss.fixate && boss.fixate.id === p.id);
+  assert.ok(!drone.fixate);
+});
+
+test('the Foreman winds up a Crusher on his target, and a one-button tank loses', () => {
+  const S = Sim.create({ seed: 4 }); S.countdown = 0;
+  let seen = false;
+  for (let i = 0; i < 30 * 40 && !seen; i++) { Sim.step(S, 1 / 30, {}); const b = Sim.ent(S, S.bossId); if (b.cast && b.cast.name === 'Crusher') seen = true; S.events.length = 0; }
+  assert.ok(seen);
+  const lazy = summarise(seeds(10, 11).map((seed) => runFight({ role: 'tank', seed, lazy: true })));
+  const good = summarise(seeds(10, 11).map((seed) => runFight({ role: 'tank', seed })));
+  assert.ok(lazy.winRate + 30 <= good.winRate, `lazy ${lazy.winRate} vs good ${good.winRate}`);
 });
 
 test('a proc lights the third button for a while and using it spends the proc', () => {
