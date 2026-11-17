@@ -577,3 +577,45 @@ test('Challenge talents: Brand marks it, Daze stuns a drone and softens the boss
   press(bz.S, Sim.abilitiesOf(bz.p).findIndex((ab) => ab.id === 'challenge'), { aim: 0 });
   assert.ok(bz.boss.weak > 0 && !(bz.boss.stagger > 0), 'the Foreman softens, never stuns');
 });
+
+test('nothing keeps a dead player as its target, and a Crusher on someone who drops is called off', () => {
+  const { S, p, boss } = arena('dps');
+  const tank = Sim.players(S).find((q) => q.role === 'tank');
+  boss.target = tank.id; boss.stagger = 3;
+  boss.cast = { name: 'Crusher', t: 0, dur: 2.5, target: tank.id, done() {} };
+  tank.hp = 1; Sim.damagePlayer(S, S.bossId, tank, 5000, 'Hit');
+  Sim.step(S, 1 / 30, {});
+  const t = Sim.ent(S, boss.target);
+  assert.ok(t && t.alive, 'retargets even while staggered');
+  assert.ok(!boss.cast, 'the Crusher on a body is called off');
+});
+
+test('the death log keeps the last five hits, how big they were, and whether they were avoidable', () => {
+  const { S, p } = arena('dps');
+  p.armor = 0;
+  ['Hit', 'Sludge', 'Crusher', 'Leap', 'Overcharge', 'Rocket'].forEach((l) => Sim.damagePlayer(S, S.bossId, p, 100, l));
+  p.hp = 50; Sim.damagePlayer(S, S.bossId, p, 300, 'Charge');
+  assert.ok(!p.alive);
+  const log = p.lastDeath.log;
+  assert.strictEqual(log.length, 5);
+  assert.deepStrictEqual(log.map((h) => h[0]), ['Crusher', 'Leap', 'Overcharge', 'Rocket', 'Charge']);
+  assert.deepStrictEqual(log.map((h) => h[2]), ['mitigate', 'dodge', 'team', 'dodge', 'dodge']);
+  const snap = Sim.snapshot ? Sim.snapshot(S) : null;
+  if (snap) assert.ok(JSON.stringify(snap).includes('Charge'));
+});
+
+test('phase three: the floor falls for good, and a drone shoved onto it goes down the shaft', () => {
+  const { S, p, boss } = arena('tank', { weapon: 'hammer' });
+  S.phase = 3; boss.hp = boss.maxHp * 0.2; S.timers.collapse = 0;
+  for (let i = 0; i < 30 * 70; i++) { Sim.step(S, 1 / 30, {}); boss.hp = boss.maxHp * 0.2; Sim.players(S).forEach((q) => { q.hp = q.maxHp; q.alive = true; }); }
+  const down = S.telegraphs.filter((g) => g.shape === 'sector' && g.down);
+  assert.ok(down.length === Sim.TUNE.collapseMax, String(down.length));
+  const g = down[0], mid = (g.a0 + g.a1) / 2;
+  boss.x = 0; boss.z = 0; S.telegraphs = S.telegraphs.filter((x) => x === g);
+  p.x = Math.sin(mid) * 4; p.z = Math.cos(mid) * 4; p.pips = 100; p.alive = true;
+  const d = { id: 970, kind: 'enemy', type: 'drone', name: 'SECURITY DRONE', x: Math.sin(mid) * 7.5, z: Math.cos(mid) * 7.5, facing: 0, speed: 6, radius: 1, hp: 1600, maxHp: 1600, alive: true, threat: {}, target: null, fixate: null, swing: 1, melee: 90, swingInt: 1.5, cast: null };
+  S.ents.push(d); S.events.length = 0;
+  Sim.step(S, 1 / 30, { aim: mid, ability: Sim.abilitiesOf(p).findIndex((ab) => ab.id === 'shove') });
+  assert.ok(!d.alive, 'down the shaft');
+  assert.ok(S.events.some((e) => e.type === 'dmg' && e.label === 'Down the Shaft!'));
+});

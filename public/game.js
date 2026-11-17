@@ -467,7 +467,11 @@
     $('#enemies').innerHTML = ''; hud.enemies = {};
   }
   /* The key shown on each action button. Aimed weapons put the weapon on the mouse buttons. */
-  function keyCap(i) { if (!Sim.aimWeapon(human) || watching) return String(i + 1); var a = Sim.abilitiesOf(human)[i]; return (a && a.key) || ''; }
+  function keyCap(i) {
+    if (!Sim.aimWeapon(human) || watching) return String(i + 1);
+    var a = Sim.abilitiesOf(human)[i], k = a && a.key;
+    return /^[QEFR]$/.test(k || '') ? keyName('Key' + k) : (k || '');
+  }
   /* Aimed weapons: which bar slot a key (Q, E, F, R) fires. */
   function aimSlot(k) { var l = Sim.abilitiesOf(human); for (var i = 0; i < l.length; i++) if (l[i].key === k) return i; return undefined; }
   function buildActions() {
@@ -497,6 +501,16 @@
     hud.pipState = -1;
   }
   function setBar(fill, frac) { fill.style.transform = 'scaleX(' + Math.max(0, Math.min(1, frac)).toFixed(3) + ')'; }
+  /* Death recap: the last five hits before going down, how big they were, and whether they could have been avoided. */
+  var KIND = { dodge: ['AVOIDABLE', 'step out of it'], mitigate: ['MITIGATE', 'block or shield it'], team: ['SQUAD', 'break the shield in time'] };
+  function deathRecap(p) {
+    var d = p && p.lastDeath; if (!d || !d.log || !d.log.length) return '';
+    var rows = d.log.slice().reverse().map(function (h) {
+      var k = KIND[h[2]];
+      return '<tr><td class="mono">' + fmtTime(h[3] != null ? h[3] : d.t) + '</td><td>' + h[0] + '</td><td class="num">' + Math.round(h[1]) + '</td><td class="' + (k ? 'av ' + h[2] : 'av') + '">' + (k ? k[0] + ' <span>' + k[1] + '</span>' : 'part of the fight') + '</td></tr>';
+    }).join('');
+    return '<h3 class="mono">LAST HITS ON ' + p.name.toUpperCase() + '</h3><table class="recap">' + rows + '</table>';
+  }
   function fmtTime(t) { t = Math.max(0, Math.floor(t)); return Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2); }
   function logLine(text) {
     var log = $('#log'); log.appendChild(el('div', null, text));
@@ -580,7 +594,7 @@
       }
       setBar(h.fill, e.hp / e.maxHp);
       var t = e.target != null ? Sim.ent(S, e.target) : null;
-      h.tg.textContent = t ? 'on ' + t.name : '';
+      h.tg.textContent = t && t.alive ? 'on ' + t.name : '';
       h.el.classList.toggle('sel', human.target === e.id);
     });
     for (var id in hud.enemies) if (!seen[id]) { hud.enemies[id].el.remove(); delete hud.enemies[id]; }
@@ -596,6 +610,9 @@
     if (human.cast) { mc.classList.add('on'); setBar(mc.firstElementChild, human.cast.t / human.cast.dur); mc.lastElementChild.textContent = human.cast.ab.name.toUpperCase(); }
     else mc.classList.remove('on');
     setBar($('#myHp > i'), human.hp / human.maxHp);
+    var dr = $('#deathRecap'), showDr = !human.alive && !!(human.lastDeath && human.lastDeath.log && human.lastDeath.log.length);
+    if (showDr && dr.dataset.t !== String(human.lastDeath.t)) { dr.innerHTML = deathRecap(human); dr.dataset.t = String(human.lastDeath.t); }
+    dr.hidden = !showDr;
     $('#myHp > span').textContent = human.alive ? Math.ceil(human.hp) + ' / ' + human.maxHp : (watching ? human.name + ' IS DOWN' : 'YOU ARE DOWN');
     if (hud.wpn !== human.weapon) buildActions();
     if (hud.wname !== human.weapon) {
@@ -763,6 +780,7 @@
             Snd.play(pw >= 0.6 ? 'boom' : 'hammer');
             if (ev.src === human.id && pw >= 0.99) hitFlash();
           }
+          else if (ev.fx === 'shaft') { ringFx(x, z, 2, 0.3, 0x000000, 0.7); ringFx(x, z, 0.5, 5, 0xffb000, 0.5); Snd.play('boom'); }
           else if (ev.fx === 'slammed') { ringFx(x, z, 0.5, 4, 0xffffff, 0.45); Snd.play('hammer'); }
           else if (ev.fx === 'piston') { if (ev.src === human.id) Snd.play('charge'); }
           else if (ev.fx === 'boost') { ringFx(x, z, 0.3, 3, 0xffb000, 0.35); Snd.play('charge'); }
@@ -869,7 +887,7 @@
       }
       var s = Math.max(0.01, g.t / g.dur);
       if (m.sector) {
-        if (g.down) { m.fill.material.color.setHex(0x2a0806); m.fill.material.opacity = 0.85; }
+        if (g.down) { m.fill.material.color.setHex(0x050303); m.fill.material.opacity = 0.95; }   // a hole in the floor, not a warning
         else m.fill.material.opacity = 0.15 + 0.45 * Math.min(1, s);
       }
       else if (g.shape === 'line') m.fill.scale.set(s, 1, 1); else m.fill.scale.set(s, s, 1);
@@ -936,6 +954,7 @@
     var best = null, isNew = false, key = 's4-best-' + role;
     try { best = parseFloat(localStorage.getItem(key)) || null; } catch (e) {}
     if (win && !watching && (!best || S.t < best)) { isNew = true; best = S.t; try { localStorage.setItem(key, String(S.t)); } catch (e) {} }
+    $('#endDeath').innerHTML = deathRecap(human);
     $('#endTime').textContent = 'TIME ON FLOOR ' + fmtTime(S.t);
     if (watching) best = null;
     $('#endBest').textContent = best ? 'BEST AS ' + human.kit.title.toUpperCase() + ' ' + fmtTime(best) + (isNew ? '  NEW' : '') : '';
@@ -1047,9 +1066,44 @@
     var i = -1; list.forEach(function (e, n) { if (e.id === human.target) i = n; });
     input.target = list[(i + dir + list.length) % list.length].id;
   }
+  /* Keybinds. Each action has a default key; a rebind maps the new key onto the default, so the rest of the
+     input code only ever sees the defaults. A default key that's been moved somewhere else does nothing. */
+  var BIND_DEF = [['KeyW', 'Move forward'], ['KeyS', 'Move back'], ['KeyA', 'Move left'], ['KeyD', 'Move right'],
+    ['Space', 'Riot Charge / leap'], ['KeyQ', 'Q ability'], ['KeyE', 'E ability'], ['KeyF', 'F ability'], ['KeyR', 'Ultimate']];
+  var binds = {};
+  try { binds = JSON.parse(localStorage.getItem('s4-binds') || '{}') || {}; } catch (e) { binds = {}; }
+  function remap(code) {
+    for (var d in binds) if (binds[d] === code) return d;
+    if (binds[code] && binds[code] !== code) return '';
+    return code;
+  }
+  function keyName(code) { if (binds[code] === '') return 'unbound'; code = binds[code] || code; return code.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Arrow/, '') || code; }
+  var rebinding = null;
+  function drawBinds() {
+    var host = $('#bindList'); host.innerHTML = '';
+    BIND_DEF.forEach(function (b) {
+      var row = el('div', 'bindrow'); row.appendChild(el('span', '', b[1]));
+      var btn = el('button', 'ghost mono', rebinding === b[0] ? 'press a key...' : keyName(b[0])); btn.type = 'button';
+      btn.addEventListener('click', function () { rebinding = b[0]; drawBinds(); });
+      row.appendChild(btn); host.appendChild(row);
+    });
+  }
+  window.addEventListener('keydown', function (ev) {
+    if (!rebinding) return;
+    ev.preventDefault(); ev.stopImmediatePropagation();
+    if (ev.code !== 'Escape') {
+      var target = rebinding;
+      for (var d in binds) if (binds[d] === ev.code) delete binds[d];   // one key, one job
+      BIND_DEF.forEach(function (b) { if (b[0] !== target && !binds[b[0]] && b[0] === ev.code) binds[b[0]] = '';   });
+      binds[target] = ev.code;
+      try { localStorage.setItem('s4-binds', JSON.stringify(binds)); } catch (e) {}
+    }
+    rebinding = null; drawBinds();
+  }, true);
   window.addEventListener('keydown', function (ev) {
     if (!running) return;
-    var c = ev.code;
+    var c = remap(ev.code);
+    if (!c) return;
     if (watching) {
       var squad = Sim.players(S), at = squad.indexOf(human);
       if (c === 'Tab') { ev.preventDefault(); follow(squad[(at + (ev.shiftKey ? -1 : 1) + squad.length) % squad.length]); return; }
@@ -1075,7 +1129,7 @@
     if (c.indexOf('Arrow') === 0 || c === 'Space') ev.preventDefault();
     keys[c] = true;
   });
-  window.addEventListener('keyup', function (ev) { keys[ev.code] = false; });
+  window.addEventListener('keyup', function (ev) { var c = remap(ev.code); if (c) keys[c] = false; });
   window.addEventListener('blur', function () { keys = {}; });
 
   /* Mouse aim for aimed weapons: click the arena to lock the pointer, then the mouse turns the camera,
@@ -1595,6 +1649,9 @@
       if (Net.squad) showLobby(); else startFight(role, watching);
     });
     $('#watch').addEventListener('click', function () { startFight(role, true); });
+    $('#bindsBtn').addEventListener('click', function () { drawBinds(); $('#binds').classList.add('on'); });
+    $('#bindsClose').addEventListener('click', function () { rebinding = null; $('#binds').classList.remove('on'); });
+    $('#bindsReset').addEventListener('click', function () { binds = {}; rebinding = null; try { localStorage.removeItem('s4-binds'); } catch (e) {} drawBinds(); });
     $('#armoryGo').addEventListener('click', function () {
       if (armoryCtx === 'lobby') { netSetPresence({ role: role, gear: gearFor[role] }); showLobby(); } else startFight(role);
     });

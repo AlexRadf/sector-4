@@ -310,7 +310,7 @@
     heroMoments: false, slamStagger: 3,
     ultRate: 1.7, ultStart: 40, heroFirst: 35, heroEvery: 38, wallDur: 6,
     blastCast: 6, blastDmg: 520, meltCast: 3, radDur: 8, rocketDur: 7, rocketDmg: 520, haymakerCast: 5, haymakerDmg: 900,
-    collapseEvery: 13, collapseDelay: 3.0, collapseDur: 12, collapseDps: 240, collapseR0: 7,
+    collapseEvery: 15, collapseDelay: 3.0, collapseMax: 4, collapseDps: 240, collapseR0: 7, droneEveryP3: 40,
     chargeEvery: 19, chargeDelay: 1.8, chargeW: 4.5, chargeDmg: 380,
     // Crusher: a telegraphed tank buster on whoever the Foreman is fighting. Mitigate it or eat most of your health.
     // Impact Hammer: combo pacing, Aegis Dome size, Riot Charge recharge, and how the barrier holds and recovers.
@@ -657,6 +657,7 @@
       }
     }
     met(S, p.id).taken += amt; S.m.taken[label] = (S.m.taken[label] || 0) + amt;
+    if (amt > 0) { (p.recent || (p.recent = [])).push([label, amt, hitKind(p, label), Math.round(S.t * 10) / 10]); if (p.recent.length > 5) p.recent.shift(); }
     p.recoil = (p.recoil || 0) + amt;   // recent damage, for Recoil Strike
     if (T(p, 'vengeance')) p.rage = Math.min(500, (p.rage || 0) + amt * 0.2);
     p.hp -= amt;
@@ -690,7 +691,7 @@
     }
     if (p.hp <= 0) {
       met(S, p.id).deaths++; S.m.killers[label] = (S.m.killers[label] || 0) + 1;
-      p.lastDeath = { label: label, t: Math.round(S.t) };
+      p.lastDeath = { label: label, t: Math.round(S.t), log: (p.recent || []).slice() };
       p.hp = 0; p.alive = false; p.cast = null; p.queued = null; p.sludge = 0; p.hot = 0;
       emit(S, { type: 'death', id: p.id });
       emit(S, { type: 'log', id: p.id, text: p.name + ' is down.', you: "You're down." });
@@ -701,6 +702,16 @@
         emit(S, { type: 'log', id: p.id, text: medic.name + "'s Defibrillator is charging for " + p.name + '.', you: medic.name + "'s Defibrillator is charging. Hold on." });
       }
     }
+  }
+  /* For the death log: could this hit have been avoided? 'dodge' = step out of it, 'mitigate' = block or
+     shield it, 'team' = the squad's job (breaking the shield), '' = part of the fight. */
+  var DODGE = { Charge: 1, Collapse: 1, Leap: 1, Sludge: 1, Rocket: 1, 'Heavy Rocket': 1, 'Demolition Blast': 1, Haymaker: 1, Radiation: 1 };
+  function hitKind(p, label) {
+    if (DODGE[label]) return 'dodge';
+    if (label === 'Cleave') return p.role === 'tank' ? '' : 'dodge';
+    if (label === 'Crusher') return 'mitigate';
+    if (label === 'Overcharge') return 'team';
+    return '';
   }
   function heal(S, src, p, amt, label) {
     if (!p.alive) return;
@@ -865,6 +876,23 @@
     p.boostNow = 1;
   }
 
+  /* Is this spot on floor that has already fallen in phase three? */
+  function fallen(S, e) { return S.telegraphs.some(function (g) { return g.shape === 'sector' && g.t >= g.dur && inTele(g, e); }); }
+  /* Bots treat fallen floor like a wall: off it straight away (towards the middle, which never falls),
+     and steer round it rather than walking in. */
+  function avoidFallen(S, p, inp) {
+    if (!S.telegraphs.some(function (g) { return g.down; })) return inp;
+    var r = Math.sqrt(p.x * p.x + p.z * p.z) || 1;
+    if (fallen(S, p)) { inp.mx = -p.x / r; inp.mz = -p.z / r; return inp; }
+    var mx = inp.mx || 0, mz = inp.mz || 0, len = Math.sqrt(mx * mx + mz * mz);
+    if (len < 0.01) return inp;
+    var a0 = Math.atan2(mx, mz), tries = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2];
+    for (var i = 0; i < tries.length; i++) {
+      var a = a0 + tries[i];
+      if (!fallen(S, { x: p.x + Math.sin(a) * 2.5, z: p.z + Math.cos(a) * 2.5 })) { inp.mx = Math.sin(a); inp.mz = Math.cos(a); return inp; }
+    }
+    inp.mx = 0; inp.mz = 0; return inp;
+  }
   /* Shove: throw an enemy straight back from the Juggernaut. Hitting the arena wall or another enemy stops it dead:
      it's stunned and takes extra damage, and a drone it lands on is stunned too. */
   function shoveBack(S, p, e, push, pd) {
@@ -876,6 +904,12 @@
       hit = enemies(S).filter(function (o) { return o !== e && Math.hypot(o.x - nx, o.z - nz) < (o.radius || 0.6) + (e.radius || 0.6) + 0.3; })[0] || null;
       if (hit) break;
       e.x = nx; e.z = nz; moved += st;
+    }
+    if (fallen(S, e)) {
+      emit(S, { type: 'fx', fx: 'shaft', src: e.id });
+      emit(S, { type: 'log', id: p.id, text: p.name + ' throws a ' + (e.name || 'drone').toLowerCase() + ' down the shaft.', you: 'Down the shaft.' });
+      damageEnemy(S, p, e, Math.ceil(e.hp / 0.85) + 1, 2, 'Down the Shaft!');
+      return;
     }
     if (!hit) return;
     var stun = pd > 1 ? 3 : 2;
@@ -1456,6 +1490,7 @@
     }
     var cur = e.target != null ? ent(S, e.target) : null;
     var curT = cur && cur.alive ? (e.threat[cur.id] || 0) : -1;
+    if (cur && !cur.alive) cur = null;
     var best = cur && cur.alive ? cur : null, bestT = curT;
     players(S, true).forEach(function (p) {
       var th = e.threat[p.id] || 0;
@@ -1467,6 +1502,9 @@
 
   function tickEnemy(S, e, dt) {
     if (!e.alive) return;
+    // Never keep a dead player as the target, whatever state the enemy is in (staggered, walking to the middle, mid-charge).
+    var was = e.target != null ? ent(S, e.target) : null;
+    if (was && !was.alive) { e.target = pickTarget(S, e); if (e.cast && e.cast.target === was.id) e.cast = null; }
     if (e.acid > 0) {
       // Bio Rifle acid: ticks about once a second.
       var step0 = Math.min(dt, e.acid); e.acid -= dt;
@@ -1666,7 +1704,7 @@
     if (S.phase === 2 && boss.hp <= boss.maxHp * TUNE.p3At) {
       S.phase = 3;
       emit(S, { type: 'announce', text: 'PHASE THREE', tone: 'bad' });
-      emit(S, { type: 'log', text: 'The Foreman starts tearing up the floor. Sections give way: keep off the red.' });
+      emit(S, { type: 'log', text: 'The Foreman starts tearing up the floor. Sections fall for good and the room shrinks: keep off the red, and throw his drones down the shaft.' });
       T.collapse = 2;
     }
     if (S.phase === 3) {
@@ -1674,11 +1712,11 @@
       if (T.collapse <= 0) {
         T.collapse = TUNE.collapseEvery;
         var down = S.telegraphs.filter(function (g) { return g.shape === 'sector'; });
-        if (down.length < 2) {
+        if (down.length < TUNE.collapseMax) {
           var taken = down.map(function (g) { return g.k; }), free = [0, 1, 2, 3, 4, 5].filter(function (k) { return taken.indexOf(k) < 0; });
           var k = free[Math.floor(S.rng() * free.length)], w = Math.PI / 3;
-          S.telegraphs.push({ id: S.nextId++, shape: 'sector', k: k, a0: k * w, a1: (k + 1) * w, r0: TUNE.collapseR0, r1: ARENA_R + 1, t: 0, dur: TUNE.collapseDelay, life: TUNE.collapseDur, dps: TUNE.collapseDps });
-          emit(S, { type: 'log', text: 'A section of floor is giving way.' });
+          S.telegraphs.push({ id: S.nextId++, shape: 'sector', k: k, a0: k * w, a1: (k + 1) * w, r0: TUNE.collapseR0, r1: ARENA_R + 1, t: 0, dur: TUNE.collapseDelay, life: 1e9, dps: TUNE.collapseDps });
+          emit(S, { type: 'log', text: 'A section of floor is giving way. It won\'t come back.' });
           emit(S, { type: 'fx', fx: 'barrage', src: boss.id });
         }
       }
@@ -1686,8 +1724,8 @@
 
     if (S.phase >= 2) {
       T.drone -= dt;
-      if (T.drone <= 0 && S.phase === 2) {
-        T.drone = TUNE.droneEvery;
+      if (T.drone <= 0) {
+        T.drone = S.phase === 3 ? TUNE.droneEveryP3 : TUNE.droneEvery;
         var healer = alive.filter(function (p) { return p.role === 'healer'; })[0] || alive[Math.floor(S.rng() * alive.length)];
         var a0 = S.rng() * Math.PI * 2;
         for (var j = 0; j < 2; j++) {
@@ -1775,6 +1813,11 @@
       // The Heavy Rocket homes in on its mark; two seconds out it marks the blast on the floor.
       var mm = S.missile, mt = ent(S, mm.tgt); mm.t += dt;
       if (mt && mt.alive) { mm.tx = mt.x; mm.tz = mt.z; }
+      else if (!mm.marked) {
+        // Its mark went down: the rocket picks someone else still standing rather than diving on a body.
+        var nm = players(S, true).sort(function (a, c) { return dist(a, mm) - dist(c, mm); })[0];
+        if (nm) mm.tgt = nm.id;
+      }
       var kk = Math.min(1, mm.t / mm.dur);
       mm.x = mm.x0 + ((mm.tx || mm.x0) - mm.x0) * kk; mm.z = mm.z0 + ((mm.tz || mm.z0) - mm.z0) * kk;
       if (mm.t >= mm.dur - 2 && !mm.marked) {
@@ -1881,7 +1924,7 @@
 
     // Step out of telegraphs after a short reaction delay.
     var inside = null;
-    S.telegraphs.forEach(function (g) { if (inTele(g, p, 1.2)) inside = g; });
+    S.telegraphs.forEach(function (g) { if (!g.down && inTele(g, p, 1.2)) inside = g; });   // fallen floor: see avoidFallen
     if (inside) {
       b.danger += dt;
       if (b.danger > b.react * slow) { var e = escapeDir(inside, p); inp.mx = e.x; inp.mz = e.z; if (T(p, 'dodge') || T(p, 'stim')) inp.jump = true; return inp; }
@@ -2087,7 +2130,7 @@
     }
     S.t += dt;
     players(S).forEach(function (p) {
-      var inp = (p.human && !p.auto) ? (inputs[p.id] || {}) : hands(S, p, botThink(S, p, dt), dt);
+      var inp = (p.human && !p.auto) ? (inputs[p.id] || {}) : avoidFallen(S, p, hands(S, p, botThink(S, p, dt), dt));
       applyInput(S, p, inp, dt);
       trackMove(S, p, dt);
       tickPlayer(S, p, dt);
@@ -2135,7 +2178,7 @@
         if (e.auto && e.human) o.au = 1;
         if (e.defibUsed) o.du = 1;
         if (e.dash) o.ds = 1;
-        if (e.lastDeath) o.ld = [e.lastDeath.label, e.lastDeath.t];
+        if (e.lastDeath) o.ld = [e.lastDeath.label, e.lastDeath.t, e.lastDeath.log || []];
         if (e.cast) o.k = [e.cast.ab.id, r2(e.cast.t), r2(e.cast.dur), e.cast.targetId];
         ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
         snap.p.push(o);
@@ -2178,7 +2221,7 @@
       var p = ent(M, o.i); if (!p) return;
       p.x = o.x; p.z = o.z; p.facing = o.f; p.hp = o.h; p.alive = !!o.a; p.target = o.tg; p.gcd = o.g; p.cds = o.c || {};
       p.moving = !!o.mv; p.auto = !!o.au || !p.human; p.defibUsed = !!o.du;
-      p.lastDeath = o.ld ? { label: o.ld[0], t: o.ld[1] } : null;
+      p.lastDeath = o.ld ? { label: o.ld[0], t: o.ld[1], log: o.ld[2] || [] } : null;
       ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT'].forEach(function (f) { p[f] = o[f] || 0; });
       if (o.k) {
         var ab = abilitiesOf(p).filter(function (a) { return a.id === o.k[0]; })[0];
@@ -2296,7 +2339,7 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.19.0';
+  var VERSION = '0.20.0';
 
   var api = {
     VERSION: VERSION,

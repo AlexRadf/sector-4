@@ -190,6 +190,19 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 #log { position: absolute; left: 14px; bottom: 16px; width: min(300px, 26vw); display: flex; flex-direction: column; gap: 2px; font-family: var(--font-mono); font-size: 11px; color: var(--dim); }
 #log div:last-child { color: var(--text); }
+#deathRecap { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); width: min(460px, 92vw); padding: 10px 14px; background: rgba(10, 13, 18, 0.88); border: 1px solid var(--line); border-top: 3px solid #ff4a36; pointer-events: none; }
+#deathRecap h3, #endDeath h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: 0.12em; color: var(--dim); }
+.recap { width: 100%; border-collapse: collapse; font-size: 13px; }
+.recap td { padding: 3px 6px; border-top: 1px solid var(--line); }
+.recap td.num { text-align: right; font-family: var(--font-mono); }
+.recap td.av { font-family: var(--font-mono); font-size: 11px; color: var(--dim); }
+.recap td.av span { color: var(--dim); opacity: 0.8; }
+.recap td.av.dodge { color: #ff4a36; } .recap td.av.mitigate { color: var(--amber); } .recap td.av.team { color: #7fd0ff; }
+#endDeath { margin: 0 0 14px; }
+#binds { z-index: 30; } #bindsTitle { font-size: 40px; }
+.bindrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; border-top: 1px solid var(--line); max-width: 420px; }
+.bindrow button { min-width: 140px; }
+#bindsBtn { font-size: 11px; padding: 2px 8px; margin-left: 8px; vertical-align: middle; }
 #announce { position: absolute; top: 24%; left: 0; right: 0; text-align: center; font-size: clamp(48px, 9vw, 110px); color: var(--amber); text-shadow: 0 4px 0 #000, 0 0 30px rgba(255, 176, 0, 0.35); opacity: 0; }
 #announce.bad { color: var(--danger); text-shadow: 0 4px 0 #000, 0 0 30px rgba(255, 74, 54, 0.4); }
 #announce.good { color: var(--heal); text-shadow: 0 4px 0 #000, 0 0 30px rgba(79, 216, 143, 0.4); }
@@ -304,6 +317,7 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
 
 <div id="hud">
   <div id="party"></div>
+  <div id="deathRecap" hidden></div>
   <div id="bossFrame">
     <div class="row"><span id="bossName" class="display">The Foreman</span><span id="phaseTag">PHASE 1</span></div>
     <div id="bossHp" class="bar"><i></i><span></span></div>
@@ -368,7 +382,7 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
     </div>
     <div class="notes">
       <div>
-        <h2>Controls</h2>
+        <h2>Controls <button id="bindsBtn" class="ghost mono" type="button">Keybinds</button></h2>
         <dl class="keys">
           <dt><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></dt><dd>Move. Moving cancels a cast. Abilities queue if you press them a moment early.</dd>
           <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Your weapon. 1 is your basic attack and 2 your heavy one. For most classes 3 lights up when you proc; the Juggernaut's 3 is the weapon's defensive.</dd>
@@ -433,11 +447,20 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
   </div>
 </div>
 
+<div id="binds" class="overlay">
+  <div class="sheet">
+    <div id="bindsTitle" class="display">Keybinds</div>
+    <p class="sub">Click an action, then press the key you want. Esc cancels. The mouse buttons stay your weapon; a controller uses its own layout.</p>
+    <div id="bindList"></div>
+    <div class="btns"><button id="bindsClose" class="go" type="button">Done</button><button id="bindsReset" class="ghost" type="button">Reset to defaults</button></div>
+  </div>
+</div>
 <div id="end" class="overlay">
   <div class="sheet">
     <div class="corp"><span><b>HALCYON-VANCE CONSOLIDATED</b></span><span>SHIFT REPORT</span><span id="endTime"></span><span id="endBest"></span></div>
     <div id="endTitle" class="display"></div>
     <p id="endLine" class="sub display"></p>
+    <div id="endDeath"></div>
     <table>
       <thead><tr><th>Contractor</th><th>Role</th><th class="num">Damage</th><th class="num">Healing</th><th class="num">Taken</th></tr></thead>
       <tbody id="meters"></tbody>

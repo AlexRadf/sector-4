@@ -4,6 +4,21 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.20.0 (2026-11-17) Design pillars, death log, a shrinking phase three, keybinds
+- `DESIGN.md` sets out the pillars every change is checked against: everything is aimed, if it matters you can
+  see it in the world, and each role owns a physical job (tank: space, healer: coverage, DPS: precision).
+  It also sets the order of work: an aimed healer next, then one aimed DPS weapon, then the rest.
+- Death log: when you go down, and on the shift report, you see the last five hits you took, how big each was,
+  and whether it was avoidable (step out of it), something to mitigate (block or shield it), or the squad's job.
+- Phase three: floor sections now fall for good, one every 15s, until four of the six are gone and the room is a
+  fraction of its size. Fallen floor is a black hole, not a red warning. Drones keep coming in phase three (every 40s),
+  and a drone you Shove onto fallen floor goes down the shaft.
+- Fixed: enemies could keep a dead player as their target while staggered, walking to the middle or charging.
+  A Crusher on someone who drops is now called off, and a Heavy Rocket whose mark goes down picks someone standing.
+- Keybinds: a Keybinds button under Controls on the main screen. Rebind movement, Space, Q, E, F and R; saved
+  in your browser. Rebound keys show on the action bar.
+- Bots treat fallen floor as a wall and step off it straight away.
+
 ## 0.19.0 (2026-11-17) Shield Energy and the Shove
 - The Impact Hammer is built around one loop: swing and block to fill **Shield Energy**, then **Shove** (LMB + RMB together; RT + LT on a controller).
   - Each swing stores 6, the slam 12, and your barrier stores 1 for every 25 damage it blocks (yours or the squad's behind you). It never leaks.
