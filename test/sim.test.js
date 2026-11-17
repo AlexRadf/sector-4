@@ -76,14 +76,14 @@ function run(S, secs, inp) { for (let i = 0; i < secs * 30; i++) { Sim.step(S, 1
 test('Riot Charge closes the gap to the target', () => {
   const { S, p, boss } = solo('tank', { boots: 'ram' });
   const before = Math.hypot(p.x - boss.x, p.z - boss.z);
-  run(S, 0.1, { target: boss.id, jump: true });
+  run(S, 0.8, { target: boss.id, jump: true });   // the boosters take a moment to get you there
   assert.ok(Math.hypot(p.x - boss.x, p.z - boss.z) < before - 5);
-  assert.strictEqual(p.charges, 0);
+  assert.ok(p.charges < 1);
 });
 
 test('Medevac leaps to the most hurt ally and shields them', () => {
   const { S, p } = solo('healer', { boots: 'medevac' });
-  const hurt = Sim.players(S).find((q) => q !== p);
+  const hurt = Sim.players(S).find((q) => q.role === 'dps');
   hurt.hp = Math.round(hurt.maxHp * 0.3);
   run(S, 0.1, { jump: true });
   assert.ok(Math.hypot(p.x - hurt.x, p.z - hurt.z) < 3);
@@ -198,7 +198,7 @@ test('Flak Cannon: blasts load Ammo, Flak Screen spends it and cuts hits by 60%'
   assert.ok(p.screen > 2 && p.pips <= 10.5);
   p.armor = 0; const h = p.hp;
   Sim.damagePlayer(S, S.bossId, p, 1000, 'Crusher');
-  assert.ok(h - p.hp <= 420 && h - p.hp >= 300, String(h - p.hp));
+  assert.ok(h - p.hp <= 230 && h - p.hp >= 180, String(h - p.hp));   // plating 30%, then the screen 70%
 });
 
 test('Impact Hammer: swing, swing, slam, and holding key 1 keeps the chain going', () => {
@@ -229,9 +229,10 @@ test('Impact Hammer: Kinetic Shockwave hits everything down a lane in front of y
 test('Aegis Dome: nobody inside takes damage while it lasts', () => {
   const { S, p, boss } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
   p.ult = 100; p.x = 0; p.z = -10;
+  const ULT = Sim.abilitiesOf(p).length - 1;
   const inside = Sim.players(S).find((q) => q.role === 'healer'), outside = Sim.players(S).find((q) => q.role === 'dps');
   inside.x = 3; inside.z = -10; outside.x = 20; outside.z = -10; inside.armor = 0; outside.armor = 0;
-  press(S, 5);
+  press(S, ULT);
   const h = [inside.hp, outside.hp];
   Sim.damagePlayer(S, S.bossId, inside, 400, 'Rocket'); Sim.damagePlayer(S, S.bossId, outside, 400, 'Rocket');
   assert.strictEqual(inside.hp, h[0]); assert.ok(outside.hp < h[1]);
@@ -239,19 +240,46 @@ test('Aegis Dome: nobody inside takes damage while it lasts', () => {
   assert.strictEqual(S.domes.length, 0);
 });
 
-test('Riot Charge: every Juggernaut has it, Twin Thrusters holds two, Intercept shields an ally', () => {
+test('Riot Charge: an aimed boosted dash, Twin Thrusters holds two, Intercept shields an ally', () => {
   const a = arena('tank', { weapon: 'flak', boots: 'twincharge' });
+  const toBoss = () => Math.atan2(a.boss.x - a.p.x, a.boss.z - a.p.z);
   a.p.x = a.boss.x; a.p.z = a.boss.z - 22;
-  Sim.step(a.S, 1 / 30, { target: a.boss.id, jump: true });
-  assert.strictEqual(a.p.charges, 1);
+  Sim.step(a.S, 1 / 30, { aim: toBoss(), jump: true });
+  assert.ok(a.p.dash, 'flying, not teleported');
+  idle(a.S, 1);
+  assert.ok(!a.p.dash && Math.hypot(a.p.x - a.boss.x, a.p.z - a.boss.z) < 6, 'stops at the first enemy');
   a.p.x = a.boss.x; a.p.z = a.boss.z - 22;
-  Sim.step(a.S, 1 / 30, { target: a.boss.id, jump: true });
-  assert.strictEqual(a.p.charges, 0);
+  Sim.step(a.S, 1 / 30, { aim: toBoss(), jump: true });
+  assert.ok(a.p.charges < 1, 'used the second charge');
   const b = arena('tank', { weapon: 'flak', boots: 'intercept' });
   const ally = Sim.players(b.S).find((q) => q.role === 'healer');
-  ally.x = b.p.x + 30; ally.z = b.p.z; ally.armor = 0;
-  Sim.step(b.S, 1 / 30, { target: ally.id, jump: true });
-  assert.ok(Math.hypot(b.p.x - ally.x, b.p.z - ally.z) < 4 && ally.armor >= 250);
+  Sim.players(b.S).forEach((q) => { if (q !== b.p && q !== ally) { q.x = 0; q.z = 20; } });   // a clear lane
+  b.p.x = -10; b.p.z = -20; ally.x = 20; ally.z = -20; ally.armor = 0;
+  Sim.step(b.S, 1 / 30, { aim: Math.PI / 2, jump: true });
+  idle(b.S, 1.2);
+  assert.ok(Math.hypot(b.p.x - ally.x, b.p.z - ally.z) < 3.5 && ally.armor >= 200, `${b.p.x},${b.p.z} armor ${ally.armor}`);
+});
+
+test('the Foreman walks to the middle to channel his shield, and stands still while it is up', () => {
+  const { S, boss } = arena('dps');
+  boss.x = 10; boss.z = 8; boss.energy = 100;
+  idle(S, 2.5);
+  assert.ok(boss.oshield, 'shield up');
+  assert.ok(Math.hypot(boss.x, boss.z) < 1, 'in the middle');
+  const x = boss.x, z = boss.z;
+  idle(S, 2);
+  assert.ok(Math.hypot(boss.x - x, boss.z - z) < 0.01, 'planted');
+});
+
+test('Iron Roar pulls nearby enemies onto the Hammer and cuts the damage it takes', () => {
+  const { S, p, boss } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
+  p.x = boss.x; p.z = boss.z - 6;
+  const drone = { id: 997, kind: 'enemy', type: 'drone', x: p.x + 4, z: p.z, radius: 1, hp: 900, maxHp: 900, alive: true, threat: {}, target: null };
+  const far = { id: 996, kind: 'enemy', type: 'drone', x: p.x + 25, z: p.z, radius: 1, hp: 900, maxHp: 900, alive: true, threat: {}, target: null };
+  S.ents.push(drone, far);
+  press(S, Sim.abilitiesOf(p).findIndex((ab) => ab.id === 'roar'));
+  assert.ok(drone.fixate && drone.fixate.id === p.id && !far.fixate);
+  assert.ok(p.roared > 0);
 });
 
 test('Impact Hammer: the barrier covers you and whoever is behind you, then breaks', () => {

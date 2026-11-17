@@ -52,6 +52,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 #phaseTag { font-family: var(--font-mono); font-size: 12px; color: var(--amber); }
 #bossHp { height: 20px; }
 #bossHp > i { background: linear-gradient(#ff6a4d, #c42a1c); }
+#bossEnergy { height: 10px; } #bossEnergy > i { background: #7fd0ff; } #bossEnergy > span { font-size: 9px; }
+#bossEnergy.full { box-shadow: 0 0 10px rgba(127, 208, 255, 0.7); }
 #bossCast { height: 16px; visibility: hidden; }
 #bossCast.on { visibility: visible; }
 #bossCast > i { background: #5cc8ff; }
@@ -303,6 +305,7 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
   <div id="bossFrame">
     <div class="row"><span id="bossName" class="display">The Foreman</span><span id="phaseTag">PHASE 1</span></div>
     <div id="bossHp" class="bar"><i></i><span></span></div>
+    <div id="bossEnergy" class="bar"><i></i><span></span></div>
     <div id="bossCast" class="bar"><i></i><span></span></div>
     <div id="overtime"></div>
   </div>
@@ -369,8 +372,8 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
           <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Your weapon. 1 is your basic attack and 2 your heavy one. For most classes 3 lights up when you proc; the Juggernaut's 3 is the weapon's defensive.</dd>
           <dt><kbd>4</kbd> <kbd>5</kbd></dt><dd>Your class utilities.</dd>
           <dt><kbd>6</kbd> or <kbd>R</kbd></dt><dd>Ultimate. Charges in about a minute; use it whenever you judge it right.</dd>
-          <dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>Turn the camera. Aimed weapons (the Impact Hammer) hit what the camera faces: tap or hold 1 to swing, swing, slam; hold 2 for the barrier.</dd>
-          <dt>Controller</dt><dd>Left stick moves, right stick aims the camera. RT and LT are weapon buttons 1 and 2, X is 3, RB is 4, B is 5, Y is your ultimate, A is Space, LB picks the next enemy.</dd>
+          <dt>Mouse aim</dt><dd>Aimed weapons (the Impact Hammer): click the arena to lock the mouse, which then turns the camera. Left click swings, right click holds the barrier; 1 to 4 and R are your other abilities. Esc releases the mouse. <kbd>Q</kbd> <kbd>E</kbd> also turn the camera.</dd>
+          <dt>Controller</dt><dd>Left stick moves, right stick aims the camera. RT and LT are your weapon (swing and barrier on the Hammer), X is 3, RB is 4, B is 5, Y is your ultimate, A is Space (Riot Charge for the Juggernaut). LB picks the next enemy, or is Iron Roar on the Hammer.</dd>
           <dt><kbd>Space</kbd></dt><dd>Your tier 1 talent's move, if it has one.</dd>
           <dt><kbd>Tab</kbd></dt><dd>Next enemy. Clicking a model or frame also targets it.</dd>
           <dt><kbd>F1</kbd> to <kbd>F4</kbd></dt><dd>Target a squad member. <kbd>Shift</kbd>+<kbd>1</kbd> to <kbd>4</kbd> does the same.</dd>
@@ -380,7 +383,7 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
       </div>
       <div>
         <h2>The fight</h2>
-        <p>Step out of red circles, his charge lane and wherever he is about to leap. Don't stand in front of him unless you're the Juggernaut, who has to mitigate his Crusher, a big telegraphed hit, in their weapon's own way. When he raises an overcharge shield, everyone hits him: break it in time and he staggers, miss it and the room gets shocked. Ultimates are yours to time: the Juggernaut's Riot Wall blocks his damage for everyone behind it, the Wrecker's Wrecking Slam staggers him, the Medic's Field Hospital saves a squad in trouble and the Striker's Deadeye is one huge shot. At half health he calls drones and Bio Sludge. At a quarter, sections of floor start giving way.</p>
+        <p>Step out of red circles, his charge lane and wherever he is about to leap. Don't stand in front of him unless you're the Juggernaut, who has to mitigate his Crusher, a big telegraphed hit, in their weapon's own way. When his energy bar fills he walks to the middle and channels an overcharge shield, pulsing the whole room: everyone hits him there. Break it in time and he staggers, miss it and the room gets shocked. Ultimates are yours to time: the Juggernaut's Riot Wall blocks his damage for everyone behind it, the Wrecker's Wrecking Slam staggers him, the Medic's Field Hospital saves a squad in trouble and the Striker's Deadeye is one huge shot. At half health he calls drones and Bio Sludge. At a quarter, sections of floor start giving way.</p>
         <details>
           <summary>Swap in your own meshes</summary>
           <div class="meshes" id="meshSlots"></div>

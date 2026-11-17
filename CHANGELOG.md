@@ -4,6 +4,17 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.16.0 (2026-11-17) Mouse-aimed Hammer, boosted charge, planted shield phase
+- Overcharge rework: the Foreman's energy bar fills; when full he walks to the middle, plants himself and channels the shield.
+  No moving or swinging while it's up, a damage pulse on the whole room every 2s, 14s to break it, and a 7s stagger if you do.
+- Impact Hammer on the mouse: click the arena to lock the mouse (Esc releases it). Left click swings, right click holds the barrier,
+  the mouse aims. 1 Kinetic Shockwave, 2 Iron Roar (new), 3 Challenge (aimed), 4 Shield Belt, R Aegis Dome.
+- Iron Roar: everything within 10m turns on you for 3s and you take 20% less for 5s (20s cooldown).
+- Riot Charge is a boosted dash in the direction you aim, stopping at the first enemy (or ally, with Intercept).
+- The combo resets after 2s without a swing, so a slam can't be held in reserve.
+- Juggernaut plating: the tank takes 30% less from the Foreman's fists and Crusher, which hit harder, so losing the tank is now a disaster.
+- Flak Screen cuts 70% for 3.5s. Fixed: an interrupted hero moment could stop all later ones (they're off for the Foreman).
+
 ## 0.15.0 (2026-11-17) The Hammer as the plate-wearing mitigator
 - Impact Hammer reworked: no holding to charge, and no self-healing.
   - 1 Hammer Combo: swing, swing, slam (95, 95, then a wider 230) across the arc in front of you. Tap or hold to keep it going.

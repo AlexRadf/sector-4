@@ -342,6 +342,7 @@
     $('#hud').classList.toggle('spectate', watching); updateSpec();
     running = true; acc = 0; lastSim = performance.now(); Net.evMark = 0;
     logLine(watching ? 'Shift started. You are watching from the gantry.' : 'Shift started. ' + human.kit.title + ' on the floor.');
+    if (!watching && Sim.aimWeapon(human)) logLine('Click the arena to aim with the mouse: left click swings, right click holds the barrier. Esc releases it.');
     if (Net.mode !== 'solo') logLine(Sim.players(S).filter(function (p) { return p.human; }).map(function (p) { return p.name; }).join(', ') + ' on the squad. Bots fill the rest.');
   }
   function showPlates(on) { $('#plates').style.display = on ? '' : 'none'; $('#floaters').style.display = on ? '' : 'none'; }
@@ -465,12 +466,14 @@
     buildActions();
     $('#enemies').innerHTML = ''; hud.enemies = {};
   }
+  /* The key shown on each action button. Aimed weapons put the weapon on the mouse buttons. */
+  function keyCap(i) { return Sim.aimWeapon(human) && !watching ? ['LMB', 'RMB', '1', '2', '3', '4', 'R'][i] || '' : String(i + 1); }
   function buildActions() {
     var acts = $('#actions'); acts.innerHTML = ''; hud.abs = [];
     hud.wpn = human.weapon;
     Sim.abilitiesOf(human).forEach(function (a, i) {
       var b = el('button', 'ab click'); b.type = 'button'; b.title = a.desc;
-      var row = el('span', 'row'), tl = el('span', 'tl'); row.appendChild(el('span', 'k', String(i + 1))); row.appendChild(tl); b.appendChild(row);
+      var row = el('span', 'row'), tl = el('span', 'tl'); row.appendChild(el('span', 'k', keyCap(i))); row.appendChild(tl); b.appendChild(row);
       b.appendChild(el('span', 'n display', a.name));
       var cool = el('span', 'cool'), sec = el('span', 'sec display'); b.appendChild(cool); b.appendChild(sec);
       var meter = null; if (a.role === 'ult') { meter = el('span', 'meter'); b.appendChild(meter); }
@@ -506,6 +509,12 @@
     $('#bossHp > span').textContent = Math.ceil(boss.hp) + '  /  ' + Math.round(boss.hp / boss.maxHp * 100) + '%';
     $('#phaseTag').textContent = S.enraged ? 'OVERTIME' : 'PHASE ' + S.phase;
     var bc = $('#bossCast');
+    var eb = $('#bossEnergy');
+    if (eb) {
+      setBar(eb.firstElementChild, boss.oshield ? 1 : (boss.energy || 0) / 100);
+      eb.lastElementChild.textContent = boss.oshield ? 'OVERCHARGE SHIELD UP' : boss.goCentre ? 'OVERCHARGED: HEADING FOR THE MIDDLE' : 'ENERGY ' + Math.floor(boss.energy || 0) + '%';
+      eb.classList.toggle('full', !!boss.goCentre || !!boss.oshield);
+    }
     var HERO_ANSWER = { 'Demolition Blast': ['tank', 'GET BEHIND THE JUGGERNAUT'], Haymaker: ['melee', 'WRECKER: COUNTER-SLAM'], Meltdown: ['healer', 'MEDIC: FIELD HOSPITAL'] };
     if (boss.oshield) {
       bc.className = 'bar on shield'; setBar(bc.firstElementChild, boss.oshield.hp / boss.oshield.max);
@@ -748,6 +757,8 @@
             for (var sw = 1; sw <= 5; sw++) ringFx(x + (ev.x2 - x) * sw / 5, z + (ev.z2 - z) * sw / 5, 0.3, 2.2, 0xffb000, 0.25 + sw * 0.05);
             Snd.play('boom');
           }
+          else if (ev.fx === 'boost') { ringFx(x, z, 0.3, 3, 0xffb000, 0.35); Snd.play('charge'); }
+          else if (ev.fx === 'pulse') { ringFx(x, z, 3, 34, 0x7fd0ff, 0.6); }
           else if (ev.fx === 'aegis') { ringFx(x, z, 0.5, Sim.TUNE.aegisR, 0xffd36b, 0.8); Snd.play('ult'); }
           else if (ev.fx === 'charge' && Sim.ent(S, ev.src) && Sim.ent(S, ev.src).kind === 'player') { ringFx(x, z, 0.5, 4, 0xffb000, 0.4); }
           else if (ev.fx === 'barrierup') { if (ev.src === human.id) Snd.play('belt'); }
@@ -907,6 +918,7 @@
     } catch (e) {}
   }
   function endFight() {
+    if (document.pointerLockElement && document.exitPointerLock) document.exitPointerLock();
     running = false;
     recordFight(false);
     var win = S.result === 'win', boss = Sim.ent(S, S.bossId);
@@ -1042,9 +1054,12 @@
     if (/^Digit[1-4]$/.test(c) && ev.shiftKey) { var q = Sim.players(S)[+c[5] - 1]; if (q) input.target = q.id; return; }
     if (c === 'KeyM') { setMute(Snd.toggle()); return; }
     if (c === 'Space') { ev.preventDefault(); input.jump = true; return; }
+    // Aimed weapons (the Impact Hammer): the mouse buttons are the weapon, so 1 to 4 and R are the slots after it.
+    if (Sim.aimWeapon(human)) {
+      var slot = { Digit1: 2, Digit2: 3, Digit3: 4, Digit4: 5, Digit5: 6, KeyR: 6 }[c];
+      if (slot !== undefined) { input.ability = slot; var ha = hud.abs[slot]; if (ha) { ha.el.classList.add('flash'); setTimeout(function () { ha.el.classList.remove('flash'); }, 120); } return; }
+    }
     if (c === 'KeyR') c = 'Digit6';
-    // Aimed weapons (the Impact Hammer): 1 and 2 are held, not pressed.
-    if ((c === 'Digit1' || c === 'Digit2') && Sim.aimWeapon(human)) { keys[c] = true; return; }
     if (/^Digit[1-6]$/.test(c)) { input.ability = +c[5] - 1; var h = hud.abs[input.ability]; if (h) { h.el.classList.add('flash'); setTimeout(function () { h.el.classList.remove('flash'); }, 120); } return; }
     if (c === 'Escape') { input.target = null; return; }
     if (c.indexOf('Arrow') === 0 || c === 'Space') ev.preventDefault();
@@ -1053,8 +1068,27 @@
   window.addEventListener('keyup', function (ev) { keys[ev.code] = false; });
   window.addEventListener('blur', function () { keys = {}; });
 
+  /* Mouse aim for aimed weapons: click the arena to lock the pointer, then the mouse turns the camera,
+     left button swings, right button holds the barrier. Esc releases it. Without the lock the buttons still work
+     and Q / E turn the camera. */
+  var mouse = { l: false, r: false };
+  function mouseAim() { return running && !watching && human && Sim.aimWeapon(human); }
+  function locked() { return document.pointerLockElement === renderer.domElement; }
+  renderer.domElement.addEventListener('mousedown', function (ev) {
+    if (!mouseAim()) return;
+    if (!locked() && renderer.domElement.requestPointerLock) { try { var pr = renderer.domElement.requestPointerLock(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {} }
+    if (ev.button === 0) mouse.l = true;
+    if (ev.button === 2) mouse.r = true;
+  });
+  window.addEventListener('mouseup', function (ev) { if (ev.button === 0) mouse.l = false; if (ev.button === 2) mouse.r = false; });
+  window.addEventListener('mousemove', function (ev) {
+    if (!locked() || !mouseAim()) return;
+    cam.yaw -= (ev.movementX || 0) * 0.0035;
+    cam.pitch = Math.max(0.12, Math.min(1.35, cam.pitch + (ev.movementY || 0) * 0.003));
+  });
+  document.addEventListener('pointerlockchange', function () { if (!locked()) { mouse.l = false; mouse.r = false; } });
   var drag = null;
-  renderer.domElement.addEventListener('pointerdown', function (ev) { drag = { x: ev.clientX, y: ev.clientY, moved: 0 }; });
+  renderer.domElement.addEventListener('pointerdown', function (ev) { if (mouseAim()) return; drag = { x: ev.clientX, y: ev.clientY, moved: 0 }; });
   window.addEventListener('pointermove', function (ev) {
     if (!drag) return;
     var dx = ev.clientX - drag.x, dy = ev.clientY - drag.y; drag.x = ev.clientX; drag.y = ev.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
@@ -1078,7 +1112,7 @@
 
   /* Where you are aiming: straight ahead of the camera. Held buttons: keyboard 1/2 or the controller's triggers. */
   function aimAngle() { return cam.yaw + Math.PI; }
-  function readHold() { return [!!(keys.Digit1 || pad.hold[0]), !!(keys.Digit2 || pad.hold[1])]; }
+  function readHold() { return [!!(mouse.l || pad.hold[0]), !!(mouse.r || pad.hold[1])]; }
   function readMove() {
     var f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + pad.f;
     var r = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + pad.r;
@@ -1424,6 +1458,7 @@
     var tg = input.target !== undefined ? input.target : human.target;
     if (input.target !== undefined) human.target = input.target;
     var inn = { mx: Math.round(mv.mx * 10) / 10, mz: Math.round(mv.mz * 10) / 10, tg: tg == null ? null : tg };
+    if (human.role === 'tank') inn.am = Math.round(aimAngle() * 20) / 20;
     if (Sim.aimWeapon(human)) {
       var hd = readHold();
       inn.am = Math.round(aimAngle() * 20) / 20; inn.h = (hd[0] ? 1 : 0) | (hd[1] ? 2 : 0);
@@ -1484,14 +1519,23 @@
     if (running && !watching) {
       var aimW = Sim.aimWeapon(human);
       pad.hold = aimW ? [btn(7), btn(6)] : [false, false];
-      if (!aimW && down(7)) input.ability = 0;
-      if (!aimW && down(6)) input.ability = 1;
-      if (down(2)) input.ability = 2;
-      if (down(5)) input.ability = 3;
-      if (down(1)) input.ability = 4;
-      if (down(3)) input.ability = 5;
+      if (aimW) {
+        // Aimed: RT swing, LT barrier, X Shockwave, LB Roar, RB taunt, B Shield Belt, Y ultimate, A Riot Charge.
+        if (down(2)) input.ability = 2;
+        if (down(4)) input.ability = 3;
+        if (down(5)) input.ability = 4;
+        if (down(1)) input.ability = 5;
+        if (down(3)) input.ability = 6;
+      } else {
+        if (down(7)) input.ability = 0;
+        if (down(6)) input.ability = 1;
+        if (down(2)) input.ability = 2;
+        if (down(5)) input.ability = 3;
+        if (down(1)) input.ability = 4;
+        if (down(3)) input.ability = 5;
+        if (down(4)) cycleEnemy(1);
+      }
       if (down(0)) input.jump = true;
-      if (down(4)) cycleEnemy(1);
     }
     pad.prev = gp.buttons.map(function (b) { return b.pressed || b.value > 0.5; });
   }
