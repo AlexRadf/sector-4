@@ -38,6 +38,26 @@
       return (dx * fx + dz * fz) / l >= dot;
     }).sort(function (a, c) { return dist(p, a) - dist(p, c); });
   }
+  /* Soft targeting for aimed weapons: whatever is nearest the crosshair (angle measured to the edge of big
+     targets) inside a generous cone. opt: { range, dot, ally, enemy, hurt (allies below full only) }. */
+  function softTarget(S, p, opt) {
+    var fx = Math.sin(p.facing), fz = Math.cos(p.facing), best = null, bs = -2;
+    var list = [];
+    if (opt.ally) players(S, true).forEach(function (q) { if (q !== p && (!opt.hurt || q.hp < q.maxHp - 1)) list.push(q); });
+    if (opt.enemy) enemies(S).forEach(function (e) { list.push(e); });
+    list.forEach(function (c) {
+      var dx = c.x - p.x, dz = c.z - p.z, l = Math.sqrt(dx * dx + dz * dz), r = c.kind === 'enemy' ? (c.radius || 0) : 0.6;
+      if (l > opt.range + r) return;
+      var cs = l < 0.5 ? 1 : (dx * fx + dz * fz) / l;
+      var ang = Math.max(0, Math.acos(Math.max(-1, Math.min(1, cs))) - Math.atan2(r, Math.max(l, 0.5)));
+      var eff = Math.cos(ang);
+      if (eff < opt.dot) return;
+      var sc = eff - l * 0.002;
+      if (sc > bs) { bs = sc; best = c; }
+    });
+    return best;
+  }
+  var BOLT_AIM = { range: 35, dot: 0.9, ally: true, enemy: true, hurt: true };
   function aimWeapon(p) { var w = p.kit && p.kit.weapons[p.weapon]; return !!(w && w.aim); }
   function W(id, name, pitch, b, sp, pr) {
     b.role = 'build'; sp.role = 'spend'; pr.role = 'proc'; pr.gcd = false;
@@ -87,10 +107,17 @@
         how: 'Nanite Reserve. Heals on key 2 cost 25 and it barely refills on its own. Shooting the Foreman with key 1 harvests 12 a shot.' },
       blurb: 'Keep four health bars up. Your builder shoots the Foreman, and every shot patches someone up.',
       weapons: [
-        W('link', 'Link Gun', 'Heal by shooting. Link Beam tethers an ally for 10s: every bolt you fire heals them too.',
-          { id: 'bolt', name: 'Link Bolt', kind: 'enemy', range: 35, procChance: 0.2, desc: '70 damage, and heals the most hurt ally for 70% of it. Harvests 12 Nanites.' },
-          { id: 'link', name: 'Link Beam', kind: 'friend', range: 40, cast: 1.0, desc: '25 Nanites. Heal for 380. 1s cast.' },
-          { id: 'surge', name: 'Nano Surge', kind: 'friend', range: 40, desc: 'Proc. Instant 480 heal.' }),
+        TW('link', 'Link Gun', 'Aimed healing. Your shot snaps to whatever is nearest your crosshair: it heals a hurt ally or hits an enemy, and hitting enemies refills the Nanites your beam and burst spend. Where you stand decides who you can reach.',
+          { id: 'nanites', name: 'Nanites', max: 100, start: 100, regen: 2.5, build: 0,
+            how: 'Nanites. Every Link Bolt that hits an enemy harvests 7. The Link Beam drains 5 a second, Nanite Burst costs 35 and a Nano Field 25. They barely refill on their own: shoot to heal.' },
+          [{ id: 'lbolt', key: 'LMB', name: 'Link Bolt', kind: 'aim', range: 35, hold: 'repeat', desc: 'Fires at whatever is nearest your crosshair, no precision needed. A hurt ally is healed for 70; an enemy takes 50 and gives you 7 Nanites. Allies at full health are skipped.' },
+           { id: 'lbeam', key: 'RMB', name: 'Link Beam', kind: 'aim', range: 25, hold: 'channel', gcd: false, desc: 'Hold to latch onto the ally nearest your crosshair. The beam stays attached and heals 160 a second for 5 Nanites a second. It snaps if they get more than 25m away. No bolts while it\'s on.' },
+           { id: 'lburst', key: 'L+R', name: 'Nanite Burst', kind: 'aim', range: 10, needs: 35, gcd: false, desc: 'Press both mouse buttons (35 Nanites). Heals everyone within 10m of you, you included, for 260. Get into the group, then pop it.' }],
+          { aim: true,
+            utils: [A({ id: 'field', key: 'Q', name: 'Nano Field', kind: 'aim', range: 25, cd: 10, cost: 25, desc: '25 Nanites. Throws a 6m healing field onto the ally nearest your crosshair, or at your feet if there is no one there. Anyone standing in it heals 60 a second for 6s.' }),
+                    A({ id: 'purge', key: 'E', name: 'Purge', kind: 'friend', range: 30, cd: 6, gcd: false, desc: 'Cleanses the ally nearest your crosshair of Bio Sludge and heals them for 60. Nobody there: it cleanses you.' }),
+                    A({ id: 'cloak', key: 'F', name: 'Nanite Cloak', kind: 'self', range: 0, cd: 25, gcd: false, desc: 'You take 40% less damage for 4s. For when you had to stand somewhere dangerous to reach someone.' })],
+            ult: A({ id: 'storm', key: 'R', name: 'Link Storm', kind: 'self', range: 25, gcd: false, role: 'ult', desc: 'Ultimate. For 6s your Link Beam splits to every ally within 25m of you, healing each for 150 a second. Free.' }) }),
         W('bio', 'Bio Rifle', 'Heals over time, all instant. Keep Sprays rolling on the squad: Bio Bloom heals 20% more for each one.',
           { id: 'acid', name: 'Corrosive Glob', kind: 'enemy', range: 30, procChance: 0.25, desc: '45 damage plus 90 more over 6s. The two most hurt allies get 35. Harvests 12 Nanites.' },
           { id: 'spray', name: 'Bio Spray', kind: 'friend', range: 30, desc: '25 Nanites. Instant 175, then 150 over 6s. With half your reserve left, everyone within 7m gets the 150.' },
@@ -274,7 +301,7 @@
   /* What the bots take: a mix of styles, close to an average person's build. */
   var BOT_GEAR = {
     tank: { weapon: 'hammer', boots: 'twincharge', rig: 'hardened', implant: 'breathing', util: 'brand' },
-    healer: { weapon: 'link', boots: 'mag', rig: 'lifeline', implant: 'overflow', util: 'supply' },
+    healer: { weapon: 'bio', boots: 'mag', rig: 'lifeline', implant: 'overflow', util: 'supply' },
     dps: { weapon: 'rockets', boots: 'dodge', rig: 'pump', implant: 'spotter', util: 'breaker' },
     melee: { weapon: 'chainsaw', boots: 'escort', rig: 'pump', implant: 'flanker', util: 'breaker' }
   };
@@ -314,7 +341,7 @@
     chargeEvery: 19, chargeDelay: 1.8, chargeW: 4.5, chargeDmg: 380,
     // Crusher: a telegraphed tank buster on whoever the Foreman is fighting. Mitigate it or eat most of your health.
     // Impact Hammer: combo pacing, Aegis Dome size, Riot Charge recharge, and how the barrier holds and recovers.
-    swingGcd: 0.6, slamGcd: 0.9, comboReset: 2, aegisR: 9, aegisDur: 5, chargeCd: 10,
+    boltGcd: 0.6, swingGcd: 0.6, slamGcd: 0.9, comboReset: 2, aegisR: 9, aegisDur: 5, chargeCd: 10,
     barrierHp: 1800, barrierRegen: 180, barrierRest: 1.5, barrierBreak: 5,
     busterEvery: 15, busterCast: 2.5, busterDmg: 1860,
     droneEvery: 32, droneHp: 1600, droneMelee: 90, droneSwing: 1.5,
@@ -436,7 +463,7 @@
     var humans = opts.humans || (opts.humanRole ? [{ role: opts.humanRole, gear: opts.gear, name: 'YOU' }] : []);
     var S = {
       t: 0, phase: 1, result: null, enraged: false, countdown: 4,
-      ents: [], telegraphs: [], events: [], revives: [], domes: [], nextId: 1,
+      ents: [], telegraphs: [], events: [], revives: [], domes: [], fields: [], nextId: 1,
       m: { p: {}, taken: {}, killers: {}, shields: { raised: 0, broken: 0 }, heroes: { tank: [0, 0], healer: [0, 0], dps: [0, 0], melee: [0, 0] } },
       rng: makeRng(opts.seed || 12345),
       timers: { buster: 11, barrage: 8, over: 22, drone: 4, sludge: 7, charge: 13, leap: 30, collapse: 6, hero: 0 },
@@ -628,6 +655,7 @@
     // Juggernaut plating: the Foreman's fists are tuned for the tank. Anyone else he catches gets flattened.
     if (p.role === 'tank' && (label === 'Hit' || label === 'Crusher' || label === 'Cleave')) amt = amt * 0.7;
     if (p.wall > 0) amt = amt * 0.5;
+    if (p.cloak > 0) amt = amt * 0.6;
 
     var hitter = ent(S, srcId);
     if (p.screen > 0 && hitter && hitter.kind === 'enemy' && label !== 'Radiation') {
@@ -755,6 +783,7 @@
       var front = inCone(S, p, ab.range, 0.85)[0];
       if (front) return front;
     }
+    if (ab.kind === 'friend' && aimWeapon(p)) return softTarget(S, p, { range: ab.range, dot: 0.75, ally: true }) || p;   // nobody there: yourself
     var t = p.target != null ? ent(S, p.target) : null;
     if (ab.kind === 'enemy') {
       if (t && t.kind === 'enemy' && t.alive) return t;
@@ -1062,6 +1091,43 @@
         emit(S, { type: 'beam', src: p.id, dst: pt.id, fx: 'shell' });
         damageEnemy(S, p, pt, 120, 14, 'Piston Shot');
         break;
+      /* ---- Medic, aimed Link Gun ---- */
+      case 'lbolt':
+        var lt = softTarget(S, p, BOLT_AIM);
+        p.gcd = TUNE.boltGcd;
+        if (!lt) { emit(S, { type: 'fx', fx: 'boltmiss', src: p.id }); break; }
+        emit(S, { type: 'beam', src: p.id, dst: lt.id, fx: 'link' });
+        if (lt.kind === 'player') heal(S, p, lt, 70, 'Link Bolt');
+        else {
+          damageEnemy(S, p, lt, 50 * (T(p, 'battlemedic') ? 1.6 : 1), 1, 'Link Bolt');
+          p.pips = Math.min(resOf(p).max, (p.pips || 0) + 7);
+          if (p.critThis || S.rng() < 0.08) procUp(S, p);
+        }
+        break;
+      case 'lbeam':
+        p.beamHoldT = 1.2;   // a tap (bar click, bot) latches briefly; holding keeps it on
+        break;
+      case 'lburst':
+        p.pips = Math.max(0, (p.pips || 0) - 35);
+        emit(S, { type: 'fx', fx: 'burst', src: p.id });
+        players(S, true).forEach(function (q) { if (dist(q, p) <= ab.range) heal(S, p, q, 260, 'Nanite Burst'); });
+        p.gcd = TUNE.boltGcd;
+        break;
+      case 'field':
+        var ft = softTarget(S, p, { range: ab.range, dot: 0.75, ally: true });
+        var fpos = ft ? { x: ft.x, z: ft.z } : { x: p.x, z: p.z };   // no one under the crosshair: at your own feet
+        clampArena(fpos, 2);
+        S.fields.push({ id: S.nextId++, x: fpos.x, z: fpos.z, r: 6, t: 6, by: p.id, acc: 0 });
+        emit(S, { type: 'fx', fx: 'field', src: p.id });
+        break;
+      case 'cloak':
+        p.cloak = 4; emit(S, { type: 'fx', fx: 'guard', src: p.id });
+        break;
+      case 'storm':
+        p.storm = 6;
+        proc(S, p, 'storm', 'LINK STORM', 'all');
+        emit(S, { type: 'log', id: p.id, text: p.name + "'s Link Storm reaches the whole squad.", you: 'Link Storm: everyone within 25m is linked for 6s.' });
+        break;
       case 'aegis':
         S.domes.push({ id: S.nextId++, x: p.x, z: p.z, r: TUNE.aegisR, t: TUNE.aegisDur, by: p.id });
         emit(S, { type: 'fx', fx: 'aegis', src: p.id });
@@ -1311,7 +1377,7 @@
     if (p.dash) { p.moving = true; p.still = 0; return; }   // mid-charge: the boosters are in control
     if (aimWeapon(p)) {
       if (typeof inp.aim === 'number' && isFinite(inp.aim)) p.facing = inp.aim;
-      hammerHold(S, p, inp.hold || [], dt);
+      if (p.kit.weapons[p.weapon].id === 'link') medicHold(S, p, inp.hold || [], dt); else hammerHold(S, p, inp.hold || [], dt);
     }
     if (inp.jump && (p.role === 'tank' || (p.cds.leap || 0) <= 0)) spaceTalent(S, p);
     if (inp.ability != null && inp.ability >= 0) p.queued = { idx: inp.ability, t: 0.45 };
@@ -1321,6 +1387,29 @@
     }
   }
 
+  /* Aimed Link Gun held inputs: hold[0] keeps bolts going, hold[1] latches and keeps the beam on, both = Nanite Burst. */
+  function medicHold(S, p, hold, dt) {
+    var both = !!hold[0] && !!hold[1];
+    if (both && !p.bothHeld) { var bi = abilitiesOf(p).map(function (a) { return a.id; }).indexOf('lburst'); if (bi >= 0) tryUse(S, p, bi); }
+    p.bothHeld = both;
+    var wantBeam = (!!hold[1] || p.beamHoldT > 0) && !both && !p.cast;
+    if (wantBeam && !p.beamTo) {
+      var lock = softTarget(S, p, { range: 25, dot: 0.75, ally: true });
+      if (lock && (p.pips || 0) > 1) { p.beamTo = lock.id; p.beamAcc = 0; emit(S, { type: 'fx', fx: 'beamon', src: p.id }); }
+    }
+    if (p.beamTo) {
+      var bt = ent(S, p.beamTo);
+      if (!wantBeam || !bt || !bt.alive || dist(p, bt) > 27 || (p.pips || 0) <= 0) { p.beamTo = 0; p.beamAcc = 0; }
+      else {
+        p.pips = Math.max(0, (p.pips || 0) - 5 * dt);
+        p.beamAcc = (p.beamAcc || 0) + 160 * dt;
+        if (p.beamAcc >= 40) { heal(S, p, bt, p.beamAcc, 'Link Beam'); p.beamAcc = 0; }
+        return;
+      }
+    }
+    if (both || wantBeam) return;
+    if (hold[0] && p.gcd <= 0 && !p.cast) tryUse(S, p, 0);
+  }
   /* Impact Hammer held inputs: hold[0] keeps the combo swinging, hold[1] keeps the barrier up. */
   function hammerHold(S, p, hold, dt) {
     if (p.barrier == null) p.barrier = barrierMax(p);
@@ -1457,7 +1546,7 @@
       p.barrierRestT = (p.barrierRestT || 0) + dt;
       if (!(p.barrierBroken > 0) && p.barrierRestT >= TUNE.barrierRest) p.barrier = Math.min(barrierMax(p), p.barrier + TUNE.barrierRegen * (T(p, 'hardened') ? 2 : 1) * dt);
     }   // "recent" fades over a few seconds
-    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
+    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
     if (p.hot > 0) {
       var src = ent(S, p.hotSrc), step = Math.min(dt, p.hot);
       p.hot -= dt;
@@ -1804,6 +1893,21 @@
 
   function tickWorld(S, dt) {
     for (var di = S.domes.length - 1; di >= 0; di--) { S.domes[di].t -= dt; if (S.domes[di].t <= 0) S.domes.splice(di, 1); }
+    for (var fi = S.fields.length - 1; fi >= 0; fi--) {
+      // Nano Field: heals anyone standing in it, half a second at a time.
+      var fd = S.fields[fi], fby = ent(S, fd.by); fd.t -= dt; fd.acc += dt;
+      if (fd.acc >= 0.5) {
+        players(S, true).forEach(function (q) { if (fby && Math.hypot(q.x - fd.x, q.z - fd.z) <= fd.r) heal(S, fby, q, 60 * fd.acc, 'Nano Field'); });
+        fd.acc = 0;
+      }
+      if (fd.t <= 0) S.fields.splice(fi, 1);
+    }
+    players(S, true).forEach(function (q) {
+      if (!(q.storm > 0)) return;
+      // Link Storm: the beam on everyone in reach.
+      q.stormAcc = (q.stormAcc || 0) + dt;
+      if (q.stormAcc >= 0.5) { players(S, true).forEach(function (a) { if (dist(a, q) <= 25) heal(S, q, a, 150 * q.stormAcc, 'Link Storm'); }); q.stormAcc = 0; }
+    });
     if (S.hero && S.hero.melt) {
       // Meltdown is over once the radiation is gone, whether cleansed or not.
       S.hero.t += dt;
@@ -2090,6 +2194,7 @@
     else if (boss.alive && dist(p, boss) < 12 && boss.target !== p.id) { inp.mx = p.x - boss.x; inp.mz = p.z - boss.z; }
     // Stay in builder range of the Foreman so quiet moments turn into damage.
     if (boss.alive && !chaser && dist(p, boss) > BLD.range - 3 && !(low && dist(p, low) > 28)) moveTo(boss.x, boss.z);
+    if (W === 'link') return medicBot(S, p, inp, b, allies, low, boss, canAct, idx, ready, slow);
     if (!canAct) return inp;
     var sick = allies.filter(function (a) { return a.sludge > 0; })[0];
     var hurt = allies.filter(function (a) { return a.hp < a.maxHp * 0.65; }).length;
@@ -2104,6 +2209,37 @@
     else if (W === 'shield' && tank && tank.armor < 100 && p.pips >= 60) aim(tank, 1);
     else if (boss.alive) attack(boss);
     if (inp.ability >= 0) b.think = 0.2 + S.rng() * 0.4;
+    return inp;
+  }
+
+  /* The aimed Medic bot: decides who to point at and which buttons to hold, a person-like beat at a time,
+     and keeps pointing and holding between decisions. */
+  function medicBot(S, p, inp, b, allies, low, boss, canAct, idx, ready, slow) {
+    var m = b.med || (b.med = { aim: null, hold: [false, false] });
+    if (low && low !== p && dist(p, low) > 22) { inp.mx = low.x - p.x; inp.mz = low.z - p.z; }
+    if (canAct) {
+      b.think = 0.25 + S.rng() * 0.35;
+      var others = allies.filter(function (a) { return a !== p; });
+      var lowO = others[0];
+      var sick = allies.filter(function (a) { return a.sludge > 0; })[0];
+      var near = allies.filter(function (a) { return dist(a, p) <= 11 && a.hp < a.maxHp * 0.8; }).length;
+      var beamOn = p.beamTo ? ent(S, p.beamTo) : null;
+      var hurt = allies.filter(function (a) { return a.hp < a.maxHp * 0.75; }).length;
+      var nan = p.pips || 0;
+      m.hold = [false, false]; m.aim = boss.alive ? boss.id : null;
+      if (p.hp < p.maxHp * 0.45 && ready('cloak')) { inp.ability = idx('cloak'); }
+      else if (sick && ready('purge') && dist(p, sick) <= 30) { if (sick === p) { m.aim = null; inp.aim = p.facing + Math.PI; } else m.aim = sick.id; inp.ability = idx('purge'); }
+      else if ((near >= 2 || p.hp < p.maxHp * 0.7) && nan >= 35) { m.hold = [true, true]; }
+      else if (p.hp < p.maxHp * 0.7 && ready('field') && nan >= 25) { m.aim = null; inp.aim = p.facing + Math.PI; inp.ability = idx('field'); }
+      else if (beamOn && lowO && lowO !== beamOn && lowO.hp < lowO.maxHp * 0.5 && beamOn.hp / beamOn.maxHp > lowO.hp / lowO.maxHp + 0.25) { m.hold = [false, false]; m.aim = lowO.id; }   // let go, switch next beat
+      else if (hurt >= 1 && lowO && ready('field') && nan >= 40 && dist(p, lowO) <= 25 && lowO.hp < lowO.maxHp * 0.75) { m.aim = lowO.id; inp.ability = idx('field'); }
+      else if (lowO && lowO.hp < lowO.maxHp * (p.beamTo ? 0.97 : 0.8) && nan > (p.beamTo ? 3 : 15) && dist(p, lowO) <= 24) { m.aim = (p.beamTo && ent(S, p.beamTo)) ? p.beamTo : lowO.id; m.hold = [false, true]; }
+      else if (lowO && lowO.hp < lowO.maxHp * 0.9 && dist(p, lowO) <= 33) { m.aim = lowO.id; m.hold = [true, false]; }
+      else if (boss.alive) { m.aim = boss.id; m.hold = [true, false]; }
+    }
+    var at = m.aim != null ? ent(S, m.aim) : null;
+    if (at) { inp.aim = Math.atan2(at.x - p.x, at.z - p.z); inp.target = at.id; }
+    inp.hold = m.hold.slice();
     return inp;
   }
 
@@ -2170,6 +2306,7 @@
     if (S.missile) snap.ms = [r1(S.missile.x), r1(S.missile.z), S.missile.tgt, r2(S.missile.t), S.missile.dur];
     if (S.hero) snap.hr = S.hero.role;
     if (S.domes.length) snap.dm = S.domes.map(function (d) { return [r1(d.x), r1(d.z), d.r, r1(d.t)]; });
+    if (S.fields.length) snap.fl = S.fields.map(function (d) { return [r1(d.x), r1(d.z), d.r, r1(d.t)]; });
     S.ents.forEach(function (e) {
       if (e.kind === 'player') {
         var cds = {}; for (var k in e.cds) if (e.cds[k] > 0) cds[k] = r1(e.cds[k]);
@@ -2180,7 +2317,7 @@
         if (e.dash) o.ds = 1;
         if (e.lastDeath) o.ld = [e.lastDeath.label, e.lastDeath.t, e.lastDeath.log || []];
         if (e.cast) o.k = [e.cast.ab.id, r2(e.cast.t), r2(e.cast.dur), e.cast.targetId];
-        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
+        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
         snap.p.push(o);
       } else {
         var q = { i: e.id, ty: e.type, n: e.name, x: r2(e.x), z: r2(e.z), f: r2(e.facing), h: Math.round(e.hp), mh: e.maxHp, a: e.alive ? 1 : 0, tg: e.target, ra: e.radius };
@@ -2217,12 +2354,13 @@
     M.missile = snap.ms ? { x: snap.ms[0], z: snap.ms[1], tgt: snap.ms[2], t: snap.ms[3], dur: snap.ms[4] } : null;
     M.hero = snap.hr ? { role: snap.hr } : null;
     M.domes = (snap.dm || []).map(function (d) { return { x: d[0], z: d[1], r: d[2], t: d[3] }; });
+    M.fields = (snap.fl || []).map(function (d) { return { x: d[0], z: d[1], r: d[2], t: d[3] }; });
     snap.p.forEach(function (o) {
       var p = ent(M, o.i); if (!p) return;
       p.x = o.x; p.z = o.z; p.facing = o.f; p.hp = o.h; p.alive = !!o.a; p.target = o.tg; p.gcd = o.g; p.cds = o.c || {};
       p.moving = !!o.mv; p.auto = !!o.au || !p.human; p.defibUsed = !!o.du;
       p.lastDeath = o.ld ? { label: o.ld[0], t: o.ld[1], log: o.ld[2] || [] } : null;
-      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT'].forEach(function (f) { p[f] = o[f] || 0; });
+      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm'].forEach(function (f) { p[f] = o[f] || 0; });
       if (o.k) {
         var ab = abilitiesOf(p).filter(function (a) { return a.id === o.k[0]; })[0];
         p.cast = ab ? { ab: ab, t: o.k[1], dur: o.k[2], targetId: o.k[3] } : null;
@@ -2325,6 +2463,11 @@
       out.push([['Swing', 'Swing', 'SLAM next'][p.comboStep || 0], (p.comboStep || 0) === 2]);
       out.push([(p.pips || 0) >= 99 ? 'FULL SHOVE ready' : 'Shield Energy ' + Math.floor(p.pips || 0), (p.pips || 0) >= 99]);
     }
+    if (wid === 'link') {
+      out.push([p.beamTo ? 'Beam linked' : 'Beam free', !!p.beamTo]);
+      if (p.cloak > 0) out.push(['Cloak -40% ' + Math.ceil(p.cloak) + 's', true]);
+      if (p.storm > 0) out.push(['Link Storm ' + Math.ceil(p.storm) + 's', true]);
+    }
     if (wid === 'minigun') out.push([p.jam > 0 ? 'JAMMED ' + Math.ceil(p.jam) + 's' : (p.pips || 0) >= 85 ? 'Perfect Vent ready' : 'Heat ' + Math.floor(p.pips || 0), !(p.jam > 0) && (p.pips || 0) >= 85]);
     if (wid === 'rockets' && p.lock > 0) out.push(['Lock-on x' + p.lock, p.lock >= 3]);
     if (wid === 'sniper') { var aim = Math.min(3, Math.floor(p.still || 0)); out.push(['Steady Aim +' + aim * 5 + '% crit', aim >= 3]); }
@@ -2339,14 +2482,14 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.20.0';
+  var VERSION = '0.21.0';
 
   var api = {
     VERSION: VERSION,
     summary: summary,
     snapshot: snapshot, applySnapshot: applySnapshot, predictMove: predictMove,
     create: create, step: step, usable: usable, GEAR: GEAR, TALENTS: TALENTS, SLOTS: SLOTS, talentList: talentList, talentChips: talentChips, STYLES: STYLES, braced: braced, hasTalent: T, BOT_GEAR: BOT_GEAR, validGear: validGear, gearName: gearName, abilitiesOf: abilitiesOf, behind: behind, inTele: inTele,
-    damageEnemy: damageEnemy, damagePlayer: damagePlayer, resOf: resOf, aimWeapon: aimWeapon, barrierMax: barrierMax, inCone: inCone, barrierFor: barrierFor,
+    damageEnemy: damageEnemy, damagePlayer: damagePlayer, resOf: resOf, aimWeapon: aimWeapon, barrierMax: barrierMax, inCone: inCone, barrierFor: barrierFor, softTarget: softTarget, BOLT_AIM: BOLT_AIM,
     ent: ent, players: players, enemies: enemies, KITS: KITS, TUNE: TUNE, PIP_MAX: PIP_MAX, PROC_WINDOW: PROC_WINDOW,
     ARENA_R: ARENA_R, GCD: GCD, dist: dist
   };

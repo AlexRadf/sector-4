@@ -342,7 +342,9 @@
     $('#hud').classList.toggle('spectate', watching); updateSpec();
     running = true; acc = 0; lastSim = performance.now(); Net.evMark = 0;
     logLine(watching ? 'Shift started. You are watching from the gantry.' : 'Shift started. ' + human.kit.title + ' on the floor.');
-    if (!watching && Sim.aimWeapon(human)) logLine('Click the arena to aim with the mouse: left click swings, right click holds the barrier, both together Shove. Esc releases it.');
+    if (!watching && Sim.aimWeapon(human)) logLine(human.kit.weapons[human.weapon].id === 'link'
+      ? 'Click the arena to aim with the mouse. Left click fires at whatever is nearest your crosshair (green ring: heal, red: damage), right click holds the beam on an ally, both together Nanite Burst. Esc releases it.'
+      : 'Click the arena to aim with the mouse: left click swings, right click holds the barrier, both together Shove. Esc releases it.');
     if (Net.mode !== 'solo') logLine(Sim.players(S).filter(function (p) { return p.human; }).map(function (p) { return p.name; }).join(', ') + ' on the squad. Bots fill the rest.');
   }
   function showPlates(on) { $('#plates').style.display = on ? '' : 'none'; $('#floaters').style.display = on ? '' : 'none'; }
@@ -600,11 +602,17 @@
     for (var id in hud.enemies) if (!seen[id]) { hud.enemies[id].el.remove(); delete hud.enemies[id]; }
 
     var tf = $('#targetFrame'), t = human.target != null ? Sim.ent(S, human.target) : null;
+    var aimedW = Sim.aimWeapon(human) && !watching;
+    if (aimedW) {
+      // Aimed weapons have no tab target: the frame shows what you're pointing at (the Medic's beam or bolt target).
+      var hw = human.kit.weapons[human.weapon].id;
+      t = hw === 'link' ? (human.beamTo ? Sim.ent(S, human.beamTo) : Sim.softTarget(S, human, Sim.BOLT_AIM)) : Sim.softTarget(S, human, { range: 30, dot: 0.85, enemy: true });
+    }
     if (t) {
       tf.className = t.kind === 'player' ? 'friend' : '';
       $('#tName').textContent = t.name; $('#tInfo').textContent = Math.ceil(t.hp) + ' / ' + t.maxHp + '   ' + Math.round(Sim.dist(human, t)) + 'm';
       setBar(tf.querySelector('.bar > i'), t.hp / t.maxHp);
-    } else { tf.className = ''; $('#tName').textContent = 'No target'; $('#tInfo').textContent = 'Tab for an enemy, F1 to F4 for the squad'; setBar(tf.querySelector('.bar > i'), 0); }
+    } else { tf.className = ''; $('#tName').textContent = 'No target'; $('#tInfo').textContent = aimedW ? 'Point at someone' : 'Tab for an enemy, F1 to F4 for the squad'; setBar(tf.querySelector('.bar > i'), 0); }
 
     var mc = $('#myCast');
     if (human.cast) { mc.classList.add('on'); setBar(mc.firstElementChild, human.cast.t / human.cast.dur); mc.lastElementChild.textContent = human.cast.ab.name.toUpperCase(); }
@@ -781,6 +789,9 @@
             if (ev.src === human.id && pw >= 0.99) hitFlash();
           }
           else if (ev.fx === 'shaft') { ringFx(x, z, 2, 0.3, 0x000000, 0.7); ringFx(x, z, 0.5, 5, 0xffb000, 0.5); Snd.play('boom'); }
+          else if (ev.fx === 'burst') { ringFx(x, z, 0.5, 10, 0x4fd88f, 0.5); Snd.play('combo'); }
+          else if (ev.fx === 'field') { if (ev.src === human.id) Snd.play('belt'); }
+          else if (ev.fx === 'beamon') { if (ev.src === human.id) Snd.play('belt'); }
           else if (ev.fx === 'slammed') { ringFx(x, z, 0.5, 4, 0xffffff, 0.45); Snd.play('hammer'); }
           else if (ev.fx === 'piston') { if (ev.src === human.id) Snd.play('charge'); }
           else if (ev.fx === 'boost') { ringFx(x, z, 0.3, 3, 0xffb000, 0.35); Snd.play('charge'); }
@@ -1030,7 +1041,6 @@
       bw.position.set(bp.x + Math.sin(p.facing) * 1.6, 1.8, bp.z + Math.cos(p.facing) * 1.6);
       bw.rotation.y = p.facing;
       bw.material.opacity = 0.15 + 0.4 * ((p.barrier || 0) / Sim.barrierMax(p));
-      bw.scale.x = Sim.hasTalent(p, 'wideguard') ? 1.5 : 1;
     });
     for (var bid in special.barriers) if (!seenB[bid]) { fxRoot.remove(special.barriers[bid]); delete special.barriers[bid]; }
     // Aegis Domes: a golden hemisphere for as long as it lasts.
@@ -1044,7 +1054,64 @@
       var d = domes[i]; m.visible = !!d;
       if (d) { m.position.set(d.x, 0, d.z); m.scale.set(d.r, d.r * 0.7, d.r); m.material.opacity = 0.12 + 0.12 * Math.min(1, d.t); }
     });
-    var showArc = running && !watching && human && human.alive && Sim.aimWeapon(human) && !human.barrierUp;
+    // Aimed Medic: Nano Fields on the floor, beams between people, and who your shot will land on.
+    special.fields = special.fields || [];
+    var flds = S.fields || [];
+    while (special.fields.length < flds.length) {
+      var fm = new THREE.Mesh(new THREE.CircleGeometry(1, 36), new THREE.MeshBasicMaterial({ color: 0x4fd88f, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }));
+      fm.rotation.x = -Math.PI / 2; fxRoot.add(fm); special.fields.push(fm);
+    }
+    special.fields.forEach(function (m, i) {
+      var d = flds[i]; m.visible = !!d;
+      if (d) { m.position.set(d.x, 0.1, d.z); m.scale.set(d.r, d.r, 1); m.material.opacity = 0.12 + 0.1 * Math.min(1, d.t) + 0.05 * Math.sin(performance.now() / 200); }
+    });
+    special.links = special.links || {};
+    var seenL = {};
+    var linkLine = function (key, a, b, color, op) {
+      seenL[key] = 1;
+      var ln = special.links[key];
+      if (!ln) {
+        ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: op }));
+        fxRoot.add(ln); special.links[key] = ln;
+      }
+      var pa = views[a.id] ? views[a.id].g.position : a, pb = views[b.id] ? views[b.id].g.position : b;
+      var pos = ln.geometry.attributes.position;
+      pos.setXYZ(0, pa.x, 1.4, pa.z); pos.setXYZ(1, pb.x, 1.2, pb.z); pos.needsUpdate = true;
+      ln.material.opacity = op * (0.75 + 0.25 * Math.sin(performance.now() / 90));
+    };
+    Sim.players(S).forEach(function (p) {
+      if (!p.alive) return;
+      var bt = p.beamTo ? Sim.ent(S, p.beamTo) : null;
+      if (bt && bt.alive) linkLine('b' + p.id, p, bt, 0x4fd88f, 0.95);
+      if (p.storm > 0) Sim.players(S).forEach(function (q) { if (q !== p && q.alive && Math.hypot(q.x - p.x, q.z - p.z) <= 25) linkLine('s' + p.id + '-' + q.id, p, q, 0x9dffc8, 0.6); });
+    });
+    for (var lk in special.links) if (!seenL[lk]) { fxRoot.remove(special.links[lk]); special.links[lk].geometry.dispose(); delete special.links[lk]; }
+    // Anyone in trouble glows red at their feet, so a healer reads the fight from the floor, not the party frames.
+    special.lows = special.lows || {};
+    var seenLow = {};
+    Sim.players(S).forEach(function (p) {
+      if (!p.alive || p.hp >= p.maxHp * 0.4) return;
+      seenLow[p.id] = 1;
+      var lm = special.lows[p.id];
+      if (!lm) { lm = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.3, 32), new THREE.MeshBasicMaterial({ color: 0xff4a36, transparent: true, depthWrite: false, side: THREE.DoubleSide })); lm.rotation.x = -Math.PI / 2; fxRoot.add(lm); special.lows[p.id] = lm; }
+      var lp = views[p.id] ? views[p.id].g.position : p, pulse = 0.5 + 0.5 * Math.sin(performance.now() / (p.hp < p.maxHp * 0.2 ? 80 : 160));
+      lm.position.set(lp.x, 0.11, lp.z); lm.scale.set(1 + 0.25 * pulse, 1 + 0.25 * pulse, 1); lm.material.opacity = 0.4 + 0.5 * pulse;
+    });
+    for (var lw in special.lows) if (!seenLow[lw]) { fxRoot.remove(special.lows[lw]); delete special.lows[lw]; }
+    // Your Link Bolt's soft target: green ring for an ally it will heal, red for an enemy it will hit.
+    var wpnId = human && human.kit ? human.kit.weapons[human.weapon].id : '';
+    if (!special.soft) {
+      special.soft = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 40), new THREE.MeshBasicMaterial({ color: 0x4fd88f, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }));
+      special.soft.rotation.x = -Math.PI / 2; fxRoot.add(special.soft);
+    }
+    var st = running && !watching && human && human.alive && wpnId === 'link' ? (human.beamTo ? Sim.ent(S, human.beamTo) : Sim.softTarget(S, human, Sim.BOLT_AIM)) : null;
+    special.soft.visible = !!st;
+    if (st) {
+      var sp2 = views[st.id] ? views[st.id].g.position : st, sr = st.kind === 'enemy' ? (st.radius || 1) + 0.6 : 1.4;
+      special.soft.position.set(sp2.x, 0.13, sp2.z); special.soft.scale.set(sr, sr, 1);
+      special.soft.material.color.setHex(st.kind === 'player' ? 0x4fd88f : 0xff4a36);
+    }
+    var showArc = running && !watching && human && human.alive && wpnId === 'hammer' && !human.barrierUp;
     if (!special.arc) {
       special.arc = new THREE.Mesh(new THREE.CircleGeometry(6.5, 24, Math.PI / 2 - Math.PI / 3, Math.PI * 2 / 3), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide }));
       special.arc.rotation.order = 'YXZ'; fxRoot.add(special.arc);

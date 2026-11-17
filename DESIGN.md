@@ -1,7 +1,7 @@
 # Sector-4 design pillars
 
 The rules every change is checked against. If a feature breaks one of these, change the feature or
-change this file on purpose, never by drift. Last revised: v0.20.0 (2026-11-17).
+change this file on purpose, never by drift. Last revised: v0.21.0 (2026-11-17).
 
 ## What the game is
 
@@ -52,10 +52,10 @@ while dodging). Rules for the healer prototype:
 - Health must be readable on the bodies (pillar 2) so the healer looks at the fight, not at frames.
 - Look at Mercy, Moira, Ana and Lúcio (Overwatch) before any MMO healer.
 
-## Order of work (as of v0.20.0)
+## Order of work (as of v0.21.0)
 1. Impact Hammer tuned (done, v0.19.0) and played by Alex and Katie.
 2. Open items: death log, boss targeting the dead, phase 3 floor, keybinds (v0.20.0).
-3. **Aimed healer prototype**: one Medic weapon converted and played.
+3. **Aimed healer prototype**: the Link Gun (v0.21.0), to be played. Then a Medic talent pass themed to it.
 4. One aimed DPS weapon.
 5. Only then convert the remaining weapons (Flak Cannon, Minigun, other Medic and Striker weapons),
    or cut weapons if one good one per role is enough.

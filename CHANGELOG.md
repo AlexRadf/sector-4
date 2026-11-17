@@ -4,6 +4,20 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.21.0 (2026-11-17) The aimed Medic: Link Gun prototype
+- The Link Gun is now an aimed weapon, the first healer built on the design pillars. No tab-targeting, no picking from party frames:
+  - **LMB Link Bolt**: fires at whatever is nearest your crosshair, no precision needed. A hurt ally is healed for 70; an enemy takes 50 and gives you 7 Nanites. Allies at full health are skipped, so you can shoot past them.
+  - **RMB Link Beam**: hold to latch onto the ally nearest your crosshair. Heals 160 a second for 5 Nanites a second and snaps past 25m.
+  - **LMB + RMB Nanite Burst** (35 Nanites): heals everyone within 10m of you, you included, for 260.
+  - **Q Nano Field** (25 Nanites, 10s): a 6m healing patch on the ally you're pointing at, or at your feet.
+  - **E Purge**: cleanses the ally you're pointing at, or yourself if nobody's there.
+  - **F Nanite Cloak**: 40% less damage for 4s.
+  - **R Link Storm**: for 6s your beam reaches every ally within 25m, 150 a second each.
+- Read the fight from the floor: a ring under your bolt's target (green heals, red hits), beam lines between Medics and their allies,
+  Nano Fields glowing on the floor, and a pulsing red ring under anyone below 40% health.
+- The Bio Rifle and Shield Gun stay tab-targeted for now, and bot Medics default to the Bio Rifle until the aimed bot is as good.
+  Live Fire and Supply Drop do nothing on the Link Gun yet; Medic talents get their own pass after the Link Gun has been played.
+
 ## 0.20.0 (2026-11-17) Design pillars, death log, a shrinking phase three, keybinds
 - `DESIGN.md` sets out the pillars every change is checked against: everything is aimed, if it matters you can
   see it in the world, and each role owns a physical job (tank: space, healer: coverage, DPS: precision).

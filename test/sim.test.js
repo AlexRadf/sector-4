@@ -306,6 +306,7 @@ test('Riot Charge: an aimed boosted dash, Twin Thrusters holds two, Intercept sh
   const ally = Sim.players(b.S).find((q) => q.role === 'healer');
   Sim.players(b.S).forEach((q) => { if (q !== b.p && q !== ally) { q.x = 0; q.z = 20; } });   // a clear lane
   b.p.x = -10; b.p.z = -20; ally.x = 20; ally.z = -20; ally.armor = 0;
+  ally.human = true; ally.auto = false;   // hold still so the test is about the charge, not the bot
   Sim.step(b.S, 1 / 30, { aim: Math.PI / 2, jump: true });
   idle(b.S, 1.2);
   assert.ok(Math.hypot(b.p.x - ally.x, b.p.z - ally.z) < 3.5 && ally.armor >= 200, `${b.p.x},${b.p.z} armor ${ally.armor}`);
@@ -440,7 +441,7 @@ test('Deadeye shoots the Heavy Rocket down; Field Hospital clears radiation', ()
   press(a.S, 5);
   assert.strictEqual(a.S.missile, null);
   assert.strictEqual(a.S.m.heroes.dps[1], 1);
-  const b = arena('healer');
+  const b = arena('healer', { weapon: 'bio' });
   b.p.ult = 100; b.S.hero = { role: 'healer', t: 0, melt: true };
   Sim.players(b.S).forEach((q) => { q.rad = 5; });
   press(b.S, 5);
@@ -478,7 +479,7 @@ test('scripted hero moments still work when a boss switches them on', () => {
   } finally { Sim.TUNE.heroMoments = false; }
 });
 
-test('weapon signatures: Trick Shot every third tap, Steady Aim crit, Chainsaw bleed, Link tether', () => {
+test('weapon signatures: Trick Shot every third tap, Steady Aim crit, Chainsaw bleed', () => {
   const a = arena('melee', { weapon: 'enforcers' });
   a.p.x = a.boss.x; a.p.z = a.boss.z - 8;
   for (let n = 0; n < 3; n++) { a.p.gcd = 0; press(a.S, 0, { target: a.boss.id }); }
@@ -490,14 +491,6 @@ test('weapon signatures: Trick Shot every third tap, Steady Aim crit, Chainsaw b
   press(c.S, 1, { target: c.boss.id });
   assert.ok(c.boss.bleed > 8);
 
-  const l = arena('healer', { weapon: 'link' });
-  const ally = Sim.players(l.S).find((q) => q.role === 'tank');
-  l.p.x = l.boss.x; l.p.z = l.boss.z - 15; ally.hp = 500;
-  l.S.events.length = 0;
-  press(l.S, 1, { target: ally.id }); idle(l.S, 1.2);
-  assert.ok(l.p.tether && l.p.tether.id === ally.id);
-  ally.hp = 1000; l.p.gcd = 0; l.S.events.length = 0; press(l.S, 0, { target: l.boss.id });
-  assert.ok(l.S.events.some((e) => e.type === 'heal' && e.label === 'Tether'));
 });
 
 test('no two abilities share an id across classes (Adrenaline is shared on purpose)', () => {
@@ -618,4 +611,62 @@ test('phase three: the floor falls for good, and a drone shoved onto it goes dow
   Sim.step(S, 1 / 30, { aim: mid, ability: Sim.abilitiesOf(p).findIndex((ab) => ab.id === 'shove') });
   assert.ok(!d.alive, 'down the shaft');
   assert.ok(S.events.some((e) => e.type === 'dmg' && e.label === 'Down the Shaft!'));
+});
+
+/* The aimed Link Gun: a Medic in a clear space, everyone else frozen so the test is about the gun. */
+function medic() {
+  const a = arena('healer', { weapon: 'link' });
+  Sim.players(a.S).forEach((q) => { if (q !== a.p) { q.human = true; q.auto = false; } q.armor = 0; });
+  a.p.x = 0; a.p.z = 0; a.boss.x = 0; a.boss.z = 25;
+  const tank = Sim.players(a.S).find((q) => q.role === 'tank'), dps = Sim.players(a.S).find((q) => q.role === 'dps');
+  return Object.assign(a, { tank, dps });
+}
+const toward = (p, t) => Math.atan2(t.x - p.x, t.z - p.z);
+
+test('Link Gun: the bolt snaps to what is nearest the crosshair, heals the hurt, skips the full, hits enemies for Nanites', () => {
+  const a = medic();
+  a.tank.x = 3; a.tank.z = 10; a.tank.hp = 800;
+  a.S.events.length = 0; a.p.pips = 50;
+  press(a.S, 0, { aim: toward(a.p, a.tank) + 0.3 });   // well off, still snaps
+  assert.ok(a.S.events.some((e) => e.type === 'heal' && e.dst === a.tank.id && e.label === 'Link Bolt'));
+  a.tank.hp = a.tank.maxHp; a.p.gcd = 0; a.S.events.length = 0;
+  press(a.S, 0, { aim: toward(a.p, a.boss) });
+  assert.ok(a.S.events.some((e) => e.type === 'dmg' && e.dst === a.boss.id && e.label === 'Link Bolt'), 'a full-health ally in the way is skipped');
+  assert.ok(a.p.pips >= 56, 'harvested Nanites: ' + a.p.pips);
+});
+
+test('Link Gun: the beam latches, heals and drains, and snaps when they get too far away', () => {
+  const a = medic();
+  a.tank.x = 0; a.tank.z = 10; a.tank.hp = 400; a.p.pips = 100;
+  const face = toward(a.p, a.tank);
+  for (let i = 0; i < 30; i++) Sim.step(a.S, 1 / 30, { aim: face + 0.4, hold: [false, true] });
+  assert.strictEqual(a.p.beamTo, a.tank.id, 'latched from a loose aim');
+  assert.ok(a.tank.hp > 500 && a.p.pips < 99, a.tank.hp + ' / ' + a.p.pips);
+  a.tank.z = 40; Sim.step(a.S, 1 / 30, { aim: face, hold: [false, true] });
+  assert.ok(!a.p.beamTo, 'snapped at range');
+});
+
+test('Link Gun: Nanite Burst heals everyone close to you, Nano Field heals whoever stands in it, Purge falls back to you', () => {
+  const a = medic();
+  a.tank.x = 3; a.tank.z = 3; a.tank.hp = 500; a.dps.x = 30; a.dps.z = 0; a.dps.hp = 300; a.p.hp = 400; a.p.pips = 60;
+  Sim.step(a.S, 1 / 30, { aim: 0, hold: [true, true] });
+  assert.ok(a.tank.hp >= 700 && a.p.hp >= 600 && a.dps.hp === 300, [a.tank.hp, a.p.hp, a.dps.hp].join(','));
+  assert.ok(Math.abs(a.p.pips - 25) < 1);
+  a.p.pips = 60; a.tank.hp = 500; a.p.gcd = 0;
+  press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'field'), { aim: toward(a.p, a.tank) });
+  assert.strictEqual(a.S.fields.length, 1);
+  idle(a.S, 2);
+  assert.ok(a.tank.hp >= 580, String(a.tank.hp));
+  a.p.sludge = 5; a.p.gcd = 0;
+  Sim.players(a.S).forEach((q) => { if (q !== a.p) { q.x = 0; q.z = 20; } });
+  press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'purge'), { aim: Math.PI });
+  assert.ok(!(a.p.sludge > 0), 'nobody under the crosshair: purged yourself');
+});
+
+test('Link Gun: Link Storm beams the whole squad in reach', () => {
+  const a = medic();
+  a.tank.x = 5; a.tank.z = 5; a.tank.hp = 500; a.dps.x = 40; a.dps.z = 0; a.dps.hp = 300; a.p.ult = 100;
+  press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.role === 'ult'));
+  idle(a.S, 2);
+  assert.ok(a.tank.hp >= 700 && a.dps.hp === 300, a.tank.hp + ',' + a.dps.hp);
 });
