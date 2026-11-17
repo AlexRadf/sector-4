@@ -4,6 +4,17 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.18.0 (2026-11-17) Fewer, weightier buttons
+- The Impact Hammer has six buttons and no number keys: left click swing combo, right click barrier,
+  Q Kinetic Shockwave, E Iron Roar (now your taunt, 12s), F Shield Belt, R Aegis Dome, Space Riot Charge.
+  Controller: RT, LT, X, RB, B, Y, A. The ranged single-target Challenge is gone from the Hammer.
+- Talents never add buttons; Juggernaut rows 2 to 4 each change one you already have:
+  - Shield Belt: Shield Bash / Rapid Recharge / Linked Belt.
+  - Your taunt: Tremor (hits and knocks drones down) / Iron Hide (35% less damage for 6s) / Hold the Line (squad takes 20% less).
+  - Your defensive: Spiked Barrier (hits on it are returned) / Hardened Emitters (2,500 health, faster recovery) / Wide Projection (covers more behind you).
+  These also apply to the Flak Cannon's and Minigun's taunt, belt and defensive where it makes sense.
+- Removed: Reactive Plating, Uppercut, Rally Cry, Ablative Plating, Vengeance, Guardian Link, Counterstrike. Saved builds fall back to the first pick in each row.
+
 ## 0.17.0 (2026-11-17) Juggernaut talents: Active, Passive or Modifier
 - Juggernaut talent rows 2 to 4 each offer an Active (a new button), a Passive (always on) and a Modifier (changes a button you have).
   Pick passives for a simple bar, actives for a busy one: up to three extra buttons on Q, E and F (D-pad left, right, up).

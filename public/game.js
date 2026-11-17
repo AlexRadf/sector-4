@@ -414,16 +414,6 @@
     });
     showLeaning();
     function showLeaning() {
-      if (r === 'tank') {
-        // Juggernaut rows are Active / Passive / Modifier: show how many extra buttons this build adds.
-        var keysOn = [];
-        Sim.SLOTS.forEach(function (slot) {
-          var it = Sim.talentList(slot, r).filter(function (x) { return x.id === gearFor[r][slot]; })[0];
-          if (it && it.style === 'active') keysOn.push({ rig: 'Q', implant: 'E', util: 'F' }[slot]);
-        });
-        $('#armoryLean').textContent = keysOn.length ? 'Extra buttons: ' + keysOn.join(' ') + '.  Pick passives or modifiers for fewer.' : 'No extra buttons: the core kit only.';
-        return;
-      }
       var count = { aggressive: 0, steady: 0, squad: 0 };
       Sim.SLOTS.forEach(function (slot) {
         var it = Sim.talentList(slot, r).filter(function (x) { return x.id === gearFor[r][slot]; })[0];
@@ -477,11 +467,7 @@
     $('#enemies').innerHTML = ''; hud.enemies = {};
   }
   /* The key shown on each action button. Aimed weapons put the weapon on the mouse buttons. */
-  function keyCap(i) {
-    var a = Sim.abilitiesOf(human)[i];
-    if (a && a.slot) return a.slot;
-    return Sim.aimWeapon(human) && !watching ? ['LMB', 'RMB', '1', '2', '3', '4', 'R'][i] || '' : String(i + 1);
-  }
+  function keyCap(i) { return Sim.aimWeapon(human) && !watching ? ['LMB', 'RMB', 'Q', 'E', 'F', 'R'][i] || '' : String(i + 1); }
   function buildActions() {
     var acts = $('#actions'); acts.innerHTML = ''; hud.abs = [];
     hud.wpn = human.weapon;
@@ -636,7 +622,7 @@
       else if (h.a.role === 'proc' && human.procT > 0) { label = 'PROC ' + Math.ceil(human.procT) + 's'; glow = 'proc'; }
       else if (h.a.role === 'spend' && u.state !== 'range') label = Sim.resOf(human).spend === 'all' ? Math.floor(human.pips || 0) + ' ' + Sim.resOf(human).name.toUpperCase() : 'COSTS ' + Sim.resOf(human).spend;
       else if (h.a.id === 'combo') { label = human.barrierUp ? 'BARRIER UP' : ['SWING', 'SWING', 'SLAM'][human.comboStep || 0]; if ((human.comboStep || 0) === 2 && !human.barrierUp) glow = 'proc'; }
-      else if (h.a.id === 'ebarrier') { label = human.barrierBroken > 0 ? 'BROKEN ' + Math.ceil(human.barrierBroken) + 's' : (human.barrierUp ? 'UP ' : 'HOLD ') + Math.round((human.barrier == null ? Sim.TUNE.barrierHp : human.barrier) / Sim.TUNE.barrierHp * 100) + '%'; if (human.barrierUp) glow = 'ultready'; }
+      else if (h.a.id === 'ebarrier') { label = human.barrierBroken > 0 ? 'BROKEN ' + Math.ceil(human.barrierBroken) + 's' : (human.barrierUp ? 'UP ' : 'HOLD ') + Math.round((human.barrier == null ? Sim.barrierMax(human) : human.barrier) / Sim.barrierMax(human) * 100) + '%'; if (human.barrierUp) glow = 'ultready'; }
       else if (h.a.id === 'vent' && (human.pips || 0) >= 85) { label = 'PERFECT'; glow = 'proc'; }
       else if (h.a.id === 'screen' && human.screen > 0) label = 'UP ' + Math.ceil(human.screen) + 's';
       else if ((h.a.id === 'spin' || h.a.id === 'sweep') && human.jam > 0) label = 'JAMMED';
@@ -1017,7 +1003,8 @@
       var bp = views[p.id] ? views[p.id].g.position : p;
       bw.position.set(bp.x + Math.sin(p.facing) * 1.6, 1.8, bp.z + Math.cos(p.facing) * 1.6);
       bw.rotation.y = p.facing;
-      bw.material.opacity = 0.15 + 0.4 * ((p.barrier || 0) / Sim.TUNE.barrierHp);
+      bw.material.opacity = 0.15 + 0.4 * ((p.barrier || 0) / Sim.barrierMax(p));
+      bw.scale.x = Sim.hasTalent(p, 'wideguard') ? 1.5 : 1;
     });
     for (var bid in special.barriers) if (!seenB[bid]) { fxRoot.remove(special.barriers[bid]); delete special.barriers[bid]; }
     // Aegis Domes: a golden hemisphere for as long as it lasts.
@@ -1069,17 +1056,11 @@
     if (/^Digit[1-4]$/.test(c) && ev.shiftKey) { var q = Sim.players(S)[+c[5] - 1]; if (q) input.target = q.id; return; }
     if (c === 'KeyM') { setMute(Snd.toggle()); return; }
     if (c === 'Space') { ev.preventDefault(); input.jump = true; return; }
-    // Talent actives live on Q, E and F.
-    var tslot = { KeyQ: 'Q', KeyE: 'E', KeyF: 'F' }[c];
-    if (tslot) {
-      var ti = Sim.abilitiesOf(human).findIndex(function (a) { return a.slot === tslot; });
-      if (ti >= 0) { input.ability = ti; var ht = hud.abs[ti]; if (ht) { ht.el.classList.add('flash'); setTimeout(function () { ht.el.classList.remove('flash'); }, 120); } }
-      return;
-    }
-    // Aimed weapons (the Impact Hammer): the mouse buttons are the weapon, so 1 to 4 and R are the slots after it.
+    // Aimed weapons (the Impact Hammer): mouse buttons are the weapon, then Q, E, F and R. No number keys.
     if (Sim.aimWeapon(human)) {
-      var slot = { Digit1: 2, Digit2: 3, Digit3: 4, Digit4: 5, Digit5: 6, KeyR: 6 }[c];
-      if (slot !== undefined) { input.ability = slot; var ha = hud.abs[slot]; if (ha) { ha.el.classList.add('flash'); setTimeout(function () { ha.el.classList.remove('flash'); }, 120); } return; }
+      var slot = { KeyQ: 2, KeyE: 3, KeyF: 4, KeyR: 5 }[c];
+      if (slot !== undefined) { input.ability = slot; var ha = hud.abs[slot]; if (ha) { ha.el.classList.add('flash'); setTimeout(function () { ha.el.classList.remove('flash'); }, 120); } }
+      if (slot !== undefined || /^Digit[1-6]$/.test(c)) return;
     }
     if (c === 'KeyR') c = 'Digit6';
     if (/^Digit[1-6]$/.test(c)) { input.ability = +c[5] - 1; var h = hud.abs[input.ability]; if (h) { h.el.classList.add('flash'); setTimeout(function () { h.el.classList.remove('flash'); }, 120); } return; }
@@ -1543,12 +1524,11 @@
       var aimW = Sim.aimWeapon(human);
       pad.hold = aimW ? [btn(7), btn(6)] : [false, false];
       if (aimW) {
-        // Aimed: RT swing, LT barrier, X Shockwave, LB Roar, RB taunt, B Shield Belt, Y ultimate, A Riot Charge.
+        // Aimed: RT swing, LT barrier, X = Q, RB = E, B = F, Y = R (ultimate), A Riot Charge.
         if (down(2)) input.ability = 2;
-        if (down(4)) input.ability = 3;
-        if (down(5)) input.ability = 4;
-        if (down(1)) input.ability = 5;
-        if (down(3)) input.ability = 6;
+        if (down(5)) input.ability = 3;
+        if (down(1)) input.ability = 4;
+        if (down(3)) input.ability = 5;
       } else {
         if (down(7)) input.ability = 0;
         if (down(6)) input.ability = 1;
@@ -1559,12 +1539,6 @@
         if (down(4)) cycleEnemy(1);
       }
       if (down(0)) input.jump = true;
-      // D-pad left / right / up: talent actives on Q / E / F.
-      [[14, 'Q'], [15, 'E'], [12, 'F']].forEach(function (m) {
-        if (!down(m[0])) return;
-        var di = Sim.abilitiesOf(human).findIndex(function (a) { return a.slot === m[1]; });
-        if (di >= 0) input.ability = di;
-      });
     }
     pad.prev = gp.buttons.map(function (b) { return b.pressed || b.value > 0.5; });
   }

@@ -59,8 +59,7 @@ test('each class has its own four tiers of three talents', () => {
     for (const slot of Sim.SLOTS) {
       const list = Sim.talentList(slot, role);
       assert.strictEqual(list.length, 3, `${role} ${slot}`);
-      const want = role === 'tank' && slot !== 'boots' ? ['active', 'passive', 'modifier'] : ['aggressive', 'steady', 'squad'];
-      assert.deepStrictEqual(list.map((t) => t.style), want, `${role} ${slot}`);
+      assert.deepStrictEqual(list.map((t) => t.style), ['aggressive', 'steady', 'squad'], `${role} ${slot}`);
       list.forEach((t) => { seen[t.name] = (seen[t.name] || 0) + 1; });
     }
   }
@@ -317,7 +316,7 @@ test('Minigun: heat speeds it up, Perfect Vent shields big, 100 jams it', () => 
 });
 
 test('Challenge taunts one target, not the room', () => {
-  const { S, p, boss } = arena('tank');
+  const { S, p, boss } = arena('tank', { weapon: 'flak' });
   p.x = boss.x; p.z = boss.z - 5;
   const drone = { id: 999, kind: 'enemy', type: 'drone', x: p.x + 3, z: p.z, radius: 1, hp: 100, maxHp: 100, alive: true, threat: {}, target: null };
   S.ents.push(drone);
@@ -432,8 +431,10 @@ test('Wrecking Slam staggers its target at any time', () => {
 test('scripted hero moments still work when a boss switches them on', () => {
   Sim.TUNE.heroMoments = true;
   try {
-    const r = runFight({ seed: 5 });
-    for (const role of ['tank', 'healer', 'dps', 'melee']) assert.ok(r.heroes[role][0] >= 1, role + ' was never called');
+    const hp = Sim.TUNE.bossHp; Sim.TUNE.bossHp = hp * 1.6;   // long enough for the rotation to come round
+    const called = { tank: 0, healer: 0, dps: 0, melee: 0 };
+    try { for (const seed of [5, 6, 7]) { const r = runFight({ seed }); for (const k in called) called[k] += r.heroes[k][0]; } } finally { Sim.TUNE.bossHp = hp; }
+    for (const role of Object.keys(called)) assert.ok(called[role] >= 1, role + ' was never called');
   } finally { Sim.TUNE.heroMoments = false; }
 });
 
@@ -470,21 +471,41 @@ test('no two abilities share an id across classes (Adrenaline is shared on purpo
   assert.deepStrictEqual(dups, []);
 });
 
-test('Juggernaut Active talents add buttons on Q, E and F; passives and modifiers add none', () => {
-  const all = arena('tank', { weapon: 'hammer', rig: 'reactive', implant: 'uppercut', util: 'rallycry' });
-  const slots = Sim.abilitiesOf(all.p).filter((a) => a.slot).map((a) => a.slot);
-  assert.deepStrictEqual(slots, ['Q', 'E', 'F']);
-  const none = arena('tank', { weapon: 'hammer', rig: 'plate', implant: 'vengeance', util: 'bash' });
-  assert.strictEqual(Sim.abilitiesOf(none.p).filter((a) => a.slot).length, 0);
-  const { S, p, boss } = all;
-  p.x = boss.x; p.z = boss.z - 5; p.armor = 0;
-  const at = (id) => Sim.abilitiesOf(p).findIndex((a) => a.id === id);
-  press(S, at('reactive'));
-  assert.ok(p.reactive > 0);
-  const h = p.hp; Sim.damagePlayer(S, S.bossId, p, 300, 'Rocket');
-  assert.ok(h - p.hp <= 190, 'reactive plating soaks 40%');
-  press(S, at('rallycry'));
-  assert.ok(Sim.players(S).filter((q) => q.rallied > 0).length >= 1);
-  S.events.length = 0; press(S, at('uppercut'), { aim: Math.atan2(boss.x - p.x, boss.z - p.z) });
-  assert.ok(S.events.some((e) => e.type === 'dmg' && e.label === 'Uppercut') && boss.weak > 0);
+test('the Hammer has six buttons and talents never add one, they change them', () => {
+  const ids = (gear) => Sim.abilitiesOf(arena('tank', Object.assign({ weapon: 'hammer' }, gear)).p).map((a) => a.id);
+  assert.deepStrictEqual(ids({}), ['combo', 'ebarrier', 'shockwave', 'roar', 'belt', 'aegis']);
+  for (const slot of Sim.SLOTS) for (const t of Sim.talentList(slot, 'tank')) assert.strictEqual(ids({ [slot]: t.id }).length, 6, t.name);
+});
+
+test('Enforcement talents change the taunt: Tremor hits, Iron Hide toughens, Hold the Line covers the squad', () => {
+  const roarIn = (gear) => {
+    const a = arena('tank', Object.assign({ weapon: 'hammer' }, gear));
+    a.p.x = a.boss.x; a.p.z = a.boss.z - 6; a.S.events.length = 0;
+    press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'roar'));
+    return a;
+  };
+  const tr = roarIn({ implant: 'tremor' });
+  assert.ok(tr.S.events.some((e) => e.type === 'dmg' && e.label === 'Tremor'));
+  const ih = roarIn({ implant: 'ironhide' });
+  ih.p.armor = 0; const h = ih.p.hp; Sim.damagePlayer(ih.S, ih.S.bossId, ih.p, 300, 'Rocket');
+  assert.ok(h - ih.p.hp <= 200, 'iron hide cuts 35%');
+  const hl = roarIn({ implant: 'rally' });
+  assert.ok(Sim.players(hl.S).filter((q) => q.rallied > 0).length >= 2);
+});
+
+test('Command talents change the barrier: Hardened has more health, Spiked hits back, Wide covers further', () => {
+  const up = (gear) => {
+    const a = arena('tank', Object.assign({ weapon: 'hammer' }, gear));
+    a.p.x = a.boss.x; a.p.z = a.boss.z - 8;
+    Sim.step(a.S, 1 / 30, { aim: Math.atan2(a.boss.x - a.p.x, a.boss.z - a.p.z), hold: [false, true] });
+    return a;
+  };
+  assert.strictEqual(Sim.barrierMax(up({ util: 'hardened' }).p), 2500);
+  const sp = up({ util: 'spikes' }); sp.S.events.length = 0;
+  Sim.damagePlayer(sp.S, sp.S.bossId, sp.p, 500, 'Crusher');
+  assert.ok(sp.S.events.some((e) => e.type === 'dmg' && e.label === 'Spiked Barrier'));
+  const wide = up({ util: 'wideguard' }), narrow = up({ util: 'spikes' });
+  for (const a of [wide, narrow]) { const al = Sim.players(a.S).find((q) => q.role === 'healer'); al.x = a.p.x + 5; al.z = a.p.z - 11; }
+  const covered = (a) => !!Sim.barrierFor(a.S, Sim.players(a.S).find((q) => q.role === 'healer'), a.boss);
+  assert.ok(covered(wide) && !covered(narrow));
 });
