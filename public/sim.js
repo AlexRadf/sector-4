@@ -57,15 +57,17 @@
           [{ id: 'flak', name: 'Flak Blast', kind: 'enemy', range: 8, desc: '75 to every enemy within 8m. Loads 15 Ammo, plus 10 per extra enemy.' },
            { id: 'shell', name: 'Flak Shell', kind: 'enemy', range: 25, cost: 30, desc: '30 Ammo. 190 at up to 25m and very high threat. Slows the target 4s. Pulls drones from range.' },
            { id: 'screen', name: 'Flak Screen', kind: 'self', range: 0, cost: 50, gcd: false, desc: '50 Ammo. For 3.5s every hit on you is cut by 70%, and each one sprays 100 shrapnel back. Time it for the Crusher.' }]),
-        TW('hammer', 'Impact Hammer', 'The plate-wearing mitigator. Aimed melee: swing, swing, slam across everything in front of you, and get the barrier between the boss and the squad when the big hit comes. No self-healing: you block, the Medic heals.',
-          { id: 'kinetic', name: 'Kinetic', max: 100, start: 0, regen: -2, build: 0,
-            how: 'Kinetic. Each swing stores 10, the slam 20, and every hit you take 8; it leaks away slowly. Spend 40 on a Kinetic Shockwave. Your barrier has its own health, shown on key 2.' },
-          [{ id: 'combo', name: 'Hammer Combo', kind: 'aim', range: 6, hold: 'repeat', desc: 'Swing, swing, slam. Hits everything in an arc in front of you: 95, 95, then a wider 230 slam. Hold or tap to keep the chain going; a 1.6s pause resets it.' },
-           { id: 'ebarrier', name: 'Energy Barrier', kind: 'aim', range: 0, hold: 'channel', gcd: false, desc: 'Hold to raise a barrier facing where you aim. It blocks enemy hits on you and anyone behind you until its 1,800 health runs out. Regenerates while lowered; breaks for 5s if emptied. No swinging while it\'s up.' },
-           { id: 'shockwave', name: 'Kinetic Shockwave', kind: 'aim', range: 20, cost: 40, desc: '40 Kinetic. Slam a wave along the ground in a straight line: 200 to everything in a 20m lane in front of you, high threat.' },
-           { id: 'roar', name: 'Iron Roar', kind: 'self', range: 10, cd: 12, gcd: false, desc: 'Your taunt. Everything within 10m turns on you for 3s, and you take 20% less damage for 5s. Short range: you have to wade in to use it.' }],
-          { aim: true, utils: [A({ id: 'belt', name: 'Shield Belt', kind: 'self', range: 0, cd: 30, gcd: false, desc: 'Take half damage for 6s. Your big emergency button.' })],
-            ult: A({ id: 'aegis', name: 'Aegis Dome', kind: 'self', range: 0, gcd: false, role: 'ult', desc: 'Ultimate. A dome 9m across forms around you: nobody inside takes any damage for 5s. Buy the squad time.' }) }),
+        TW('hammer', 'Impact Hammer', 'The plate-wearing mitigator. Swing the hammer and hold the barrier to fill Shield Energy, then press both to Shove: everything in front of you is thrown back, and whatever you slam into a wall or another enemy is stunned. No self-healing: you block, the Medic heals.',
+          { id: 'senergy', name: 'Shield Energy', max: 100, start: 0, regen: 0, build: 0,
+            how: 'Shield Energy. Each swing stores 6, the slam 12, and your barrier stores 1 for every 25 damage it blocks. It never leaks. Spend all of it on a Shove (LMB + RMB): the fuller the bar, the harder it lands, so a full one is worth waiting for.' },
+          [{ id: 'combo', key: 'LMB', name: 'Hammer Combo', kind: 'aim', range: 6, hold: 'repeat', desc: 'Swing, swing, slam. Hits everything in an arc in front of you: 60, 60, then a wider 150 slam. Hold or tap to keep the chain going; a 2s pause resets it.' },
+           { id: 'ebarrier', key: 'RMB', name: 'Energy Barrier', kind: 'aim', range: 0, hold: 'channel', gcd: false, desc: 'Hold to raise a barrier facing where you aim. It blocks enemy hits on you and anyone behind you until its 1,800 health runs out, and what it blocks fills Shield Energy. Regenerates while lowered; breaks for 5s if emptied. No swinging while it\'s up.' },
+           { id: 'shove', key: 'L+R', name: 'Shove', kind: 'aim', range: 8, needs: 20, gcd: false, desc: 'Press both mouse buttons (needs 20 Shield Energy). Spends it all: everything in the arc in front of you is thrown back up to 14m, and anything slammed into a wall or another enemy is stunned for 2s and takes 150 more. The Foreman won\'t budge, but a full Shove hits him for 500.' }],
+          { aim: true,
+            utils: [A({ id: 'challenge', key: 'Q', name: 'Challenge', kind: 'enemy', range: 30, cd: 8, gcd: false, desc: 'Taunt whatever you aim at (or your target): it attacks you for 3s and you jump to the top of its threat.' }),
+                    A({ id: 'piston', key: 'E', name: 'Piston Shot', kind: 'aim', range: 22, cd: 4, desc: 'The hammer head fires a compressed-air round where you aim: 120 to the first enemy within 22m and very high threat. For pulling a drone or poking from range.' }),
+                    A({ id: 'belt', key: 'F', name: 'Shield Belt', kind: 'self', range: 0, cd: 30, gcd: false, desc: 'Take half damage for 6s. Your big emergency button.' })],
+            ult: A({ id: 'aegis', key: 'R', name: 'Aegis Dome', kind: 'self', range: 0, gcd: false, role: 'ult', desc: 'Ultimate. A dome 9m across forms around you: nobody inside takes any damage for 5s. Buy the squad time.' }) }),
         TW('minigun', 'Minigun', 'Wild card. The hotter the barrels, the faster it fires. Vent the heat into a shield at the right moment: past 85 is a Perfect Vent, 100 jams the gun.',
           { id: 'spin', name: 'Barrel Heat', max: 100, start: 0, regen: -5, build: 12,
             how: 'Barrel Heat. Every burst adds 12 and fires faster the hotter you are. Vent turns heat into a shield; vent at 85 or more for a Perfect Vent (half again, and you keep half your heat). At 100 the gun jams for 3s.' },
@@ -168,28 +170,28 @@
   function t(id, style, name, play, desc) { return { id: id, style: style, name: name, play: play, desc: desc }; }
   var TALENTS = {
     tank: {
-      theme: 'Riot enforcer. Hold the line, punish anything that hits you, protect whoever is behind you.',
-      tiers: ['Charge', 'Armor', 'Enforcement', 'Command'],
+      theme: 'Riot enforcer in a walking bulkhead. Plant the shield, swing the hammer, shove the room where you want it.',
+      tiers: ['Charge', 'Shield', 'Shove', 'Challenge'],
       boots: [
         t('ram', 'aggressive', 'Battering Ram', 'Through them, not around them.', 'Riot Charge hits everything you plough past for 200 and high threat.'),
         t('twincharge', 'steady', 'Twin Thrusters', 'Always have a way in.', 'Riot Charge holds two charges.'),
         t('intercept', 'squad', 'Intercept', 'Go to whoever needs you.', 'Riot Charge flies 34m instead of 22, and if you reach a squad member it stops and gives them a 250 shield.')
       ],
-      // Rows 2 to 4 never add a button: each changes one you already have (Shield Belt, your taunt, your defensive).
+      // Rows 2 to 4 never add a button: each changes one you already have (your shield, your spender, your taunt).
       rig: [
-        t('bash', 'aggressive', 'Shield Bash', 'Belt: turn defence into a weapon.', 'Shield Belt also slams every enemy within 8m for 200 damage and heavy threat.'),
-        t('recharge', 'steady', 'Rapid Recharge', 'Belt: up on rhythm.', 'Shield Belt is ready every 15s instead of 30s, but lasts 4s instead of 6s.'),
-        t('linkbelt', 'squad', 'Linked Belt', 'Belt: share the shield.', 'Shield Belt also covers squad members within 8m (they take 25% less), but it is ready every 40s instead of 30s.')
+        t('spikes', 'aggressive', 'Spiked Barrier', 'Shield: make them pay.', 'Whatever hits your barrier takes 30% of the blocked damage back (the Flak Screen\'s shrapnel doubles).'),
+        t('hardened', 'steady', 'Hardened Emitters', 'Shield: hold longer.', 'Your barrier has 2,500 health instead of 1,800 and recovers twice as fast (Flak Screen lasts 1s longer, Vent shields 25% more).'),
+        t('firingline', 'squad', 'Firing Line', 'Shield: shoot from behind me.', 'Squad members your barrier is covering deal 15% more damage.')
       ],
       implant: [
-        t('tremor', 'aggressive', 'Tremor', 'Taunt: shake the floor.', 'Your taunt also hits everything it taunts for 150, and knocks drones off their feet for 2s.'),
-        t('ironhide', 'steady', 'Iron Hide', 'Taunt: dare them.', 'Your taunt makes you take 35% less damage for 6s (instead of Iron Roar\'s 20% for 5s).'),
-        t('rally', 'squad', 'Hold the Line', 'Taunt: call the squad in.', 'Your taunt also gives every squad member within 15m 20% less damage taken for 5s.')
+        t('piledriver', 'aggressive', 'Piledriver', 'Shove: hit like a wrecking ball.', 'Shove hits 40% harder, and anything you slam is stunned for 3s instead of 2.'),
+        t('capacitor', 'steady', 'Capacitor Bank', 'Shove: more often.', 'Everything that fills Shield Energy fills it 50% faster.'),
+        t('breathing', 'squad', 'Breathing Room', 'Shove: clear space for them.', 'Shove also shields every squad member within 8m of you for 50, up to 200 with a full bar.')
       ],
       util: [
-        t('spikes', 'aggressive', 'Spiked Barrier', 'Defensive: make them pay.', 'Whatever hits your barrier takes 30% of the blocked damage back (the Flak Screen\'s shrapnel doubles).'),
-        t('hardened', 'steady', 'Hardened Emitters', 'Defensive: hold longer.', 'Your barrier has 2,500 health instead of 1,800 and recovers twice as fast (Flak Screen lasts 1s longer, Vent shields 25% more).'),
-        t('wideguard', 'squad', 'Wide Projection', 'Defensive: cover more of them.', 'Your barrier covers a lane half as wide again and further back, so more of the squad fits behind it.')
+        t('brand', 'aggressive', 'Brand', 'Challenge: mark it for the squad.', 'Whatever you Challenge takes 15% more damage from everyone for 6s.'),
+        t('daze', 'steady', 'Daze', 'Challenge: ring its bell.', 'Challenge stuns a drone for 2s. The Foreman hits 25% softer for 4s instead.'),
+        t('protector', 'squad', 'Protector', 'Challenge: step in front.', 'Challenge also shields whoever it was attacking for 250.')
       ]
     },
     healer: {
@@ -271,7 +273,7 @@
   SLOTS.forEach(function (slot) { GEAR[slot] = {}; Object.keys(TALENTS).forEach(function (r) { GEAR[slot][r] = TALENTS[r][slot]; }); });
   /* What the bots take: a mix of styles, close to an average person's build. */
   var BOT_GEAR = {
-    tank: { weapon: 'hammer', boots: 'twincharge', rig: 'recharge', implant: 'ironhide', util: 'hardened' },
+    tank: { weapon: 'hammer', boots: 'twincharge', rig: 'hardened', implant: 'breathing', util: 'brand' },
     healer: { weapon: 'link', boots: 'mag', rig: 'lifeline', implant: 'overflow', util: 'supply' },
     dps: { weapon: 'rockets', boots: 'dodge', rig: 'pump', implant: 'spotter', util: 'breaker' },
     melee: { weapon: 'chainsaw', boots: 'escort', rig: 'pump', implant: 'flanker', util: 'breaker' }
@@ -336,6 +338,11 @@
   function resOf(p) { var w = p.kit.weapons[p.weapon]; return (w && w.res) || p.kit.res; }
   /* A raised Energy Barrier that covers p from a hit coming from src: src in front of it, p behind or level with it. */
   function barrierMax(p) { return T(p, 'hardened') ? 2500 : TUNE.barrierHp; }
+  /* Impact Hammer Shield Energy: swings and blocks fill it (Capacitor Bank: half as fast again). */
+  function addEnergy(p, n) {
+    if (!p.alive || p.kit.weapons[p.weapon].id !== 'hammer') return;
+    p.pips = Math.min(resOf(p).max, (p.pips || 0) + n * (T(p, 'capacitor') ? 1.5 : 1));
+  }
   function barrierFor(S, p, src) {
     return players(S, true).filter(function (q) {
       if (!q.barrierUp) return false;
@@ -343,8 +350,8 @@
       var sx = src.x - q.x, sz = src.z - q.z, sl = Math.sqrt(sx * sx + sz * sz) || 1;
       if ((sx * fx + sz * fz) / sl < 0.2) return false;            // the hit has to come from in front
       if (q === p) return true;
-      var rx = p.x - q.x, rz = p.z - q.z, along = rx * fx + rz * fz, lat = Math.abs(rx * fz - rz * fx), wide = T(q, 'wideguard');
-      return along <= 0.5 && along >= (wide ? -13 : -9) && lat <= (wide ? 6 : 4);
+      var rx = p.x - q.x, rz = p.z - q.z, along = rx * fx + rz * fz, lat = Math.abs(rx * fz - rz * fx);
+      return along <= 0.5 && along >= -9 && lat <= 4;
     })[0] || null;
   }
   function abilitiesOf(p) {
@@ -511,6 +518,8 @@
         amt *= 1 + 0.05 * src.rampage;
       }
       var range = dist(src, tgt) - (tgt.radius || 0);
+      // Firing Line: shooting from behind a Juggernaut's barrier.
+      if (src.role !== 'tank' && players(S, true).some(function (q) { return T(q, 'firingline') && barrierFor(S, src, tgt) === q; })) amt *= 1.15;
       if (T(src, 'marksman') && range >= 18) amt *= 1.3;
       if (T(src, 'pointblank') && range <= 10) amt *= 1.3;
       if (T(src, 'spotter')) tgt.spotted = 5;   // squad-wide, so it stays small
@@ -524,6 +533,7 @@
       }
     }
     if (tgt.spotted > 0) amt *= 1.06;
+    if (tgt.branded > 0) amt *= 1.15;
     if (tgt.stagger > 0) amt *= TUNE.staggerBonus;
     amt = Math.round(amt);
     var shown = amt, soaked = 0;
@@ -601,6 +611,7 @@
       // Impact Hammer barrier: it soaks the hit for whoever it covers until it runs dry.
       var soakB = Math.min(wallBy.barrier, amt);
       wallBy.barrier -= soakB; amt -= soakB;
+      addEnergy(wallBy, soakB / 25);
       if (T(wallBy, 'spikes') && bsrc.kind === 'enemy' && bsrc.alive && soakB > 0) damageEnemy(S, wallBy, bsrc, soakB * 0.3, 4, 'Spiked Barrier');
       emit(S, { type: 'absorb', id: p.id, amt: Math.round(soakB), barrier: 1, by: wallBy.id });
       if (wallBy.barrier <= 0) {
@@ -617,8 +628,6 @@
     // Juggernaut plating: the Foreman's fists are tuned for the tank. Anyone else he catches gets flattened.
     if (p.role === 'tank' && (label === 'Hit' || label === 'Crusher' || label === 'Cleave')) amt = amt * 0.7;
     if (p.wall > 0) amt = amt * 0.5;
-    if (p.hide > 0) amt = amt * 0.65; else if (p.roared > 0) amt = amt * 0.8;
-    if (p.covered > 0) amt = amt * 0.75;
 
     var hitter = ent(S, srcId);
     if (p.screen > 0 && hitter && hitter.kind === 'enemy' && label !== 'Radiation') {
@@ -657,8 +666,7 @@
       emit(S, { type: 'fx', fx: 'pump', src: p.id });
     }
     if (p.hp > 0 && srcId === S.bossId && label === 'Hit') {
-      // Impact Hammer: every hit you take stores Kinetic. Counterstrike: getting hit can light you up.
-      if (p.kit.weapons[p.weapon].id === 'hammer') p.pips = Math.min(resOf(p).max, (p.pips || 0) + 8);
+      // Counterstrike: getting hit can light you up.
       if (T(p, 'counter') && S.rng() < 0.25) { p.counter = 6; p.cds.challenge = 0; proc(S, p, 'counter', 'COUNTERSTRIKE'); }
     }
     if (p.hp > 0 && p.hp < p.maxHp * 0.25 && srcId === S.bossId) {
@@ -767,7 +775,7 @@
     else if ((ab.cost && (p.pips || 0) < ab.cost) || (ab.needs && (p.pips || 0) < ab.needs)) out.state = 'locked';
     else if (p.jam > 0 && (ab.id === 'spin' || ab.id === 'sweep')) out.state = 'locked';
     else if (ab.id === 'ebarrier' && p.barrierBroken > 0) out.state = 'locked';
-    else if ((ab.id === 'combo' || ab.id === 'shockwave') && p.barrierUp) out.state = 'locked';
+    else if (ab.id === 'combo' && p.barrierUp) out.state = 'locked';
     else if (ab.kind !== 'self' && ab.kind !== 'aim' && dist(p, tgt) > reach(p, ab) + (tgt.radius || 0)) out.state = 'range';
     else if ((p.cds[ab.id] || 0) > 0) out.state = 'cd';
     else out.state = 'ok';
@@ -790,7 +798,7 @@
     if ((ab.cost && (p.pips || 0) < ab.cost) || (ab.needs && (p.pips || 0) < ab.needs)) return fail(S, p, 'Not enough ' + resOf(p).name);
     if (p.jam > 0 && (ab.id === 'spin' || ab.id === 'sweep')) return fail(S, p, 'Minigun jammed');
     if (ab.id === 'ebarrier' && p.barrierBroken > 0) return fail(S, p, 'Barrier is broken');
-    if ((ab.id === 'combo' || ab.id === 'shockwave') && p.barrierUp) return fail(S, p, 'Lower the barrier first');
+    if (ab.id === 'combo' && p.barrierUp) return fail(S, p, 'Lower the barrier first');
     if (ab.gcd && p.gcd > 0) return false;
     var tgt = resolveTarget(S, p, ab);
     if (!tgt) return fail(S, p, 'No target');
@@ -809,8 +817,6 @@
     var G = p.gear;
     p.cds[ab.id] = ab.cd;
     if (T(p, 'afterburner') && ab.id === 'dash') p.cds.dash = 5;
-    if (T(p, 'recharge') && ab.id === 'belt') p.cds.belt = 15;
-    if (T(p, 'linkbelt') && ab.id === 'belt') p.cds.belt = 40;
     if (T(p, 'supply') && ab.id === 'keg') p.cds.keg = 12;
     if (tgt && tgt !== p && !p.moving) p.facing = Math.atan2(tgt.x - p.x, tgt.z - p.z);
     var back = BACKSTAB[ab.id] && tgt.kind === 'enemy' && (behind(p, tgt) || p.afterburn > 0) ? 1.5 : 1;
@@ -859,14 +865,40 @@
     p.boostNow = 1;
   }
 
-  /* Enforcement talents change whatever your taunt is (Iron Roar, or Challenge on the older weapons). */
-  function onTaunt(S, p, list) {
-    if (T(p, 'tremor')) list.forEach(function (e) { if (!e.alive) return; damageEnemy(S, p, e, 150, 6, 'Tremor'); if (e.type !== 'boss' && e.alive) e.stagger = Math.max(e.stagger || 0, 2); });
-    if (T(p, 'ironhide')) { p.hide = 6; proc(S, p, 'ironhide', 'IRON HIDE'); }
-    if (T(p, 'rally')) {
-      players(S, true).forEach(function (q) { if (dist(q, p) <= 15) q.rallied = 5; });
-      proc(S, p, 'rally', 'HOLD THE LINE', 'all');
+  /* Shove: throw an enemy straight back from the Juggernaut. Hitting the arena wall or another enemy stops it dead:
+     it's stunned and takes extra damage, and a drone it lands on is stunned too. */
+  function shoveBack(S, p, e, push, pd) {
+    var dx = e.x - p.x, dz = e.z - p.z, l = Math.sqrt(dx * dx + dz * dz) || 1, ux = dx / l, uz = dz / l;
+    var hit = null, moved = 0;
+    while (moved < push && !hit) {
+      var st = Math.min(0.5, push - moved), nx = e.x + ux * st, nz = e.z + uz * st;
+      if (Math.sqrt(nx * nx + nz * nz) > ARENA_R - 1.5) { hit = 'wall'; break; }
+      hit = enemies(S).filter(function (o) { return o !== e && Math.hypot(o.x - nx, o.z - nz) < (o.radius || 0.6) + (e.radius || 0.6) + 0.3; })[0] || null;
+      if (hit) break;
+      e.x = nx; e.z = nz; moved += st;
     }
+    if (!hit) return;
+    var stun = pd > 1 ? 3 : 2;
+    damageEnemy(S, p, e, 150 * pd, 4, 'Slammed!');
+    if (e.alive) e.stagger = Math.max(e.stagger || 0, stun);
+    if (hit !== 'wall' && hit.alive) {
+      damageEnemy(S, p, hit, 150 * pd, 4, 'Slammed!');
+      if (hit.type !== 'boss' && hit.alive) hit.stagger = Math.max(hit.stagger || 0, stun);
+    }
+    emit(S, { type: 'fx', fx: 'slammed', src: e.id });
+  }
+  /* Challenge talents: Brand marks it, Daze rings its bell, Protector shields whoever it was hitting. */
+  function onTaunt(S, p, list) {
+    list.forEach(function (e) {
+      if (!e.alive) return;
+      if (T(p, 'brand')) e.branded = 6;
+      if (T(p, 'daze')) { if (e.type === 'boss') e.weak = Math.max(e.weak || 0, 4); else e.stagger = Math.max(e.stagger || 0, 2); }
+      if (T(p, 'protector')) {
+        var was = e.prevTarget != null ? ent(S, e.prevTarget) : null;
+        if (was && was.kind === 'player' && was.alive && was !== p) { shieldUp(was, p, 250, 600); emit(S, { type: 'fx', fx: 'guard', src: was.id }); }
+      }
+    });
+    if (T(p, 'brand')) proc(S, p, 'brand', 'BRANDED');
   }
   /* Allies sorted most hurt first (by share of health), optionally only those still below full. */
   function mostHurt(S, n, range, from) {
@@ -965,36 +997,36 @@
         emit(S, { type: 'fx', fx: 'smash', src: p.id, pw: slam ? 1 : 0.3 });
         var rageAdd = T(p, 'vengeance') && p.rage >= 1 && hitList.length ? Math.round(p.rage) : 0;
         if (rageAdd) p.rage = 0;
-        hitList.forEach(function (e, i) { damageEnemy(S, p, e, (slam ? 230 : 95) + (i === 0 ? rageAdd : 0), slam ? 8 : 6, slam ? 'Slam!' : 'Swing'); });
-        p.pips = Math.min(resOf(p).max, (p.pips || 0) + (slam ? 20 : 10));
+        hitList.forEach(function (e, i) { damageEnemy(S, p, e, (slam ? 150 : 60) + (i === 0 ? rageAdd : 0), slam ? 8 : 6, slam ? 'Slam!' : 'Swing'); });
+        addEnergy(p, slam ? 12 : 6);
         p.comboStep = (step + 1) % 3; p.comboT = S.t;
         p.gcd = slam ? TUNE.slamGcd : TUNE.swingGcd;
-        break;
-      case 'roar':
-        var taunted = [];
-        emit(S, { type: 'fx', fx: 'challenge', src: p.id });
-        proc(S, p, 'roar', 'IRON ROAR');
-        enemies(S).forEach(function (e) {
-          if (dist(p, e) > ab.range + (e.radius || 0)) return;
-          var topR = 0; for (var kr in e.threat) topR = Math.max(topR, e.threat[kr]);
-          e.threat[p.id] = Math.max(e.threat[p.id] || 0, topR * 1.1 + 200);
-          e.fixate = { id: p.id, t: 3 };
-          taunted.push(e);
-        });
-        p.roared = 5;
-        onTaunt(S, p, taunted);
         break;
       case 'ebarrier':
         p.barrierHoldT = 1.2;   // a tap (bar click, bot) raises it briefly; holding the key keeps it up
         break;
-      case 'shockwave':
-        var fxw = Math.sin(p.facing), fzw = Math.cos(p.facing);
-        var lane = { x1: p.x, z1: p.z, x2: p.x + fxw * ab.range, z2: p.z + fzw * ab.range };
-        emit(S, { type: 'fx', fx: 'shockwave', src: p.id, x2: Math.round(lane.x2 * 10) / 10, z2: Math.round(lane.z2 * 10) / 10 });
-        enemies(S).forEach(function (e) {
-          var sd = segDist(e.x, e.z, lane);
-          if (sd.d <= 1.5 + (e.radius || 0) && ((e.x - p.x) * fxw + (e.z - p.z) * fzw) > -1) damageEnemy(S, p, e, 200, 8, 'Shockwave');
+      case 'shove':
+        // Spend every drop. Energy scales it steeply, so a full bar is worth far more than two half ones.
+        var en = Math.min(1, (p.pips || 0) / 100), pd = T(p, 'piledriver') ? 1.4 : 1, full = en >= 0.99;
+        p.pips = 0;
+        emit(S, { type: 'fx', fx: 'shove', src: p.id, pw: Math.round(en * 100) / 100 });
+        if (full) proc(S, p, 'shove', 'FULL SHOVE');
+        inCone(S, p, ab.range, 0.4).forEach(function (e) {
+          if (!e.alive) return;
+          if (e.type === 'boss') { damageEnemy(S, p, e, (40 + 460 * en * en) * pd, 8, full ? 'Shove!' : 'Shove'); return; }
+          damageEnemy(S, p, e, (40 + 260 * en * en) * pd, 8, 'Shove');
+          if (e.alive) shoveBack(S, p, e, 4 + 10 * en, pd);
         });
+        if (T(p, 'breathing')) players(S, true).forEach(function (q) {
+          if (dist(q, p) <= 8) { shieldUp(q, p, 50 + 150 * en, 600); emit(S, { type: 'fx', fx: 'guard', src: q.id }); }
+        });
+        p.gcd = TUNE.slamGcd;
+        break;
+      case 'piston':
+        var pt = inCone(S, p, ab.range, 0.93)[0];
+        if (!pt) { p.cds.piston = 0.5; emit(S, { type: 'fx', fx: 'piston', src: p.id, miss: 1 }); break; }
+        emit(S, { type: 'beam', src: p.id, dst: pt.id, fx: 'shell' });
+        damageEnemy(S, p, pt, 120, 14, 'Piston Shot');
         break;
       case 'aegis':
         S.domes.push({ id: S.nextId++, x: p.x, z: p.z, r: TUNE.aegisR, t: TUNE.aegisDur, by: p.id });
@@ -1030,24 +1062,16 @@
         emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'kick' });
         var top = 0; for (var k in tgt.threat) top = Math.max(top, tgt.threat[k]);
         tgt.threat[p.id] = Math.max(tgt.threat[p.id] || 0, top * 1.1 + 200);
+        tgt.prevTarget = tgt.target;
         tgt.fixate = { id: p.id, t: 3 };
         onTaunt(S, p, [tgt]);
         if (T(p, 'guardian')) {
           var ward = players(S, true).filter(function (q) { return q !== p; }).sort(function (a, c) { return a.hp / a.maxHp - c.hp / c.maxHp; })[0];
           if (ward) { shieldUp(ward, p, 200, 450); emit(S, { type: 'fx', fx: 'guard', src: ward.id }); }
         }
-        if (T(p, 'rally')) {
-          players(S, true).forEach(function (q) { if (dist(q, p) <= 15) q.rallied = 4; });
-          proc(S, p, 'rally', 'HOLD THE LINE', 'all');
-        }
         break;
       case 'belt':
-        p.belt = T(p, 'recharge') ? 4 : 6; emit(S, { type: 'fx', fx: 'belt', src: p.id });
-        if (T(p, 'linkbelt')) players(S, true).forEach(function (q) { if (q !== p && dist(q, p) <= 8) q.covered = 6; });
-        if (T(p, 'bash')) {
-          emit(S, { type: 'fx', fx: 'flak', src: p.id }); proc(S, p, 'bash', 'SHIELD BASH');
-          enemies(S).forEach(function (e) { if (dist(p, e) <= 8 + (e.radius || 0)) damageEnemy(S, p, e, 200, 8, 'Shield Bash'); });
-        }
+        p.belt = 6; emit(S, { type: 'fx', fx: 'belt', src: p.id });
         break;
 
       /* ---- Medic: builders shoot, and every shot looks after somebody ---- */
@@ -1269,7 +1293,11 @@
     var wantBar = (!!hold[1] || p.barrierHoldT > 0) && !(p.barrierBroken > 0) && p.barrier > 0 && !p.cast;
     if (wantBar && !p.barrierUp) { p.barrierUp = 1; emit(S, { type: 'fx', fx: 'barrierup', src: p.id }); }
     else if (!wantBar && p.barrierUp) { p.barrierUp = 0; p.barrierRestT = 0; }
-    if (p.barrierUp) return;
+    // Both buttons together: Shove. It fires on the press, not every frame you hold them.
+    var both = !!hold[0] && !!hold[1];
+    if (both && !p.bothHeld) { var si = abilitiesOf(p).map(function (a) { return a.id; }).indexOf('shove'); if (si >= 0) tryUse(S, p, si); }
+    p.bothHeld = both;
+    if (both || p.barrierUp) return;
     // Holding key 1 keeps the combo going whenever the next swing is ready.
     if (hold[0] && p.gcd <= 0 && !p.cast) tryUse(S, p, 0);
   }
@@ -1395,7 +1423,7 @@
       p.barrierRestT = (p.barrierRestT || 0) + dt;
       if (!(p.barrierBroken > 0) && p.barrierRestT >= TUNE.barrierRest) p.barrier = Math.min(barrierMax(p), p.barrier + TUNE.barrierRegen * (T(p, 'hardened') ? 2 : 1) * dt);
     }   // "recent" fades over a few seconds
-    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'roared', 'covered', 'hide'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
+    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
     if (p.hot > 0) {
       var src = ent(S, p.hotSrc), step = Math.min(dt, p.hot);
       p.hot -= dt;
@@ -1469,6 +1497,7 @@
     }
     if (e.fixate) { e.fixate.t -= dt; if (e.fixate.t <= 0) e.fixate = null; }
     if (e.weak > 0) e.weak -= dt;
+    if (e.branded > 0) e.branded -= dt;
     if (e.suppressed > 0) e.suppressed -= dt;
     if (e.spotted > 0) e.spotted -= dt;
     if (e.hamstrung > 0) e.hamstrung -= dt;
@@ -1932,12 +1961,13 @@
         if (p.hp < p.maxHp * 0.3 && ready('belt')) return fire0(idx('belt'), p);
         var looseH = foes.filter(function (f) { return f.target !== p.id && !(f.fixate && f.fixate.id === p.id); })
           .sort(function (a2, c2) { return dist(p, a2) - dist(p, c2); });
-        var looseNear = looseH.filter(function (f) { return dist(p, f) <= 10 + (f.radius || 0); });
-        if (looseNear.length && ready('roar')) return fire0(idx('roar'), p);
-        if (looseH.length && ready('challenge') && dist(p, looseH[0]) <= 30 + (looseH[0].radius || 0)) { inp.aim = Math.atan2(looseH[0].x - p.x, looseH[0].z - p.z); return fire0(idx('challenge'), looseH[0]); }
-        if (looseH.length && dist(p, looseH[0]) > 12 && (p.charges || 0) >= 1 && !S.telegraphs.length) { inp.jump = true; inp.aim = Math.atan2(looseH[0].x - p.x, looseH[0].z - p.z); return inp; }
-        var laneHits = foes.filter(function (f) { return f !== main && dist(p, f) <= 20; }).length;
-        if (heat >= 40 && p.gcd <= 0 && (laneHits >= 1 || heat >= 90 || d > 6)) return fire0(2, p);
+        var aimAt = function (f) { inp.aim = Math.atan2(f.x - p.x, f.z - p.z); };
+        if (looseH.length && ready('challenge') && dist(p, looseH[0]) <= 30 + (looseH[0].radius || 0)) { aimAt(looseH[0]); return fire0(idx('challenge'), looseH[0]); }
+        if (looseH.length && ready('piston') && dist(p, looseH[0]) > 8 && dist(p, looseH[0]) <= 22 + (looseH[0].radius || 0)) { aimAt(looseH[0]); return fire0(idx('piston'), looseH[0]); }
+        if (looseH.length && dist(p, looseH[0]) > 12 && (p.charges || 0) >= 1 && !S.telegraphs.length) { inp.jump = true; aimAt(looseH[0]); return inp; }
+        // Shove when the bar is (nearly) full, or a little earlier if there's a drone in the arc to throw.
+        var arcAdds = inCone(S, p, 8, 0.4).filter(function (f) { return f.type !== 'boss'; }).length;
+        if (heat >= 95 - (slow > 1 ? 10 : 0) || (heat >= 60 && arcAdds >= 1)) { if (d <= 7) { inp.hold = [true, true]; b.think = 0.2; return inp; } }
         if (d <= 6 && canAct) { inp.hold = [true, false]; b.think = 0.05 + S.rng() * 0.2 * slow; }
         return inp;
       }
@@ -1946,8 +1976,7 @@
       if (crush && !(p.belt > 0) && !(p.screen > 0) && !(p.armor > 300)) {
         if (W === 'flak' && heat >= 50) return fire0(2, p);
         if (W === 'minigun' && heat >= 30) return fire0(2, p);
-        if (W === 'hammer' && ready('pound') && p.gcd <= 0) return fire0(2, p);
-        if (ready('belt') && (W !== 'hammer' || p.hp < p.maxHp * 0.9)) return fire0(idx('belt'), p);
+        if (ready('belt')) return fire0(idx('belt'), p);
       }
       if (p.hp < p.maxHp * 0.3 && ready('belt')) return fire0(idx('belt'), p);
       // Pick up anything not on me: taunt the closest, or a Shell from range.
@@ -1961,11 +1990,6 @@
         if (p.hp < p.maxHp * 0.55 && heat >= 50 && !(p.screen > 0)) return fire0(2, p);
         if (heat >= 85 && p.gcd <= 0) return fire0(1);
         if (p.gcd <= 0 && d <= 8) return fire0(0);
-      } else if (W === 'hammer') {
-        if (ready('pound') && p.gcd <= 0 && near >= 2) return fire0(2, p);
-        if (heat >= 40 && p.gcd <= 0 && (p.hp < p.maxHp * 0.7 || heat >= 85)) return fire0(1);
-        if (ready('pound') && p.gcd <= 0 && d <= 6 && S.rng() < 0.3) return fire0(2, p);
-        if (p.gcd <= 0 && d <= 5) return fire0(0);
       } else {
         if (p.jam > 0) return inp;
         if (heat >= 85 + S.rng() * 8) return fire0(2, p);   // ride it up, vent before it jams
@@ -2113,7 +2137,7 @@
         if (e.dash) o.ds = 1;
         if (e.lastDeath) o.ld = [e.lastDeath.label, e.lastDeath.t];
         if (e.cast) o.k = [e.cast.ab.id, r2(e.cast.t), r2(e.cast.dur), e.cast.targetId];
-        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'roared', 'covered', 'hide'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
+        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
         snap.p.push(o);
       } else {
         var q = { i: e.id, ty: e.type, n: e.name, x: r2(e.x), z: r2(e.z), f: r2(e.facing), h: Math.round(e.hp), mh: e.maxHp, a: e.alive ? 1 : 0, tg: e.target, ra: e.radius };
@@ -2123,6 +2147,7 @@
         if (e.oshield) q.os = [Math.round(e.oshield.hp), e.oshield.max, r2(e.oshield.t), e.oshield.dur];
         if (e.stagger > 0) q.st = r1(e.stagger);
         if (e.weak > 0) q.wk = 1;
+        if (e.branded > 0) q.br = 1;
         if (e.slowed > 0) q.sw = 1;
         snap.e.push(q);
       }
@@ -2154,7 +2179,7 @@
       p.x = o.x; p.z = o.z; p.facing = o.f; p.hp = o.h; p.alive = !!o.a; p.target = o.tg; p.gcd = o.g; p.cds = o.c || {};
       p.moving = !!o.mv; p.auto = !!o.au || !p.human; p.defibUsed = !!o.du;
       p.lastDeath = o.ld ? { label: o.ld[0], t: o.ld[1] } : null;
-      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'roared', 'covered', 'hide'].forEach(function (f) { p[f] = o[f] || 0; });
+      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT'].forEach(function (f) { p[f] = o[f] || 0; });
       if (o.k) {
         var ab = abilitiesOf(p).filter(function (a) { return a.id === o.k[0]; })[0];
         p.cast = ab ? { ab: ab, t: o.k[1], dur: o.k[2], targetId: o.k[3] } : null;
@@ -2169,7 +2194,7 @@
       e.cast = q.k ? { name: q.k[0], t: q.k[1], dur: q.k[2], target: q.k[3] } : null;
       e.oshield = q.os ? { hp: q.os[0], max: q.os[1], t: q.os[2], dur: q.os[3] } : null;
       e.stagger = q.st || 0; e.energy = q.eg || 0; e.goCentre = !!q.gc;
-      e.weak = q.wk ? 1 : 0; e.slowed = q.sw ? 1 : 0;
+      e.weak = q.wk ? 1 : 0; e.slowed = q.sw ? 1 : 0; e.branded = q.br ? 1 : 0;
     });
     M.ents = M.ents.filter(function (e) { return e.kind === 'player' || seen[e.id]; });
     M.telegraphs = snap.g.map(function (g) {
@@ -2255,15 +2280,13 @@
     if (wid === 'hammer') {
       out.push([p.barrierBroken > 0 ? 'Barrier broken ' + Math.ceil(p.barrierBroken) + 's' : (p.barrierUp ? 'Barrier UP ' : 'Barrier ') + Math.round(p.barrier == null ? barrierMax(p) : p.barrier), !!p.barrierUp]);
       out.push([['Swing', 'Swing', 'SLAM next'][p.comboStep || 0], (p.comboStep || 0) === 2]);
+      out.push([(p.pips || 0) >= 99 ? 'FULL SHOVE ready' : 'Shield Energy ' + Math.floor(p.pips || 0), (p.pips || 0) >= 99]);
     }
     if (wid === 'minigun') out.push([p.jam > 0 ? 'JAMMED ' + Math.ceil(p.jam) + 's' : (p.pips || 0) >= 85 ? 'Perfect Vent ready' : 'Heat ' + Math.floor(p.pips || 0), !(p.jam > 0) && (p.pips || 0) >= 85]);
     if (wid === 'rockets' && p.lock > 0) out.push(['Lock-on x' + p.lock, p.lock >= 3]);
     if (wid === 'sniper') { var aim = Math.min(3, Math.floor(p.still || 0)); out.push(['Steady Aim +' + aim * 5 + '% crit', aim >= 3]); }
     if (wid === 'enforcers') out.push([p.taps === 2 ? 'Trick Shot next' : 'Taps ' + (p.taps || 0) + '/3', p.taps === 2]);
     if (wid === 'ripper' && p.returns > 0) out.push(['Returning x' + p.returns, true]);
-    if (p.roared > 0) out.push(['Iron Roar -20%', true]);
-    if (p.hide > 0) out.push(['Iron Hide -35% ' + Math.ceil(p.hide) + 's', true]);
-    if (p.covered > 0) out.push(['Linked Belt -25%', true]);
     if (p.wall > 0) out.push(['Riot Wall ' + Math.ceil(p.wall) + 's', true]);
     if (p.dome > 0) out.push(['Field Hospital: half damage', true]);
     if (p.rad > 0) out.push(['Radiation ' + Math.ceil(p.rad) + 's', false]);
@@ -2273,7 +2296,7 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.18.0';
+  var VERSION = '0.19.0';
 
   var api = {
     VERSION: VERSION,

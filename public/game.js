@@ -342,7 +342,7 @@
     $('#hud').classList.toggle('spectate', watching); updateSpec();
     running = true; acc = 0; lastSim = performance.now(); Net.evMark = 0;
     logLine(watching ? 'Shift started. You are watching from the gantry.' : 'Shift started. ' + human.kit.title + ' on the floor.');
-    if (!watching && Sim.aimWeapon(human)) logLine('Click the arena to aim with the mouse: left click swings, right click holds the barrier. Esc releases it.');
+    if (!watching && Sim.aimWeapon(human)) logLine('Click the arena to aim with the mouse: left click swings, right click holds the barrier, both together Shove. Esc releases it.');
     if (Net.mode !== 'solo') logLine(Sim.players(S).filter(function (p) { return p.human; }).map(function (p) { return p.name; }).join(', ') + ' on the squad. Bots fill the rest.');
   }
   function showPlates(on) { $('#plates').style.display = on ? '' : 'none'; $('#floaters').style.display = on ? '' : 'none'; }
@@ -375,10 +375,10 @@
     var weaponItems = k.weapons.map(function (w) {
       var wr = w.res || k.res;
       var tag = function (a) {
-        if (a.role === 'skill') return a.cost ? a.cost + ' ' + wr.name : a.needs ? 'needs ' + a.needs + ' ' + wr.name : a.cd ? a.cd + 's cooldown' : 'skill';
+        if (a.role === 'skill' || !a.role) return a.cost ? a.cost + ' ' + wr.name : a.needs ? 'needs ' + a.needs + ' ' + wr.name : a.cd ? a.cd + 's cooldown' : 'skill';
         return { build: 'basic', spend: 'spends ' + wr.name, proc: 'proc' }[a.role];
       };
-      return { id: w.id, name: w.name, desc: w.pitch, list: w.abilities.map(function (a, i) { return (i + 1) + '  ' + a.name + '  /  ' + tag(a) + (a.cast ? ', ' + a.cast + 's cast' : ''); }) };
+      return { id: w.id, name: w.name, desc: w.pitch, list: (w.aim ? w.abilities.concat(w.utils || []) : w.abilities).map(function (a, i) { return (a.key || i + 1) + '  ' + a.name + '  /  ' + tag(a) + (a.cast ? ', ' + a.cast + 's cast' : ''); }) };
     });
     var tree = Sim.TALENTS[r];
     var showRes = function () {
@@ -467,7 +467,9 @@
     $('#enemies').innerHTML = ''; hud.enemies = {};
   }
   /* The key shown on each action button. Aimed weapons put the weapon on the mouse buttons. */
-  function keyCap(i) { return Sim.aimWeapon(human) && !watching ? ['LMB', 'RMB', 'Q', 'E', 'F', 'R'][i] || '' : String(i + 1); }
+  function keyCap(i) { if (!Sim.aimWeapon(human) || watching) return String(i + 1); var a = Sim.abilitiesOf(human)[i]; return (a && a.key) || ''; }
+  /* Aimed weapons: which bar slot a key (Q, E, F, R) fires. */
+  function aimSlot(k) { var l = Sim.abilitiesOf(human); for (var i = 0; i < l.length; i++) if (l[i].key === k) return i; return undefined; }
   function buildActions() {
     var acts = $('#actions'); acts.innerHTML = ''; hud.abs = [];
     hud.wpn = human.weapon;
@@ -485,7 +487,8 @@
       acts.appendChild(b); hud.abs.push({ a: a, el: b, cool: cool, sec: sec, tl: tl, meter: meter, state: '' });
     });
     // The class resource: Revs show as five pips, the others as a bar.
-    acts.style.gridTemplateColumns = 'repeat(' + hud.abs.length + ', minmax(0, 1fr))';   // one row, however many buttons
+    acts.style.gridTemplateColumns = 'repeat(' + hud.abs.length + ', minmax(0, 1fr))';
+    acts.classList.toggle('dense', hud.abs.length >= 7);   // one row, however many buttons
     var pips = $('#pips'), RS = Sim.resOf(human); pips.innerHTML = ''; hud.pips = []; hud.resBar = null;
     pips.className = 'res-' + RS.id; pips.title = RS.how;
     pips.appendChild(el('span', null, RS.name.toUpperCase()));
@@ -754,10 +757,14 @@
             ringFx(x + Math.sin(ff) * 3, z + Math.cos(ff) * 3, 0.5, 3 + 4 * (ev.pw || 0), 0xffb000, 0.4);
             Snd.play('hammer'); if (ev.src === human.id && ev.pw >= 0.95) hitFlash();
           }
-          else if (ev.fx === 'shockwave') {
-            for (var sw = 1; sw <= 5; sw++) ringFx(x + (ev.x2 - x) * sw / 5, z + (ev.z2 - z) * sw / 5, 0.3, 2.2, 0xffb000, 0.25 + sw * 0.05);
-            Snd.play('boom');
+          else if (ev.fx === 'shove') {
+            var sv = Sim.ent(S, ev.src), sf = sv ? sv.facing : 0, pw = ev.pw || 0;
+            for (var sw = 1; sw <= 3; sw++) ringFx(x + Math.sin(sf) * sw * 2.2, z + Math.cos(sf) * sw * 2.2, 0.4, 2 + 3 * pw * sw / 3, 0x5cc8ff, 0.3 + 0.1 * sw);
+            Snd.play(pw >= 0.6 ? 'boom' : 'hammer');
+            if (ev.src === human.id && pw >= 0.99) hitFlash();
           }
+          else if (ev.fx === 'slammed') { ringFx(x, z, 0.5, 4, 0xffffff, 0.45); Snd.play('hammer'); }
+          else if (ev.fx === 'piston') { if (ev.src === human.id) Snd.play('charge'); }
           else if (ev.fx === 'boost') { ringFx(x, z, 0.3, 3, 0xffb000, 0.35); Snd.play('charge'); }
           else if (ev.fx === 'pulse') { ringFx(x, z, 3, 34, 0x7fd0ff, 0.6); }
           else if (ev.fx === 'aegis') { ringFx(x, z, 0.5, Sim.TUNE.aegisR, 0xffd36b, 0.8); Snd.play('ult'); }
@@ -1058,7 +1065,7 @@
     if (c === 'Space') { ev.preventDefault(); input.jump = true; return; }
     // Aimed weapons (the Impact Hammer): mouse buttons are the weapon, then Q, E, F and R. No number keys.
     if (Sim.aimWeapon(human)) {
-      var slot = { KeyQ: 2, KeyE: 3, KeyF: 4, KeyR: 5 }[c];
+      var slot = /^Key[QEFR]$/.test(c) ? aimSlot(c[3]) : undefined;
       if (slot !== undefined) { input.ability = slot; var ha = hud.abs[slot]; if (ha) { ha.el.classList.add('flash'); setTimeout(function () { ha.el.classList.remove('flash'); }, 120); } }
       if (slot !== undefined || /^Digit[1-6]$/.test(c)) return;
     }
@@ -1525,10 +1532,11 @@
       pad.hold = aimW ? [btn(7), btn(6)] : [false, false];
       if (aimW) {
         // Aimed: RT swing, LT barrier, X = Q, RB = E, B = F, Y = R (ultimate), A Riot Charge.
-        if (down(2)) input.ability = 2;
-        if (down(5)) input.ability = 3;
-        if (down(1)) input.ability = 4;
-        if (down(3)) input.ability = 5;
+        // RT + LT together is Shove (the sim sees both held).
+        if (down(2)) input.ability = aimSlot('Q');
+        if (down(5)) input.ability = aimSlot('E');
+        if (down(1)) input.ability = aimSlot('F');
+        if (down(3)) input.ability = aimSlot('R');
       } else {
         if (down(7)) input.ability = 0;
         if (down(6)) input.ability = 1;

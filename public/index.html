@@ -118,7 +118,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .ef .top small { font-family: var(--font-mono); font-weight: 400; color: var(--dim); white-space: nowrap; }
 .ef .bar { height: 8px; }
 
-#bottom { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(560px, 92vw); display: flex; flex-direction: column; gap: 6px; }
+#bottom { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(700px, 96vw); display: flex; flex-direction: column; gap: 6px; }
 #targetFrame { display: flex; flex-direction: column; gap: 3px; padding: 6px 8px; background: rgba(20, 27, 36, 0.86); border: 1px solid var(--line); min-height: 44px; }
 #targetFrame .top { display: flex; justify-content: space-between; font-size: 12px; gap: 8px; }
 #targetFrame .top b { font-weight: 600; }
@@ -159,6 +159,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .ab .k { font-family: var(--font-mono); font-size: 12px; color: var(--amber); }
 .ab .tl { font-family: var(--font-mono); font-size: 10px; color: var(--heal); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .ab .n { font-size: clamp(13px, 1.15vw, 16px); line-height: 0.95; overflow-wrap: normal; }
+#actions.dense .ab { padding: 6px 6px; } #actions.dense .ab .n { font-size: clamp(12px, 1.05vw, 15px); }
 .ab .cool { position: absolute; inset: auto 0 0 0; height: 0; background: rgba(5, 7, 10, 0.78); border-top: 1px solid var(--dim); pointer-events: none; }
 .ab .sec { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 30px; color: var(--text); text-shadow: 0 2px 0 #000; pointer-events: none; }
 .ab.oor { border-bottom-color: var(--danger); }
@@ -373,9 +374,9 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
           <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Your weapon. 1 is your basic attack and 2 your heavy one. For most classes 3 lights up when you proc; the Juggernaut's 3 is the weapon's defensive.</dd>
           <dt><kbd>4</kbd> <kbd>5</kbd></dt><dd>Your class utilities.</dd>
           <dt><kbd>6</kbd> or <kbd>R</kbd></dt><dd>Ultimate. Charges in about a minute; use it whenever you judge it right.</dd>
-          <dt>Mouse aim</dt><dd>Aimed weapons (the Impact Hammer): click the arena to lock the mouse, which then turns the camera. Left click swings, right click holds the barrier; Q, E and F are your abilities and R your ultimate (no number keys). Esc releases the mouse. The left and right arrow keys also turn the camera.</dd>
-          <dt>Talents</dt><dd>Talents never add buttons. Each one changes a button you already have: your charge, your Shield Belt, your taunt or your defensive.</dd>
-          <dt>Controller</dt><dd>Left stick moves, right stick aims the camera. RT and LT are your weapon (swing and barrier on the Hammer). On the Hammer X, RB and B are Q, E and F; elsewhere they are 3, 4 and 5. Y is your ultimate, A is Space (Riot Charge for the Juggernaut), LB picks the next enemy.</dd>
+          <dt>Mouse aim</dt><dd>Aimed weapons (the Impact Hammer): click the arena to lock the mouse, which then turns the camera. Left click swings, right click holds the barrier, and both together Shove. Q is Challenge, E Piston Shot, F Shield Belt and R your ultimate (no number keys). Esc releases the mouse. The left and right arrow keys also turn the camera.</dd>
+          <dt>Talents</dt><dd>Talents never add buttons. Each one changes a button you already have: your charge, your shield, your Shove or your Challenge.</dd>
+          <dt>Controller</dt><dd>Left stick moves, right stick aims the camera. RT and LT are your weapon (swing and barrier on the Hammer; squeeze both to Shove). On the Hammer X, RB and B are Q, E and F; elsewhere they are 3, 4 and 5. Y is your ultimate, A is Space (Riot Charge for the Juggernaut), LB picks the next enemy.</dd>
           <dt><kbd>Space</kbd></dt><dd>Your tier 1 talent's move, if it has one.</dd>
           <dt><kbd>Tab</kbd></dt><dd>Next enemy. Clicking a model or frame also targets it.</dd>
           <dt><kbd>F1</kbd> to <kbd>F4</kbd></dt><dd>Target a squad member. <kbd>Shift</kbd>+<kbd>1</kbd> to <kbd>4</kbd> does the same.</dd>

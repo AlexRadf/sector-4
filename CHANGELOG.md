@@ -4,6 +4,21 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.19.0 (2026-11-17) Shield Energy and the Shove
+- The Impact Hammer is built around one loop: swing and block to fill **Shield Energy**, then **Shove** (LMB + RMB together; RT + LT on a controller).
+  - Each swing stores 6, the slam 12, and your barrier stores 1 for every 25 damage it blocks (yours or the squad's behind you). It never leaks.
+  - Shove spends it all. Everything in the arc in front of you is thrown back up to 14m; anything slammed into the arena wall or another enemy is stunned for 2s and takes 150 more (and so does whatever it hit).
+  - The Foreman won't move, but a full Shove hits him for 500. Damage climbs steeply with energy, so one full Shove is worth far more than two half ones.
+- Q is Challenge again: an aimed single-target taunt (whatever you're pointing at, or your target).
+- E is Piston Shot: 120 to the first enemy within 22m where you aim, very high threat, 4s cooldown. A miss only costs half a second.
+- Removed: Kinetic, Kinetic Shockwave, Iron Roar. The combo now hits for 60, 60, 150 (the Shove carries the damage it lost).
+- New Juggernaut talents, all changing a button you already have:
+  - Shield: Spiked Barrier / Hardened Emitters / Firing Line (squad members behind your barrier deal 15% more).
+  - Shove: Piledriver (40% harder, 3s stun) / Capacitor Bank (energy fills 50% faster) / Breathing Room (Shove shields everyone within 8m, 50 to 200).
+  - Challenge: Brand (it takes 15% more from everyone for 6s) / Daze (stuns a drone 2s; the Foreman hits 25% softer for 4s) / Protector (shields whoever it was attacking for 250).
+  Shove talents do nothing on the Flak Cannon and Minigun until their rework. Saved builds using removed talents fall back to the first pick in that row.
+- Abilities carry their key, so the bar, keyboard and controller always agree.
+
 ## 0.18.0 (2026-11-17) Fewer, weightier buttons
 - The Impact Hammer has six buttons and no number keys: left click swing combo, right click barrier,
   Q Kinetic Shockwave, E Iron Roar (now your taunt, 12s), F Shield Belt, R Aegis Dome, Space Riot Charge.

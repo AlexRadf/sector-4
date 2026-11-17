@@ -214,16 +214,67 @@ test('Impact Hammer: swing, swing, slam, and holding key 1 keeps the chain going
   assert.ok(!S.events.some((e) => e.type === 'dmg' && e.dst === boss.id), 'facing away misses');
 });
 
-test('Impact Hammer: Kinetic Shockwave hits everything down a lane in front of you', () => {
+test('Impact Hammer: swings and blocks fill Shield Energy, and both buttons together Shove', () => {
   const { S, p, boss } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
-  p.x = boss.x; p.z = boss.z - 15; p.pips = 50;
-  const drone = { id: 998, kind: 'enemy', type: 'drone', x: p.x, z: p.z + 6, radius: 1, hp: 900, maxHp: 900, alive: true, threat: {}, target: null };
-  const aside = { id: 999, kind: 'enemy', type: 'drone', x: p.x + 9, z: p.z + 6, radius: 1, hp: 900, maxHp: 900, alive: true, threat: {}, target: null };
-  S.ents.push(drone, aside); S.events.length = 0;
-  press(S, 2, { aim: 0 });
-  const hit = new Set(S.events.filter((e) => e.type === 'dmg' && e.label === 'Shockwave').map((e) => e.dst));
-  assert.ok(hit.has(boss.id) && hit.has(998) && !hit.has(999));
-  assert.ok(p.pips <= 10.5);
+  p.x = boss.x; p.z = boss.z - 6; p.pips = 0;
+  const face = Math.atan2(boss.x - p.x, boss.z - p.z);
+  press(S, 0, { aim: face });
+  assert.ok(Math.abs(p.pips - 6) < 0.01, 'a swing stores 6: ' + p.pips);
+  p.gcd = 0; Sim.step(S, 1 / 30, { aim: face, hold: [false, true] });
+  const was = p.pips; Sim.damagePlayer(S, S.bossId, p, 500, 'Hit');
+  assert.ok(Math.abs(p.pips - was - 20) < 0.01, 'blocking 500 stores 20: ' + (p.pips - was));
+  // Not enough energy: nothing happens.
+  p.pips = 10; Sim.step(S, 1 / 30, { aim: face, hold: [false, false] }); S.events.length = 0;
+  Sim.step(S, 1 / 30, { aim: face, hold: [true, true] });
+  assert.ok(!S.events.some((e) => e.type === 'dmg' && /^Shove/.test(e.label)));
+  // Full bar: a big hit on the boss, and the bar empties. Holding both doesn't fire it again.
+  p.pips = 100; Sim.step(S, 1 / 30, { aim: face, hold: [false, false] }); S.events.length = 0;
+  Sim.step(S, 1 / 30, { aim: face, hold: [true, true] });
+  const big = S.events.filter((e) => e.type === 'dmg' && e.dst === boss.id && e.label === 'Shove!');
+  assert.strictEqual(big.length, 1); assert.ok(big[0].amt >= 400, String(big[0].amt));
+  assert.strictEqual(p.pips, 0);
+  p.pips = 100; for (let i = 0; i < 9; i++) Sim.step(S, 1 / 30, { aim: face, hold: [true, true] });
+  assert.strictEqual(p.pips, 100, 'held, not pressed again');
+});
+
+test('Shove: a full bar beats two half ones, drones fly, and a slam into the wall or a friend stuns', () => {
+  const shoveAt = (pips) => {
+    const a = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
+    a.p.x = a.boss.x; a.p.z = a.boss.z - 6; a.p.pips = pips; a.S.events.length = 0;
+    a.S.rng = () => 0.5;
+    press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'shove'), { aim: Math.atan2(a.boss.x - a.p.x, a.boss.z - a.p.z) });
+    return a.S.events.filter((e) => e.type === 'dmg' && e.dst === a.boss.id).reduce((n, e) => n + e.amt, 0);
+  };
+  assert.ok(shoveAt(100) > 2 * shoveAt(50), 'save it up');
+  const { S, p } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
+  const bossE = Sim.ent(S, S.bossId); bossE.x = 0; bossE.z = 20;
+  p.x = 0; p.z = 0; p.pips = 100;
+  const mk = (id, x, z) => ({ id, kind: 'enemy', type: 'drone', x, z, facing: 0, speed: 6, radius: 1, hp: 1600, maxHp: 1600, alive: true, threat: {}, target: null, fixate: null, swing: 1, melee: 90, swingInt: 1.5, cast: null });
+  const free = mk(990, -4, 3), pinned = mk(991, 3, 3), wall = mk(992, 4.5, 5.5);
+  S.ents.push(free, pinned, wall); S.events.length = 0;
+  press(S, Sim.abilitiesOf(p).findIndex((ab) => ab.id === 'shove'), { aim: 0 });
+  assert.ok(Math.hypot(free.x, free.z) > 12, 'thrown back: ' + free.x + ',' + free.z);
+  assert.ok(!(free.stagger > 0), 'nothing to hit, no stun');
+  assert.ok(pinned.stagger >= 2 && wall.stagger >= 2, 'slammed into a friend: both stunned');
+  assert.ok(S.events.some((e) => e.type === 'dmg' && e.label === 'Slammed!' && e.dst === 991));
+  const edge = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
+  const eb = Sim.ent(edge.S, edge.S.bossId); eb.x = -20; eb.z = 0;
+  edge.p.x = 0; edge.p.z = 20; edge.p.pips = 100;
+  const d = mk(993, 0, 23); edge.S.ents.push(d);
+  press(edge.S, Sim.abilitiesOf(edge.p).findIndex((ab) => ab.id === 'shove'), { aim: 0 });
+  assert.ok(d.stagger >= 2, 'slammed into the wall');
+});
+
+test('Piston Shot: a cheap ranged poke where you aim, on a short cooldown', () => {
+  const { S, p, boss } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
+  p.x = boss.x; p.z = boss.z - 18; S.events.length = 0;
+  const i = Sim.abilitiesOf(p).findIndex((ab) => ab.id === 'piston');
+  press(S, i, { aim: Math.atan2(boss.x - p.x, boss.z - p.z) });
+  assert.ok(S.events.some((e) => e.type === 'dmg' && e.dst === boss.id && e.label === 'Piston Shot'));
+  assert.ok(p.cds.piston > 3);
+  p.cds.piston = 0; S.events.length = 0;
+  press(S, i, { aim: Math.atan2(boss.x - p.x, boss.z - p.z) + Math.PI });
+  assert.ok(!S.events.some((e) => e.type === 'dmg' && e.label === 'Piston Shot') && p.cds.piston <= 0.5, 'a miss barely costs you');
 });
 
 test('Aegis Dome: nobody inside takes damage while it lasts', () => {
@@ -269,17 +320,6 @@ test('the Foreman walks to the middle to channel his shield, and stands still wh
   const x = boss.x, z = boss.z;
   idle(S, 2);
   assert.ok(Math.hypot(boss.x - x, boss.z - z) < 0.01, 'planted');
-});
-
-test('Iron Roar pulls nearby enemies onto the Hammer and cuts the damage it takes', () => {
-  const { S, p, boss } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
-  p.x = boss.x; p.z = boss.z - 6;
-  const drone = { id: 997, kind: 'enemy', type: 'drone', x: p.x + 4, z: p.z, radius: 1, hp: 900, maxHp: 900, alive: true, threat: {}, target: null };
-  const far = { id: 996, kind: 'enemy', type: 'drone', x: p.x + 25, z: p.z, radius: 1, hp: 900, maxHp: 900, alive: true, threat: {}, target: null };
-  S.ents.push(drone, far);
-  press(S, Sim.abilitiesOf(p).findIndex((ab) => ab.id === 'roar'));
-  assert.ok(drone.fixate && drone.fixate.id === p.id && !far.fixate);
-  assert.ok(p.roared > 0);
 });
 
 test('Impact Hammer: the barrier covers you and whoever is behind you, then breaks', () => {
@@ -471,41 +511,69 @@ test('no two abilities share an id across classes (Adrenaline is shared on purpo
   assert.deepStrictEqual(dups, []);
 });
 
-test('the Hammer has six buttons and talents never add one, they change them', () => {
-  const ids = (gear) => Sim.abilitiesOf(arena('tank', Object.assign({ weapon: 'hammer' }, gear)).p).map((a) => a.id);
-  assert.deepStrictEqual(ids({}), ['combo', 'ebarrier', 'shockwave', 'roar', 'belt', 'aegis']);
-  for (const slot of Sim.SLOTS) for (const t of Sim.talentList(slot, 'tank')) assert.strictEqual(ids({ [slot]: t.id }).length, 6, t.name);
+test('the Hammer has seven buttons, one per key, and talents never add one, they change them', () => {
+  const kit = (gear) => Sim.abilitiesOf(arena('tank', Object.assign({ weapon: 'hammer' }, gear)).p);
+  assert.deepStrictEqual(kit({}).map((a) => a.id), ['combo', 'ebarrier', 'shove', 'challenge', 'piston', 'belt', 'aegis']);
+  assert.deepStrictEqual(kit({}).map((a) => a.key), ['LMB', 'RMB', 'L+R', 'Q', 'E', 'F', 'R']);
+  for (const slot of Sim.SLOTS) for (const t of Sim.talentList(slot, 'tank')) assert.strictEqual(kit({ [slot]: t.id }).length, 7, t.name);
 });
 
-test('Enforcement talents change the taunt: Tremor hits, Iron Hide toughens, Hold the Line covers the squad', () => {
-  const roarIn = (gear) => {
-    const a = arena('tank', Object.assign({ weapon: 'hammer' }, gear));
-    a.p.x = a.boss.x; a.p.z = a.boss.z - 6; a.S.events.length = 0;
-    press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'roar'));
-    return a;
-  };
-  const tr = roarIn({ implant: 'tremor' });
-  assert.ok(tr.S.events.some((e) => e.type === 'dmg' && e.label === 'Tremor'));
-  const ih = roarIn({ implant: 'ironhide' });
-  ih.p.armor = 0; const h = ih.p.hp; Sim.damagePlayer(ih.S, ih.S.bossId, ih.p, 300, 'Rocket');
-  assert.ok(h - ih.p.hp <= 200, 'iron hide cuts 35%');
-  const hl = roarIn({ implant: 'rally' });
-  assert.ok(Sim.players(hl.S).filter((q) => q.rallied > 0).length >= 2);
-});
-
-test('Command talents change the barrier: Hardened has more health, Spiked hits back, Wide covers further', () => {
+test('Shield talents: Hardened has more health, Spiked hits back, Firing Line powers up whoever is behind it', () => {
   const up = (gear) => {
     const a = arena('tank', Object.assign({ weapon: 'hammer' }, gear));
     a.p.x = a.boss.x; a.p.z = a.boss.z - 8;
     Sim.step(a.S, 1 / 30, { aim: Math.atan2(a.boss.x - a.p.x, a.boss.z - a.p.z), hold: [false, true] });
     return a;
   };
-  assert.strictEqual(Sim.barrierMax(up({ util: 'hardened' }).p), 2500);
-  const sp = up({ util: 'spikes' }); sp.S.events.length = 0;
+  assert.strictEqual(Sim.barrierMax(up({ rig: 'hardened' }).p), 2500);
+  const sp = up({ rig: 'spikes' }); sp.S.events.length = 0;
   Sim.damagePlayer(sp.S, sp.S.bossId, sp.p, 500, 'Crusher');
   assert.ok(sp.S.events.some((e) => e.type === 'dmg' && e.label === 'Spiked Barrier'));
-  const wide = up({ util: 'wideguard' }), narrow = up({ util: 'spikes' });
-  for (const a of [wide, narrow]) { const al = Sim.players(a.S).find((q) => q.role === 'healer'); al.x = a.p.x + 5; al.z = a.p.z - 11; }
-  const covered = (a) => !!Sim.barrierFor(a.S, Sim.players(a.S).find((q) => q.role === 'healer'), a.boss);
-  assert.ok(covered(wide) && !covered(narrow));
+  const hit = (a) => {
+    const dps = Sim.players(a.S).find((q) => q.role === 'dps'); dps.x = a.p.x; dps.z = a.p.z - 4;
+    a.S.rng = () => 0.5; a.boss.oshield = null;
+    return Sim.damageEnemy(a.S, dps, a.boss, 1000, 1, 'Test');
+  };
+  const fl = hit(up({ rig: 'firingline' })), plain = hit(up({ rig: 'spikes' }));
+  assert.ok(fl > plain * 1.1, fl + ' vs ' + plain);
+});
+
+test('Shove talents: Piledriver hits harder, Capacitor Bank fills faster, Breathing Room shields the squad', () => {
+  const go = (gear, pips) => {
+    const a = arena('tank', Object.assign({ weapon: 'hammer' }, gear));
+    a.p.x = a.boss.x; a.p.z = a.boss.z - 6; a.p.pips = pips; a.S.rng = () => 0.5; a.S.events.length = 0;
+    Sim.players(a.S).forEach((q) => { q.armor = 0; if (q !== a.p) { q.x = a.p.x + 2; q.z = a.p.z - 2; } });
+    press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'shove'), { aim: Math.atan2(a.boss.x - a.p.x, a.boss.z - a.p.z) });
+    return a;
+  };
+  const dmg = (a) => a.S.events.filter((e) => e.type === 'dmg' && e.dst === a.boss.id).reduce((n, e) => n + e.amt, 0);
+  assert.ok(dmg(go({ implant: 'piledriver' }, 100)) > dmg(go({ implant: 'breathing' }, 100)) * 1.3);
+  const br = go({ implant: 'breathing' }, 100);
+  assert.ok(Sim.players(br.S).filter((q) => q.armor >= 150).length >= 3, 'squad shielded');
+  const cap = arena('tank', { weapon: 'hammer', implant: 'capacitor' });
+  cap.p.x = cap.boss.x; cap.p.z = cap.boss.z - 6; cap.p.pips = 0;
+  press(cap.S, 0, { aim: Math.atan2(cap.boss.x - cap.p.x, cap.boss.z - cap.p.z) });
+  assert.ok(Math.abs(cap.p.pips - 9) < 0.01, String(cap.p.pips));
+});
+
+test('Challenge talents: Brand marks it, Daze stuns a drone and softens the boss, Protector shields its victim', () => {
+  const chal = (gear, setup) => {
+    const a = arena('tank', Object.assign({ weapon: 'hammer' }, gear));
+    a.p.x = a.boss.x; a.p.z = a.boss.z - 10;
+    const d = { id: 980, kind: 'enemy', type: 'drone', x: a.p.x, z: a.p.z - 5, radius: 1, hp: 1600, maxHp: 1600, alive: true, threat: {}, target: null };
+    a.S.ents.push(d); if (setup) setup(a, d);
+    press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'challenge'), { aim: Math.PI });
+    return Object.assign(a, { d });
+  };
+  const br = chal({ util: 'brand' });
+  assert.ok(br.d.fixate && br.d.fixate.id === br.p.id && br.d.branded > 0);
+  const dz = chal({ util: 'daze' });
+  assert.ok(dz.d.stagger >= 1.9);
+  let ally;
+  chal({ util: 'protector' }, (a, d) => { ally = Sim.players(a.S).find((q) => q.role === 'healer'); ally.armor = 0; d.target = ally.id; });
+  assert.ok(ally.armor >= 250, String(ally.armor));
+  const bz = arena('tank', { weapon: 'hammer', util: 'daze' });
+  bz.p.x = bz.boss.x; bz.p.z = bz.boss.z - 10;
+  press(bz.S, Sim.abilitiesOf(bz.p).findIndex((ab) => ab.id === 'challenge'), { aim: 0 });
+  assert.ok(bz.boss.weak > 0 && !(bz.boss.stagger > 0), 'the Foreman softens, never stuns');
 });
