@@ -1,7 +1,7 @@
 # Sector-4 design pillars
 
 The rules every change is checked against. If a feature breaks one of these, change the feature or
-change this file on purpose, never by drift. Last revised: v0.21.0 (2026-11-17).
+change this file on purpose, never by drift. Last revised: v0.22.0 (2026-11-17).
 
 ## What the game is
 
@@ -43,6 +43,12 @@ people who are out of position alive.
 - **Each weapon has pros and cons** that shine in parts of a fight; none is ever required for a boss.
 - **Original, not on-the-nose.** Draw on Overwatch, WoW, UT, Deus Ex for feel; don't copy heroes.
 - **Ultimates are a pumped-up version of the weapon's core gimmick**, free to use, never a scripted counter.
+  They must *feel* like an ultimate: an instant, visible payoff first, then the sustained effect.
+- **Every role has one personal defensive, always on F.** Same key, flavoured per weapon (Shield Belt, Nanite Cloak,
+  and one for each DPS weapon when they're converted). It's what keeps "one mistake never wipes" true without the healer.
+- **Thrown things are held to aim.** Hold the key to see the arc and where it lands, let go to throw. Look further up
+  the room to throw further.
+- **Status shows on the nameplate.** Purple needs cleansing, red is in trouble.
 
 ## Healing (the riskiest pillar, prototype first)
 Aimed healing removes the party-frame split focus but can create a new one (aiming at moving allies

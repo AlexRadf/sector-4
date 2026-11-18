@@ -214,6 +214,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .plate { position: absolute; transform: translate(-50%, -100%); text-align: center; font-family: var(--font-mono); font-size: 10px; color: var(--text); text-shadow: 0 1px 2px #000; white-space: nowrap; }
 .plate .bar { width: 64px; height: 5px; margin: 2px auto 0; }
 .plate.friend .bar > i { background: var(--heal); }
+.plate.cleanse > div:first-child { color: #c99bff; font-weight: 700; } .plate.cleanse .bar { outline: 2px solid #b46bff; } .plate.cleanse .bar > i { background: #b46bff; }
+.plate.low > div:first-child { color: #ff6a56; font-weight: 700; } .plate.low .bar { outline: 2px solid #ff4a36; }
 .plate.boss .bar { width: 120px; }
 .float { position: absolute; font-family: var(--font-display); font-style: italic; font-weight: 800; font-size: 26px; text-shadow: 0 2px 0 #000; animation: rise 0.9s ease-out forwards; }
 .float.out { color: #fff; } .float.in { color: var(--danger); } .float.heal { color: var(--heal); }
@@ -388,7 +390,7 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
           <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Your weapon. 1 is your basic attack and 2 your heavy one. For most classes 3 lights up when you proc; the Juggernaut's 3 is the weapon's defensive.</dd>
           <dt><kbd>4</kbd> <kbd>5</kbd></dt><dd>Your class utilities.</dd>
           <dt><kbd>6</kbd> or <kbd>R</kbd></dt><dd>Ultimate. Charges in about a minute; use it whenever you judge it right.</dd>
-          <dt>Mouse aim</dt><dd>Aimed weapons (the Impact Hammer and the Link Gun): click the arena to lock the mouse, which then turns the camera. Hammer: left click swings, right click holds the barrier, both together Shove; Q Challenge, E Piston Shot, F Shield Belt. Link Gun: left click fires at whatever is nearest your crosshair (heals a hurt ally, hurts an enemy), right click holds a healing beam on an ally, both together Nanite Burst; Q Nano Field, E Purge, F Nanite Cloak. R is your ultimate (no number keys). Esc releases the mouse. The left and right arrow keys also turn the camera.</dd>
+          <dt>Mouse aim</dt><dd>Aimed weapons (the Impact Hammer and the Link Gun): click the arena to lock the mouse, which then turns the camera. Hammer: left click swings, right click holds the barrier, both together Shove; Q Challenge, E Piston Shot, F Shield Belt. Link Gun: left click fires at whatever is nearest your crosshair (heals a hurt ally, hurts an enemy), right click holds a healing beam on an ally, both together Nanite Burst; hold Q to aim the Nano Field grenade (look further up the room to throw further) and let go to throw, E Purge (purple nameplates need it), F Nanite Cloak. R is your ultimate (no number keys). Esc releases the mouse. The left and right arrow keys also turn the camera.</dd>
           <dt>Talents</dt><dd>Talents never add buttons. Each one changes a button you already have: your charge, your shield, your Shove or your Challenge.</dd>
           <dt>Controller</dt><dd>Left stick moves, right stick aims the camera. RT and LT are your weapon (swing and barrier on the Hammer; squeeze both to Shove). On the Hammer X, RB and B are Q, E and F; elsewhere they are 3, 4 and 5. Y is your ultimate, A is Space (Riot Charge for the Juggernaut), LB picks the next enemy.</dd>
           <dt><kbd>Space</kbd></dt><dd>Your tier 1 talent's move, if it has one.</dd>

@@ -653,10 +653,10 @@ test('Link Gun: Nanite Burst heals everyone close to you, Nano Field heals whoev
   assert.ok(a.tank.hp >= 700 && a.p.hp >= 600 && a.dps.hp === 300, [a.tank.hp, a.p.hp, a.dps.hp].join(','));
   assert.ok(Math.abs(a.p.pips - 25) < 1);
   a.p.pips = 60; a.tank.hp = 500; a.p.gcd = 0;
-  press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'field'), { aim: toward(a.p, a.tank) });
+  press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'field'), { aim: toward(a.p, a.tank) + 0.2, ad: 5 });   // a bit off: it settles on them
   assert.strictEqual(a.S.fields.length, 1);
   idle(a.S, 2);
-  assert.ok(a.tank.hp >= 580, String(a.tank.hp));
+  assert.ok(a.tank.hp >= 540, String(a.tank.hp));
   a.p.sludge = 5; a.p.gcd = 0;
   Sim.players(a.S).forEach((q) => { if (q !== a.p) { q.x = 0; q.z = 20; } });
   press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'purge'), { aim: Math.PI });
@@ -669,4 +669,17 @@ test('Link Gun: Link Storm beams the whole squad in reach', () => {
   press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.role === 'ult'));
   idle(a.S, 2);
   assert.ok(a.tank.hp >= 700 && a.dps.hp === 300, a.tank.hp + ',' + a.dps.hp);
+});
+
+test('Nano Field is a grenade: thrown as far as you aim, in the air for a moment, then heals', () => {
+  const a = medic();
+  a.p.pips = 60; a.tank.x = 0; a.tank.z = 30; a.tank.hp = 500;
+  press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'field'), { aim: 0, ad: 18 });
+  const f = a.S.fields[0];
+  assert.ok(Math.abs(f.z - 18) < 0.5 && Math.abs(f.x) < 0.5, f.x + ',' + f.z);
+  const dps = a.dps; dps.x = 0; dps.z = 18; dps.hp = 300;
+  Sim.step(a.S, 1 / 30, {});
+  assert.strictEqual(dps.hp, 300, 'still in the air');
+  idle(a.S, 1.5);
+  assert.ok(dps.hp > 300);
 });

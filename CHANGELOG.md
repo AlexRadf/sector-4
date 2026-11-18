@@ -4,6 +4,16 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.22.0 (2026-11-18) Medic feedback: readable cleanses, a thrown Nano Field, a real Link Storm
+- Nameplates show what a squad member needs: **purple** means Bio Sludge (Purge them), **red** means below 40% health.
+  The Sludge glow on the body is purple to match.
+- **Nano Field is a grenade.** Hold Q (X on a controller) to see a dashed arc and the 6m landing ring; look further up the room
+  to throw further (3m to 25m), let go to throw. It flies for 0.6s and settles on any ally within 3m of where it lands.
+- **Link Storm** now lands like an ultimate: everyone within 25m is instantly healed for 35% of their health with a big flash,
+  then linked for 5s at 150 a second.
+- While your beam is linked, the status strip says **LMB = Burst**: holding the beam and clicking is your Nanite Burst.
+- `DESIGN.md`: every role has one personal defensive on F; thrown things are held to aim; status shows on nameplates.
+
 ## 0.21.0 (2026-11-17) The aimed Medic: Link Gun prototype
 - The Link Gun is now an aimed weapon, the first healer built on the design pillars. No tab-targeting, no picking from party frames:
   - **LMB Link Bolt**: fires at whatever is nearest your crosshair, no precision needed. A hurt ally is healed for 70; an enemy takes 50 and gives you 7 Nanites. Allies at full health are skipped, so you can shoot past them.

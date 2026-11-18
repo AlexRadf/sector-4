@@ -790,7 +790,15 @@
           }
           else if (ev.fx === 'shaft') { ringFx(x, z, 2, 0.3, 0x000000, 0.7); ringFx(x, z, 0.5, 5, 0xffb000, 0.5); Snd.play('boom'); }
           else if (ev.fx === 'burst') { ringFx(x, z, 0.5, 10, 0x4fd88f, 0.5); Snd.play('combo'); }
-          else if (ev.fx === 'field') { if (ev.src === human.id) Snd.play('belt'); }
+          else if (ev.fx === 'lob') {
+            // The Nano Field grenade: a glowing ball arcing to where it'll land.
+            var lx0 = x, lz0 = z, lx1 = ev.x2, lz1 = ev.z2;
+            var ball = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 8), new THREE.MeshBasicMaterial({ color: 0x4fd88f }));
+            addFx(ball, Sim.TUNE.lobTime, function (f, k) { f.m.position.set(lx0 + (lx1 - lx0) * k, 1.4 + 5 * k * (1 - k) - 1.2 * k, lz0 + (lz1 - lz0) * k); });
+            if (ev.src === human.id) Snd.play('charge');
+          }
+          else if (ev.fx === 'field') { ringFx(ev.x2, ev.z2, 0.5, 6, 0x4fd88f, 0.5); if (ev.src === human.id) Snd.play('belt'); }
+          else if (ev.fx === 'storm') { ringFx(x, z, 1, 25, 0x9dffc8, 0.9); ringFx(x, z, 0.5, 12, 0xffffff, 0.5); Snd.play('ult'); if (!watching) hitFlash(); }
           else if (ev.fx === 'beamon') { if (ev.src === human.id) Snd.play('belt'); }
           else if (ev.fx === 'slammed') { ringFx(x, z, 0.5, 4, 0xffffff, 0.45); Snd.play('hammer'); }
           else if (ev.fx === 'piston') { if (ev.src === human.id) Snd.play('charge'); }
@@ -854,10 +862,15 @@
       v.ring.visible = human.target === e.id && e.alive;
       if (v.ring.visible) v.ring.material.color.setHex(e.kind === 'player' ? 0x4fd88f : 0xff4a36);
       v.aura.visible = e.kind === 'player' && e.alive && (e.belt > 0 || e.sludge > 0 || e.dome > 0 || e.rad > 0);
-      if (v.aura.visible) v.aura.material.color.setHex(e.dome > 0 ? 0x4fd88f : e.rad > 0 ? 0xd4ff3a : e.belt > 0 ? 0xffb000 : 0x9be25a);
+      if (v.aura.visible) v.aura.material.color.setHex(e.dome > 0 ? 0x4fd88f : e.rad > 0 ? 0xd4ff3a : e.belt > 0 ? 0xffb000 : 0xb46bff);   // sludge: purple, the cleanse colour
       if (e.type === 'boss') v.holder.rotation.z = e.stagger > 0 ? 0.22 * Math.sin(S.t * 9) : 0;
       var pt = project(v.g.position.x, entHeight(e) + 0.5, v.g.position.z);
       if (pt) { v.plate.style.display = ''; v.plate.style.left = pt.x + 'px'; v.plate.style.top = pt.y + 'px'; setBar(v.fill, e.hp / e.maxHp); }
+      if (e.kind === 'player') {
+        // Read the squad from their nameplates: purple needs a Purge, red is in trouble.
+        v.plate.classList.toggle('cleanse', e.alive && e.sludge > 0);
+        v.plate.classList.toggle('low', e.alive && !(e.sludge > 0) && e.hp < e.maxHp * 0.4);
+      }
       else v.plate.style.display = 'none';
     });
     for (var id in views) if (!seen[id]) dropView(id);
@@ -1111,6 +1124,24 @@
       special.soft.position.set(sp2.x, 0.13, sp2.z); special.soft.scale.set(sr, sr, 1);
       special.soft.material.color.setHex(st.kind === 'player' ? 0x4fd88f : 0xff4a36);
     }
+    if (!special.lob) {
+      special.lob = new THREE.Group();
+      var lobRing = new THREE.Mesh(new THREE.RingGeometry(5.6, 6, 48), new THREE.MeshBasicMaterial({ color: 0x4fd88f, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
+      lobRing.rotation.x = -Math.PI / 2; special.lob.add(lobRing); special.lob.ring = lobRing;
+      var pts = []; for (var li = 0; li <= 20; li++) pts.push(new THREE.Vector3());
+      special.lob.path = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineDashedMaterial({ color: 0x4fd88f, dashSize: 0.6, gapSize: 0.4 }));
+      fxRoot.add(special.lob); fxRoot.add(special.lob.path);
+    }
+    var lobOn = running && !watching && human && human.alive && lobAim != null;
+    special.lob.visible = special.lob.path.visible = !!lobOn;
+    if (lobOn) {
+      var hp1 = views[human.id] ? views[human.id].g.position : human;
+      var spot = Sim.fieldSpot(S, { x: hp1.x, z: hp1.z, facing: aimAngle(), aimDist: throwDist() });
+      special.lob.ring.position.set(spot.x, 0.14, spot.z);
+      var pa2 = special.lob.path.geometry.attributes.position;
+      for (var lj = 0; lj <= 20; lj++) { var kk2 = lj / 20; pa2.setXYZ(lj, hp1.x + (spot.x - hp1.x) * kk2, 1.4 + 5 * kk2 * (1 - kk2) - 1.2 * kk2, hp1.z + (spot.z - hp1.z) * kk2); }
+      pa2.needsUpdate = true; special.lob.path.computeLineDistances();
+    }
     var showArc = running && !watching && human && human.alive && wpnId === 'hammer' && !human.barrierUp;
     if (!special.arc) {
       special.arc = new THREE.Mesh(new THREE.CircleGeometry(6.5, 24, Math.PI / 2 - Math.PI / 3, Math.PI * 2 / 3), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide }));
@@ -1187,6 +1218,7 @@
     // Aimed weapons (the Impact Hammer): mouse buttons are the weapon, then Q, E, F and R. No number keys.
     if (Sim.aimWeapon(human)) {
       var slot = /^Key[QEFR]$/.test(c) ? aimSlot(c[3]) : undefined;
+      if (slot !== undefined && isLob(slot)) { if (!ev.repeat) lobAim = slot; return; }   // throws aim while held, fire on release
       if (slot !== undefined) { input.ability = slot; var ha = hud.abs[slot]; if (ha) { ha.el.classList.add('flash'); setTimeout(function () { ha.el.classList.remove('flash'); }, 120); } }
       if (slot !== undefined || /^Digit[1-6]$/.test(c)) return;
     }
@@ -1196,7 +1228,10 @@
     if (c.indexOf('Arrow') === 0 || c === 'Space') ev.preventDefault();
     keys[c] = true;
   });
-  window.addEventListener('keyup', function (ev) { var c = remap(ev.code); if (c) keys[c] = false; });
+  window.addEventListener('keyup', function (ev) {
+    var c = remap(ev.code); if (c) keys[c] = false;
+    if (lobAim != null && running && /^Key[QEFR]$/.test(c || '') && aimSlot(c[3]) === lobAim) { input.ability = lobAim; lobAim = null; }
+  });
   window.addEventListener('blur', function () { keys = {}; });
 
   /* Mouse aim for aimed weapons: click the arena to lock the pointer, then the mouse turns the camera,
@@ -1243,6 +1278,10 @@
 
   /* Where you are aiming: straight ahead of the camera. Held buttons: keyboard 1/2 or the controller's triggers. */
   function aimAngle() { return cam.yaw + Math.PI; }
+  /* How far a thrown thing goes: look further up the room (a flatter camera) to throw further. 3m to 25m. */
+  function throwDist() { return 3 + Math.max(0, Math.min(1, (1.35 - cam.pitch) / 1.15)) * 22; }
+  var lobAim = null;   // the bar slot of a held-to-aim throw (the Medic's Nano Field), while the key is down
+  function isLob(slot) { var a = slot != null && Sim.abilitiesOf(human)[slot]; return !!a && a.id === 'field'; }
   function readHold() { return [!!(mouse.l || pad.hold[0]), !!(mouse.r || pad.hold[1])]; }
   function readMove() {
     var f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + pad.f;
@@ -1567,7 +1606,7 @@
       var a = Net.acts[p.id] || {};
       ins[p.id] = {
         mx: +inn.mx || 0, mz: +inn.mz || 0,
-        aim: typeof inn.am === 'number' ? inn.am : undefined, hold: [!!((inn.h | 0) & 1), !!((inn.h | 0) & 2)],
+        aim: typeof inn.am === 'number' ? inn.am : undefined, ad: typeof inn.ad === 'number' ? inn.ad : undefined, hold: [!!((inn.h | 0) & 1), !!((inn.h | 0) & 2)],
         target: a.target !== undefined ? a.target : (inn.tg === null || typeof inn.tg === 'number' ? inn.tg : undefined),
         ability: a.ability != null ? a.ability : -1, jump: !!a.jump
       };
@@ -1593,7 +1632,7 @@
     if (human.role === 'tank') inn.am = Math.round(aimAngle() * 20) / 20;
     if (Sim.aimWeapon(human)) {
       var hd = readHold();
-      inn.am = Math.round(aimAngle() * 20) / 20; inn.h = (hd[0] ? 1 : 0) | (hd[1] ? 2 : 0);
+      inn.am = Math.round(aimAngle() * 20) / 20; inn.h = (hd[0] ? 1 : 0) | (hd[1] ? 2 : 0); inn.ad = Math.round(throwDist());
       human.facing = aimAngle();
     }
     var key = JSON.stringify(inn);
@@ -1618,7 +1657,7 @@
     acc += dt;
     while (acc >= STEP) {
       var mv = document.hidden ? { mx: 0, mz: 0 } : readMove(), ins = {};
-      ins[human.id] = { mx: mv.mx, mz: mv.mz, ability: input.ability, target: input.target, jump: input.jump, aim: aimAngle(), hold: document.hidden ? [] : readHold() };
+      ins[human.id] = { mx: mv.mx, mz: mv.mz, ability: input.ability, target: input.target, jump: input.jump, aim: aimAngle(), hold: document.hidden ? [] : readHold(), ad: throwDist() };
       if (Net.mode === 'host') netHostInputs(ins);
       Sim.step(S, STEP, ins);
       input.ability = -1; input.target = undefined; input.jump = false; acc -= STEP;
@@ -1654,7 +1693,9 @@
       if (aimW) {
         // Aimed: RT swing, LT barrier, X = Q, RB = E, B = F, Y = R (ultimate), A Riot Charge.
         // RT + LT together is Shove (the sim sees both held).
-        if (down(2)) input.ability = aimSlot('Q');
+        var qs = aimSlot('Q');
+        if (down(2)) { if (isLob(qs)) lobAim = qs; else input.ability = qs; }
+        if (!btn(2) && pad.prev[2] && lobAim === qs && isLob(qs)) { input.ability = qs; lobAim = null; }
         if (down(5)) input.ability = aimSlot('E');
         if (down(1)) input.ability = aimSlot('F');
         if (down(3)) input.ability = aimSlot('R');
