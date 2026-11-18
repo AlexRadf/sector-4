@@ -4,6 +4,14 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.22.1 (2026-11-18) A death log that explains wipes
+- Every hit in the death log is labelled: **Avoidable** (step out of it), **Tank buster** (block or shield it), **AoE** (hits the whole
+  squad, heal through it), **Debuff** (get it purged), **Squad** (the shield wasn't broken), **Tanking** (the boss's fists on the tank),
+  **Aggro** (the boss turned on you) and **Add** (a drone on you). Drone hits now read "Drone".
+- Each recap has a one-line verdict, e.g. "68% avoidable".
+- The shift report shows the recap for **everyone who went down**, not only you, so a wipe shows what happened to the tank too.
+- The Nano Field aim preview only appears when you can actually throw it (off cooldown, enough Nanites).
+
 ## 0.22.0 (2026-11-18) Medic feedback: readable cleanses, a thrown Nano Field, a real Link Storm
 - Nameplates show what a squad member needs: **purple** means Bio Sludge (Purge them), **red** means below 40% health.
   The Sludge glow on the body is purple to match.

@@ -197,7 +197,9 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .recap td.num { text-align: right; font-family: var(--font-mono); }
 .recap td.av { font-family: var(--font-mono); font-size: 11px; color: var(--dim); }
 .recap td.av span { color: var(--dim); opacity: 0.8; }
-.recap td.av.dodge { color: #ff4a36; } .recap td.av.mitigate { color: var(--amber); } .recap td.av.team { color: #7fd0ff; }
+.recap td.av.avoid, .recap td.av.aggro { color: #ff4a36; } .recap td.av.buster, .recap td.av.tank { color: var(--amber); }
+.recap td.av.squad, .recap td.av.aoe { color: #7fd0ff; } .recap td.av.debuff { color: #c99bff; } .recap td.av.add { color: #ff8a30; }
+#endDeath h3 { margin-top: 10px; }
 #endDeath { margin: 0 0 14px; }
 #binds { z-index: 30; } #bindsTitle { font-size: 40px; }
 .bindrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; border-top: 1px solid var(--line); max-width: 420px; }

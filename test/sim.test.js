@@ -583,16 +583,16 @@ test('nothing keeps a dead player as its target, and a Crusher on someone who dr
   assert.ok(!boss.cast, 'the Crusher on a body is called off');
 });
 
-test('the death log keeps the last five hits, how big they were, and whether they were avoidable', () => {
+test('the death log keeps the last five hits, how big they were, and what kind of hit each was', () => {
   const { S, p } = arena('dps');
   p.armor = 0;
-  ['Hit', 'Sludge', 'Crusher', 'Leap', 'Overcharge', 'Rocket'].forEach((l) => Sim.damagePlayer(S, S.bossId, p, 100, l));
+  ['Hit', 'Crusher', 'Leap', 'Sludge', 'Overcharge Pulse'].forEach((l) => Sim.damagePlayer(S, S.bossId, p, 100, l));
   p.hp = 50; Sim.damagePlayer(S, S.bossId, p, 300, 'Charge');
   assert.ok(!p.alive);
   const log = p.lastDeath.log;
   assert.strictEqual(log.length, 5);
-  assert.deepStrictEqual(log.map((h) => h[0]), ['Crusher', 'Leap', 'Overcharge', 'Rocket', 'Charge']);
-  assert.deepStrictEqual(log.map((h) => h[2]), ['mitigate', 'dodge', 'team', 'dodge', 'dodge']);
+  assert.deepStrictEqual(log.map((h) => h[0]), ['Crusher', 'Leap', 'Sludge', 'Overcharge Pulse', 'Charge']);
+  assert.deepStrictEqual(log.map((h) => h[2]), ['buster', 'avoid', 'debuff', 'aoe', 'avoid']);
   const snap = Sim.snapshot ? Sim.snapshot(S) : null;
   if (snap) assert.ok(JSON.stringify(snap).includes('Charge'));
 });

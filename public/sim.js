@@ -695,7 +695,11 @@
       }
     }
     met(S, p.id).taken += amt; S.m.taken[label] = (S.m.taken[label] || 0) + amt;
-    if (amt > 0) { (p.recent || (p.recent = [])).push([label, amt, hitKind(p, label), Math.round(S.t * 10) / 10]); if (p.recent.length > 5) p.recent.shift(); }
+    if (amt > 0) {
+      var hsrc = ent(S, srcId), shown = label === 'Hit' && hsrc && hsrc.type === 'drone' ? 'Drone' : label;
+      (p.recent || (p.recent = [])).push([shown, amt, hitKind(p, label, hsrc), Math.round(S.t * 10) / 10]);
+      if (p.recent.length > 5) p.recent.shift();
+    }
     p.recoil = (p.recoil || 0) + amt;   // recent damage, for Recoil Strike
     if (T(p, 'vengeance')) p.rage = Math.min(500, (p.rage || 0) + amt * 0.2);
     p.hp -= amt;
@@ -741,14 +745,18 @@
       }
     }
   }
-  /* For the death log: could this hit have been avoided? 'dodge' = step out of it, 'mitigate' = block or
-     shield it, 'team' = the squad's job (breaking the shield), '' = part of the fight. */
-  var DODGE = { Charge: 1, Collapse: 1, Leap: 1, Sludge: 1, Rocket: 1, 'Heavy Rocket': 1, 'Demolition Blast': 1, Haymaker: 1, Radiation: 1 };
-  function hitKind(p, label) {
-    if (DODGE[label]) return 'dodge';
-    if (label === 'Cleave') return p.role === 'tank' ? '' : 'dodge';
-    if (label === 'Crusher') return 'mitigate';
-    if (label === 'Overcharge') return 'team';
+  /* For the death log: what kind of hit was it? avoid = step out of it, buster = the tank's big hit to mitigate,
+     aoe = hits the whole squad (heal through it), debuff = on you until it's purged, squad = the shield wasn't broken,
+     tank = the boss's fists on the tank (the job), aggro = the boss's fists on someone else, add = a drone on you. */
+  var AVOID = { Charge: 1, Collapse: 1, Leap: 1, Rocket: 1, 'Heavy Rocket': 1, 'Demolition Blast': 1, Haymaker: 1 };
+  function hitKind(p, label, src) {
+    if (AVOID[label]) return 'avoid';
+    if (label === 'Cleave') return p.role === 'tank' ? 'tank' : 'avoid';
+    if (label === 'Crusher') return 'buster';
+    if (label === 'Sludge' || label === 'Radiation') return 'debuff';
+    if (label === 'Overcharge Pulse') return 'aoe';
+    if (label === 'Overcharge') return 'squad';
+    if (label === 'Hit') return src && src.type === 'drone' ? 'add' : p.role === 'tank' ? 'tank' : 'aggro';
     return '';
   }
   function heal(S, src, p, amt, label) {
@@ -2498,7 +2506,7 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.22.0';
+  var VERSION = '0.22.1';
 
   var api = {
     VERSION: VERSION,

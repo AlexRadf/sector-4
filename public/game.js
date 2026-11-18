@@ -504,14 +504,21 @@
   }
   function setBar(fill, frac) { fill.style.transform = 'scaleX(' + Math.max(0, Math.min(1, frac)).toFixed(3) + ')'; }
   /* Death recap: the last five hits before going down, how big they were, and whether they could have been avoided. */
-  var KIND = { dodge: ['AVOIDABLE', 'step out of it'], mitigate: ['MITIGATE', 'block or shield it'], team: ['SQUAD', 'break the shield in time'] };
+  var KIND = {
+    avoid: ['AVOIDABLE', 'step out of it'], buster: ['TANK BUSTER', 'block or shield it'], aoe: ['AOE', 'hits the whole squad: heal through it'],
+    debuff: ['DEBUFF', 'get it purged'], squad: ['SQUAD', 'break the shield in time'], tank: ['TANKING', 'the job: mitigate and get healed'],
+    aggro: ['AGGRO', 'he turned on you: let the tank take him back'], add: ['ADD', 'a drone on you: get the tank to pick it up']
+  };
   function deathRecap(p) {
     var d = p && p.lastDeath; if (!d || !d.log || !d.log.length) return '';
     var rows = d.log.slice().reverse().map(function (h) {
       var k = KIND[h[2]];
       return '<tr><td class="mono">' + fmtTime(h[3] != null ? h[3] : d.t) + '</td><td>' + h[0] + '</td><td class="num">' + Math.round(h[1]) + '</td><td class="' + (k ? 'av ' + h[2] : 'av') + '">' + (k ? k[0] + ' <span>' + k[1] + '</span>' : 'part of the fight') + '</td></tr>';
     }).join('');
-    return '<h3 class="mono">LAST HITS ON ' + p.name.toUpperCase() + '</h3><table class="recap">' + rows + '</table>';
+    // A one-line verdict: how much of what killed them could have been stepped out of.
+    var tot = 0, av = 0; d.log.forEach(function (h) { tot += h[1]; if (h[2] === 'avoid') av += h[1]; });
+    var verdict = tot ? Math.round(av / tot * 100) + '% avoidable' : '';
+    return '<h3 class="mono">LAST HITS ON ' + p.name.toUpperCase() + (verdict ? '  /  ' + verdict : '') + '</h3><table class="recap">' + rows + '</table>';
   }
   function fmtTime(t) { t = Math.max(0, Math.floor(t)); return Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2); }
   function logLine(text) {
@@ -978,7 +985,9 @@
     var best = null, isNew = false, key = 's4-best-' + role;
     try { best = parseFloat(localStorage.getItem(key)) || null; } catch (e) {}
     if (win && !watching && (!best || S.t < best)) { isNew = true; best = S.t; try { localStorage.setItem(key, String(S.t)); } catch (e) {} }
-    $('#endDeath').innerHTML = deathRecap(human);
+    // Everyone who went down, you first, so a wipe shows what actually happened to the squad.
+    $('#endDeath').innerHTML = [human].concat(Sim.players(S).filter(function (q) { return q !== human; }))
+      .filter(function (q) { return q.lastDeath; }).map(deathRecap).join('');
     $('#endTime').textContent = 'TIME ON FLOOR ' + fmtTime(S.t);
     if (watching) best = null;
     $('#endBest').textContent = best ? 'BEST AS ' + human.kit.title.toUpperCase() + ' ' + fmtTime(best) + (isNew ? '  NEW' : '') : '';
@@ -1132,6 +1141,7 @@
       special.lob.path = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineDashedMaterial({ color: 0x4fd88f, dashSize: 0.6, gapSize: 0.4 }));
       fxRoot.add(special.lob); fxRoot.add(special.lob.path);
     }
+    if (lobAim != null && human && Sim.usable(S, human, lobAim).state !== 'ok') lobAim = null;   // went on cooldown or ran dry: no preview
     var lobOn = running && !watching && human && human.alive && lobAim != null;
     special.lob.visible = special.lob.path.visible = !!lobOn;
     if (lobOn) {
@@ -1218,7 +1228,7 @@
     // Aimed weapons (the Impact Hammer): mouse buttons are the weapon, then Q, E, F and R. No number keys.
     if (Sim.aimWeapon(human)) {
       var slot = /^Key[QEFR]$/.test(c) ? aimSlot(c[3]) : undefined;
-      if (slot !== undefined && isLob(slot)) { if (!ev.repeat) lobAim = slot; return; }   // throws aim while held, fire on release
+      if (slot !== undefined && isLob(slot)) { if (!ev.repeat && Sim.usable(S, human, slot).state === 'ok') lobAim = slot; else if (!ev.repeat) input.ability = slot; return; }   // throws aim while held, fire on release
       if (slot !== undefined) { input.ability = slot; var ha = hud.abs[slot]; if (ha) { ha.el.classList.add('flash'); setTimeout(function () { ha.el.classList.remove('flash'); }, 120); } }
       if (slot !== undefined || /^Digit[1-6]$/.test(c)) return;
     }
@@ -1694,7 +1704,7 @@
         // Aimed: RT swing, LT barrier, X = Q, RB = E, B = F, Y = R (ultimate), A Riot Charge.
         // RT + LT together is Shove (the sim sees both held).
         var qs = aimSlot('Q');
-        if (down(2)) { if (isLob(qs)) lobAim = qs; else input.ability = qs; }
+        if (down(2)) { if (isLob(qs) && Sim.usable(S, human, qs).state === 'ok') lobAim = qs; else input.ability = qs; }
         if (!btn(2) && pad.prev[2] && lobAim === qs && isLob(qs)) { input.ability = qs; lobAim = null; }
         if (down(5)) input.ability = aimSlot('E');
         if (down(1)) input.ability = aimSlot('F');

@@ -1,6 +1,6 @@
 {
   "name": "sector-4",
-  "version": "0.22.0",
+  "version": "0.22.1",
   "private": true,
   "description": "Sector-4: Skyscraper Ascent. Game files plus a WebSocket squad relay.",
   "main": "server.js",
