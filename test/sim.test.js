@@ -335,14 +335,17 @@ test('Minigun: heat speeds it up, Perfect Vent shields big, 100 jams it', () => 
   assert.ok(S.events.some((e) => e.type === 'error' && /jammed/i.test(e.text)));
 });
 
-test('Challenge taunts one target, not the room', () => {
+test('Hammer Throw (tab-target Flak) hits the target and one more, and forces nothing', () => {
   const { S, p, boss } = arena('tank', { weapon: 'flak' });
   p.x = boss.x; p.z = boss.z - 5;
-  const drone = { id: 999, kind: 'enemy', type: 'drone', x: p.x + 3, z: p.z, radius: 1, hp: 100, maxHp: 100, alive: true, threat: {}, target: null };
-  S.ents.push(drone);
-  press(S, 3, { target: boss.id });
-  assert.ok(boss.fixate && boss.fixate.id === p.id);
-  assert.ok(!drone.fixate);
+  const near = { id: 999, kind: 'enemy', type: 'drone', x: boss.x + 5, z: boss.z, radius: 1, hp: 1600, maxHp: 1600, alive: true, threat: {}, target: null };
+  const far = { id: 998, kind: 'enemy', type: 'drone', x: boss.x + 25, z: boss.z, radius: 1, hp: 1600, maxHp: 1600, alive: true, threat: {}, target: null };
+  S.ents.push(near, far); S.events.length = 0;
+  press(S, Sim.abilitiesOf(p).findIndex((ab) => ab.id === 'hthrow'), { target: boss.id });
+  const hit = S.events.filter((e) => e.type === 'dmg' && e.label === 'Hammer Throw').map((e) => e.dst);
+  assert.deepStrictEqual(hit.sort(), [boss.id, 999].sort());
+  assert.ok(!boss.fixate && !near.fixate, 'no forced taunt');
+  assert.ok(near.threat[p.id] >= 120 * Sim.TUNE.throwThreat * 0.8);
 });
 
 test('the Foreman winds up a Crusher on his target, and a one-button tank loses', () => {
