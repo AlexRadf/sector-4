@@ -1108,7 +1108,7 @@
         linkLine('b' + p.id, p, bt, 0x4fd88f, 0.95);
         var sf = p.siphonTo ? Sim.ent(S, p.siphonTo) : null, ch = p.chainTo ? Sim.ent(S, p.chainTo) : null;
         if (sf && sf.alive) linkLine('x' + p.id, bt, sf, 0xb46bff, 0.9);    // Siphon Link: the arc on to an enemy
-        if (ch && ch.alive) linkLine('c' + p.id, bt, ch, 0x9dffc8, 0.6);    // Chain Link: the jump on to a second ally
+        if (ch && ch.alive) linkLine('c' + p.id, bt, ch, 0x9dffc8, 0.95);    // Chain Link: the jump on to a second ally
       }
       if (p.storm > 0) Sim.players(S).forEach(function (q) { if (q !== p && q.alive && Math.hypot(q.x - p.x, q.z - p.z) <= 25) linkLine('s' + p.id + '-' + q.id, p, q, 0x9dffc8, 0.6); });
     });

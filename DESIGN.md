@@ -1,7 +1,7 @@
 # Sector-4 design pillars
 
 The rules every change is checked against. If a feature breaks one of these, change the feature or
-change this file on purpose, never by drift. Last revised: v0.22.0 (2026-11-17).
+change this file on purpose, never by drift. Last revised: v0.23.1 (2026-11-17).
 
 ## What the game is
 
@@ -49,6 +49,9 @@ people who are out of position alive.
 - **Thrown things are held to aim.** Hold the key to see the arc and where it lands, let go to throw. Look further up
   the room to throw further.
 - **Status shows on the nameplate.** Purple needs cleansing, red is in trouble.
+- **Cleansing a crowd always costs something** (cooldown, Nanites, a once-per-person rule), so a boss that stacks debuffs
+  can't be solved with one button. Single-target cleanses are cheap and smart-targeted.
+- **No talent may make a resource free.** Every talent that touches Nanites, Shield Energy and so on must still leave a cost.
 
 ## Healing (the riskiest pillar, prototype first)
 Aimed healing removes the party-frame split focus but can create a new one (aiming at moving allies
@@ -61,7 +64,7 @@ while dodging). Rules for the healer prototype:
 ## Order of work (as of v0.21.0)
 1. Impact Hammer tuned (done, v0.19.0) and played by Alex and Katie.
 2. Open items: death log, boss targeting the dead, phase 3 floor, keybinds (v0.20.0).
-3. **Aimed healer prototype**: the Link Gun (v0.21.0), to be played. Then a Medic talent pass themed to it.
+3. **Aimed healer prototype**: the Link Gun (v0.21.0) and its talent tree (v0.23.0), being played.
 4. One aimed DPS weapon.
 5. Only then convert the remaining weapons (Flak Cannon, Minigun, other Medic and Striker weapons),
    or cut weapons if one good one per role is enough.

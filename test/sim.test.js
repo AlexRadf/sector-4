@@ -682,7 +682,7 @@ test('Medevac, aimed: leaps to the ally you point at, not the most hurt', () => 
   assert.ok(Math.hypot(a.p.x - a.tank.x, a.p.z - a.tank.z) < 3, a.p.x + ',' + a.p.z);
 });
 
-test('Medic beam talents: Siphon Link bites an enemy and costs nothing, Long Link reaches 40m, Chain Link jumps on', () => {
+test('Medic beam talents: Siphon Link bites an enemy (and still costs Nanites), Long Link reaches 40m, Chain Link jumps on', () => {
   const beam = (rig, setup) => {
     const a = medic(); a.p.gear.rig = rig; a.p.pips = 50;
     a.tank.x = 0; a.tank.z = 10; a.tank.hp = 400;
@@ -693,7 +693,7 @@ test('Medic beam talents: Siphon Link bites an enemy and costs nothing, Long Lin
   };
   const si = beam('siphon', (a) => { a.boss.x = 0; a.boss.z = 16; });
   assert.ok(si.S.events.some((e) => e.type === 'dmg' && e.label === 'Siphon'));
-  assert.ok(si.p.pips >= 50, 'no drain while it bites: ' + si.p.pips);
+  assert.ok(si.p.pips < 50, 'still drains: ' + si.p.pips);
   const ll = beam('longlink', (a) => { a.tank.z = 35; });
   assert.strictEqual(ll.p.beamTo, ll.tank.id);
   const cl = beam('chainlink', (a) => { a.dps.x = 3; a.dps.z = 12; a.dps.hp = 300; });
@@ -720,5 +720,18 @@ test('Medic burst and field talents: Shock Burst hits, Burst Shield shields, Rec
   };
   assert.ok(field('caustic').S.events.some((e) => e.type === 'dmg' && e.label === 'Caustic Field'));
   assert.ok(field('lingering').S.fields[0].t > 8);
-  assert.ok(!(field('purgefield').tank.sludge > 0));
+  const pf = field('purgefield');
+  assert.ok(!(pf.tank.sludge > 0));
+  assert.ok(pf.p.cds.field > 13, 'Purging Field costs cooldown: ' + pf.p.cds.field);
+});
+
+test('Purge is smart: a sludged ally roughly in front first, then yourself, without aiming away', () => {
+  const a = medic(); a.p.gear.util = 'caustic';
+  a.tank.x = 6; a.tank.z = 10; a.tank.sludge = 8; a.dps.x = 0; a.dps.z = 12; a.p.sludge = 8;
+  const i = Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'purge');
+  press(a.S, i, { aim: 0 });   // pointing at the clean dps
+  assert.ok(!(a.tank.sludge > 0), 'the sludged ally in front got it');
+  a.p.cds.purge = 0; a.p.gcd = 0;
+  press(a.S, i, { aim: 0 });   // still pointing at the dps, nobody else sludged
+  assert.ok(!(a.p.sludge > 0), 'then yourself, no aiming away needed');
 });

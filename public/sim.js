@@ -125,7 +125,7 @@
            { id: 'lburst', key: 'L+R', name: 'Nanite Burst', kind: 'aim', range: 10, needs: 35, gcd: false, desc: 'Press both mouse buttons (35 Nanites). Heals everyone within 10m of you, you included, for 260. Get into the group, then pop it.' }],
           { aim: true,
             utils: [A({ id: 'field', key: 'Q', name: 'Nano Field', kind: 'aim', range: 25, cd: 10, cost: 25, desc: '25 Nanites. Hold to aim a healing grenade (look further up or down the room to throw it further or nearer), let go to throw. It lands as a 6m field, settling on any ally within 3m of where it lands. Anyone standing in it heals 70 a second for 6s.' }),
-                    A({ id: 'purge', key: 'E', name: 'Purge', kind: 'friend', range: 30, cd: 6, gcd: false, desc: 'Cleanses the ally nearest your crosshair of Bio Sludge and heals them for 60. Nobody there: it cleanses you.' }),
+                    A({ id: 'purge', key: 'E', name: 'Purge', kind: 'friend', range: 30, cd: 6, gcd: false, desc: 'Cleanses Bio Sludge and heals for 60. Smart: it takes a sludged ally roughly in front of you first, then you if you have it, then whoever you point at.' }),
                     A({ id: 'cloak', key: 'F', name: 'Nanite Cloak', kind: 'self', range: 0, cd: 25, gcd: false, desc: 'You take 40% less damage for 4s. For when you had to stand somewhere dangerous to reach someone.' })],
             ult: A({ id: 'storm', key: 'R', name: 'Link Storm', kind: 'self', range: 25, gcd: false, role: 'ult', desc: 'Ultimate. Every ally within 25m of you is instantly healed for 35% of their health, then your beam links to all of them for 5s, healing each 150 a second. Free.' }) }),
         W('bio', 'Bio Rifle', 'Heals over time, all instant. Keep Sprays rolling on the squad: Bio Bloom heals 20% more for each one.',
@@ -242,9 +242,9 @@
         t('medevac', 'squad', 'Medevac', 'Go to them.', 'Space leaps to the ally nearest your crosshair (or the most hurt) within 25m and gives them a 150 shield (12s).')
       ],
       rig: [
-        t('siphon', 'aggressive', 'Siphon Link', 'Beam: heal one, hurt another.', 'Your beam also arcs from your ally to the nearest enemy within 10m of them for 50 a second, and the arc pays for the beam: no Nanite drain while it bites.'),
+        t('siphon', 'aggressive', 'Siphon Link', 'Beam: heal one, hurt another.', 'Your beam also arcs from your ally to the nearest enemy within 10m of them for 70 a second. Heal and hurt at once.'),
         t('longlink', 'steady', 'Long Link', 'Beam: never let go.', 'Your beam latches from 40m instead of 25, only snaps past 42m, and drains 3 Nanites a second instead of 5.'),
-        t('chainlink', 'squad', 'Chain Link', 'Beam: two at once.', 'Your beam jumps on to the most hurt ally within 8m of your target and heals them for half as much.')
+        t('chainlink', 'squad', 'Chain Link', 'Beam: two at once.', 'Your beam jumps on to the most hurt ally within 12m of your target (you included) and heals them for half as much. A second green line shows the jump.')
       ],
       implant: [
         t('shockburst', 'aggressive', 'Shock Burst', 'Burst: clear them off.', 'Nanite Burst also blasts every enemy within 10m for 200 and stuns drones for 1.5s.'),
@@ -254,7 +254,7 @@
       util: [
         t('caustic', 'aggressive', 'Caustic Field', 'Field: it bites.', 'Enemies standing in your Nano Field take 80 a second.'),
         t('lingering', 'steady', 'Lingering Field', 'Field: lasts longer.', 'Your Nano Field lasts 10s instead of 6.'),
-        t('purgefield', 'squad', 'Purging Field', 'Field: wash it off.', 'Anyone standing in your Nano Field is cleansed of Bio Sludge.')
+        t('purgefield', 'squad', 'Purging Field', 'Field: wash it off.', 'Your Nano Field cleanses Bio Sludge from each person once as they step in, but it\'s ready every 16s instead of 10.')
       ]
     },
     dps: {
@@ -313,7 +313,7 @@
   /* What the bots take: a mix of styles, close to an average person's build. */
   var BOT_GEAR = {
     tank: { weapon: 'hammer', boots: 'twincharge', rig: 'hardened', implant: 'breathing', util: 'brand' },
-    healer: { weapon: 'link', boots: 'medevac', rig: 'siphon', implant: 'burstshield', util: 'lingering' },
+    healer: { weapon: 'link', boots: 'medevac', rig: 'chainlink', implant: 'burstshield', util: 'lingering' },
     dps: { weapon: 'rockets', boots: 'dodge', rig: 'pump', implant: 'spotter', util: 'breaker' },
     melee: { weapon: 'chainsaw', boots: 'escort', rig: 'pump', implant: 'flanker', util: 'breaker' }
   };
@@ -804,6 +804,13 @@
       var front = inCone(S, p, ab.range, 0.85)[0];
       if (front) return front;
     }
+    if (ab.id === 'purge' && aimWeapon(p)) {
+      // Purge is smart: a sludged ally anywhere in a wide cone first, then yourself if you need it, then whoever you point at.
+      var dirty = players(S, true).filter(function (q) { return q !== p && q.sludge > 0; });
+      var pick = null, best = -2, fx = Math.sin(p.facing), fz = Math.cos(p.facing);
+      dirty.forEach(function (q) { var dx = q.x - p.x, dz = q.z - p.z, l = Math.sqrt(dx * dx + dz * dz) || 1, c = (dx * fx + dz * fz) / l; if (l <= ab.range && c >= 0.3 && c > best) { best = c; pick = q; } });
+      return pick || (p.sludge > 0 ? p : null) || softTarget(S, p, { range: ab.range, dot: 0.75, ally: true }) || p;
+    }
     if (ab.kind === 'friend' && aimWeapon(p)) return softTarget(S, p, { range: ab.range, dot: 0.75, ally: true }) || p;   // nobody there: yourself
     var t = p.target != null ? ent(S, p.target) : null;
     if (ab.kind === 'enemy') {
@@ -878,6 +885,7 @@
     var G = p.gear;
     p.cds[ab.id] = ab.cd;
     if (T(p, 'afterburner') && ab.id === 'dash') p.cds.dash = 5;
+    if (T(p, 'purgefield') && ab.id === 'field') p.cds.field = 16;   // a cleanse for a crowd costs you time
     if (T(p, 'supply') && ab.id === 'keg') p.cds.keg = 12;
     if (tgt && tgt !== p && !p.moving) p.facing = Math.atan2(tgt.x - p.x, tgt.z - p.z);
     var back = BACKSTAB[ab.id] && tgt.kind === 'enemy' && (behind(p, tgt) || p.afterburn > 0) ? 1.5 : 1;
@@ -1440,18 +1448,18 @@
         var arc = null;
         if (T(p, 'siphon')) arc = enemies(S).filter(function (e) { return dist(e, bt) <= 10 + (e.radius || 0); }).sort(function (a, c) { return dist(a, bt) - dist(c, bt); })[0] || null;
         p.siphonTo = arc ? arc.id : 0;
-        if (!arc) p.pips = Math.max(0, (p.pips || 0) - (longL ? 3 : 5) * dt);
+        p.pips = Math.max(0, (p.pips || 0) - (longL ? 3 : 5) * dt);
         p.beamAcc = (p.beamAcc || 0) + 185 * dt;
         if (p.beamAcc >= 40) {
           heal(S, p, bt, p.beamAcc, 'Link Beam');
           if (T(p, 'chainlink')) {
             // Chain Link: on to the most hurt ally near them, at half strength.
-            var nx = players(S, true).filter(function (q) { return q !== bt && q !== p && q.hp < q.maxHp && dist(q, bt) <= 8; })
+            var nx = players(S, true).filter(function (q) { return q !== bt && q.hp < q.maxHp && dist(q, bt) <= 12; })
               .sort(function (a, c) { return a.hp / a.maxHp - c.hp / c.maxHp; })[0];
             p.chainTo = nx ? nx.id : 0;
-            if (nx) heal(S, p, nx, p.beamAcc * 0.5, 'Chain Link');
+            if (nx) { emit(S, { type: 'beam', src: bt.id, dst: nx.id, fx: 'link' }); heal(S, p, nx, p.beamAcc * 0.5, 'Chain Link'); }
           }
-          if (arc) damageEnemy(S, p, arc, 50 * p.beamAcc / 185, 1, 'Siphon');
+          if (arc) damageEnemy(S, p, arc, 70 * p.beamAcc / 185, 1, 'Siphon');
           p.beamAcc = 0;
         }
         return;
@@ -1956,7 +1964,7 @@
         players(S, true).forEach(function (q) {
           if (!fby || Math.hypot(q.x - fd.x, q.z - fd.z) > fd.r) return;
           heal(S, fby, q, 70 * fd.acc, 'Nano Field');
-          if (T(fby, 'purgefield') && q.sludge > 0) { q.sludge = 0; emit(S, { type: 'log', text: fby.name + "'s field washes the sludge off " + q.name + '.' }); }
+          if (T(fby, 'purgefield') && q.sludge > 0 && !(fd.purged = fd.purged || {})[q.id]) { fd.purged[q.id] = 1; q.sludge = 0; emit(S, { type: 'log', text: fby.name + "'s field washes the sludge off " + q.name + '.' }); }
         });
         if (fby && T(fby, 'caustic')) enemies(S).forEach(function (e) { if (Math.hypot(e.x - fd.x, e.z - fd.z) <= fd.r + (e.radius || 0)) damageEnemy(S, fby, e, 80 * fd.acc, 1, 'Caustic Field'); });
         fd.acc = 0;
@@ -2548,7 +2556,7 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.23.0';
+  var VERSION = '0.23.1';
 
   var api = {
     VERSION: VERSION,

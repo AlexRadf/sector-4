@@ -4,6 +4,15 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.23.1 (2026-11-18) Medic talent fixes
+- **Chain Link** reaches 12m from your beam target (was 8m), can jump back to you, and flashes a bright green bolt every time it jumps.
+- **Siphon Link** no longer pays for the beam: it was infinite Nanites on the tank. The arc now hits for 70 a second instead of 50.
+- **Purge** is smart: it takes a sludged ally roughly in front of you first, then yourself if you're sludged, then whoever you're pointing at.
+  No more aiming at the floor to cleanse yourself.
+- **Purging Field** costs you time: the Nano Field is ready every 16s instead of 10, and it cleanses each person once as they step in,
+  so a fight with stacking debuffs can't be solved by one field.
+- `DESIGN.md`: cleansing a crowd always costs something.
+
 ## 0.23.0 (2026-11-18) Medic talents for the aimed Link Gun
 - A new Medic tree, themed to the Link Gun. Like the Juggernaut's, no talent adds a button; each row changes one you already have.
   - **Footwork (Space):** Stim Leap (leap 9m, heals 30% stronger for 3s after) / Nanite Skates (50% more speed for 3s, keep
@@ -17,7 +26,7 @@ the middle number for new things, the last number for fixes.
   Defibrillator. Saved builds fall back to the first pick in each row. Rows 2 to 4 only work on the Link Gun until the Bio Rifle and
   Shield Gun are converted.
 - The beam is a little stronger (185 a second) and Nano Field heals 70 a second.
-- Bot Medics now play the aimed Link Gun (Medevac, Siphon Link, Burst Shield, Lingering Field), and any bot pops its personal defensive
+- Bot Medics now play the aimed Link Gun (Medevac, Chain Link, Burst Shield, Lingering Field), and any bot pops its personal defensive
   if it's still under something about to land.
 
 ## 0.22.1 (2026-11-18) A death log that explains wipes
