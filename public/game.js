@@ -1157,6 +1157,20 @@
       for (var lj = 0; lj <= 20; lj++) { var kk2 = lj / 20; pa2.setXYZ(lj, hp1.x + (spot.x - hp1.x) * kk2, 1.4 + 5 * kk2 * (1 - kk2) - 1.2 * kk2, hp1.z + (spot.z - hp1.z) * kk2); }
       pa2.needsUpdate = true; special.lob.path.computeLineDistances();
     }
+    // The reticle: where your attack lands. It snaps onto whatever your weapon would lock to, so you can see the snap.
+    var ret = $('#reticle'), retOn = running && !watching && human && human.alive && Sim.aimWeapon(human) && !document.hidden;
+    if (retOn) {
+      var hpR = views[human.id] ? views[human.id].g.position : human, lockT = null, reach = 6, ry = 1.0;
+      if (wpnId === 'link') { lockT = human.beamTo ? Sim.ent(S, human.beamTo) : Sim.softTarget(S, human, Sim.BOLT_AIM); reach = 20; }
+      else if (wpnId === 'hammer') { lockT = human.barrierUp ? null : Sim.softTarget(S, human, { range: 6.5, dot: 0.5, enemy: true }); reach = 6; }
+      var wp;
+      if (lockT) { var lv = views[lockT.id] ? views[lockT.id].g.position : lockT; wp = project(lv.x, entHeight(lockT) * 0.6, lv.z); }
+      else wp = project(hpR.x + Math.sin(aimAngle()) * reach, ry, hpR.z + Math.cos(aimAngle()) * reach);
+      if (wp) {
+        ret.hidden = false; ret.style.left = wp.x + 'px'; ret.style.top = wp.y + 'px';
+        ret.className = lockT ? 'lock ' + (lockT.kind === 'player' ? (lockT.sludge > 0 ? 'cleanse' : 'ally') : 'enemy') : '';
+      } else ret.hidden = true;
+    } else ret.hidden = true;
     var showArc = running && !watching && human && human.alive && wpnId === 'hammer' && !human.barrierUp;
     if (!special.arc) {
       special.arc = new THREE.Mesh(new THREE.CircleGeometry(6.5, 24, Math.PI / 2 - Math.PI / 3, Math.PI * 2 / 3), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide }));

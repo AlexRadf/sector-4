@@ -34,6 +34,17 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 #stage { position: absolute; inset: 0; }
 #stage canvas { display: block; width: 100%; height: 100%; }
 #plates, #floaters { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+/* Aimed weapons: a reticle where your attack lands. Four ticks and a dot; the ticks close in and colour up when it locks on. */
+#reticle { position: absolute; width: 34px; height: 34px; transform: translate(-50%, -50%); pointer-events: none; z-index: 5; transition: width 0.08s, height 0.08s; }
+#reticle i { position: absolute; background: rgba(255, 255, 255, 0.9); box-shadow: 0 0 3px #000; }
+#reticle i:nth-child(1), #reticle i:nth-child(2) { width: 9px; height: 2px; top: 50%; margin-top: -1px; }
+#reticle i:nth-child(1) { left: 0; } #reticle i:nth-child(2) { right: 0; }
+#reticle i:nth-child(3), #reticle i:nth-child(4) { width: 2px; height: 9px; left: 50%; margin-left: -1px; }
+#reticle i:nth-child(3) { top: 0; } #reticle i:nth-child(4) { bottom: 0; }
+#reticle b { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #fff; box-shadow: 0 0 3px #000; }
+#reticle.lock { width: 24px; height: 24px; }
+#reticle.ally i, #reticle.ally b { background: #4fd88f; } #reticle.enemy i, #reticle.enemy b { background: #ff4a36; }
+#reticle.cleanse i, #reticle.cleanse b { background: #b46bff; }
 
 .display { font-family: var(--font-display); font-style: italic; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; line-height: 0.9; }
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
@@ -317,6 +328,7 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
 <div id="stage"></div>
 <div id="update" hidden><span id="updateText"></span><button id="updateBtn" class="go" type="button">Reload now</button></div>
 <div id="plates"></div>
+<div id="reticle" hidden><i></i><i></i><i></i><i></i><b></b></div>
 <div id="floaters"></div>
 
 <div id="hud">

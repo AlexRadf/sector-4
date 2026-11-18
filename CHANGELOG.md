@@ -4,6 +4,11 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.24.0 (2026-11-18) A reticle for aimed weapons
+- Aimed weapons (Impact Hammer, Link Gun) show a reticle in the arena where your attack lands: a few metres ahead for the Hammer,
+  further out for the Link Gun. When your weapon would lock onto something it snaps onto them, closes in and colours up:
+  green for an ally you'll heal, red for an enemy you'll hit, purple for an ally who needs a Purge.
+
 ## 0.23.1 (2026-11-18) Medic talent fixes
 - **Chain Link** reaches 12m from your beam target (was 8m), can jump back to you, and flashes a bright green bolt every time it jumps.
 - **Siphon Link** no longer pays for the beam: it was infinite Nanites on the tank. The arc now hits for 70 a second instead of 50.
