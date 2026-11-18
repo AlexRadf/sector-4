@@ -121,10 +121,10 @@
           { id: 'nanites', name: 'Nanites', max: 100, start: 100, regen: 2.5, build: 0,
             how: 'Nanites. Every Link Bolt that hits an enemy harvests 7. The Link Beam drains 5 a second, Nanite Burst costs 35 and a Nano Field 25. They barely refill on their own: shoot to heal.' },
           [{ id: 'lbolt', key: 'LMB', name: 'Link Bolt', kind: 'aim', range: 35, hold: 'repeat', desc: 'Fires at whatever is nearest your crosshair, no precision needed. A hurt ally is healed for 70; an enemy takes 50 and gives you 7 Nanites. Allies at full health are skipped.' },
-           { id: 'lbeam', key: 'RMB', name: 'Link Beam', kind: 'aim', range: 25, hold: 'channel', gcd: false, desc: 'Hold to latch onto the ally nearest your crosshair. The beam stays attached and heals 160 a second for 5 Nanites a second. It snaps if they get more than 25m away. No bolts while it\'s on.' },
+           { id: 'lbeam', key: 'RMB', name: 'Link Beam', kind: 'aim', range: 25, hold: 'channel', gcd: false, desc: 'Hold to latch onto the ally nearest your crosshair. The beam stays attached and heals 185 a second for 5 Nanites a second. It snaps if they get more than 25m away. No bolts while it\'s on.' },
            { id: 'lburst', key: 'L+R', name: 'Nanite Burst', kind: 'aim', range: 10, needs: 35, gcd: false, desc: 'Press both mouse buttons (35 Nanites). Heals everyone within 10m of you, you included, for 260. Get into the group, then pop it.' }],
           { aim: true,
-            utils: [A({ id: 'field', key: 'Q', name: 'Nano Field', kind: 'aim', range: 25, cd: 10, cost: 25, desc: '25 Nanites. Hold to aim a healing grenade (look further up or down the room to throw it further or nearer), let go to throw. It lands as a 6m field, settling on any ally within 3m of where it lands. Anyone standing in it heals 60 a second for 6s.' }),
+            utils: [A({ id: 'field', key: 'Q', name: 'Nano Field', kind: 'aim', range: 25, cd: 10, cost: 25, desc: '25 Nanites. Hold to aim a healing grenade (look further up or down the room to throw it further or nearer), let go to throw. It lands as a 6m field, settling on any ally within 3m of where it lands. Anyone standing in it heals 70 a second for 6s.' }),
                     A({ id: 'purge', key: 'E', name: 'Purge', kind: 'friend', range: 30, cd: 6, gcd: false, desc: 'Cleanses the ally nearest your crosshair of Bio Sludge and heals them for 60. Nobody there: it cleanses you.' }),
                     A({ id: 'cloak', key: 'F', name: 'Nanite Cloak', kind: 'self', range: 0, cd: 25, gcd: false, desc: 'You take 40% less damage for 4s. For when you had to stand somewhere dangerous to reach someone.' })],
             ult: A({ id: 'storm', key: 'R', name: 'Link Storm', kind: 'self', range: 25, gcd: false, role: 'ult', desc: 'Ultimate. Every ally within 25m of you is instantly healed for 35% of their health, then your beam links to all of them for 5s, healing each 150 a second. Free.' }) }),
@@ -232,27 +232,29 @@
       ]
     },
     healer: {
-      theme: 'Field surgeon. Nanites, triage and stubbornness: nobody dies while you are standing.',
-      tiers: ['Footwork', 'Vitals', 'Medicine', 'Protocols'],
+      theme: 'Field surgeon on a nanite link. Reach the squad wherever they stand: link them, burst them, drop a field under them.',
+      tiers: ['Footwork', 'Link', 'Burst', 'Field'],
+      // Space changes on every Medic weapon. Rows 2 to 4 change the Link Gun's beam, Nanite Burst and Nano Field; the Bio Rifle
+      // and Shield Gun get their own versions when they're converted to aimed weapons.
       boots: [
-        t('stim', 'aggressive', 'Stim Leap', 'Leap in, heal instantly.', 'Space leaps 9m the way you are moving (8s). Your next heal within 3s of landing casts instantly and heals 30% more.'),
-        t('mag', 'steady', 'Surgical Stance', 'Plant and operate.', 'Stand still for 2s to Brace: casts 25% faster, 15% less damage taken, and charges can\'t knock you back. Moving breaks it.'),
-        t('medevac', 'squad', 'Medevac', 'Go to them.', 'Space leaps to the most hurt squad member within 25m and gives them a 150 shield (12s).')
+        t('stim', 'aggressive', 'Stim Leap', 'Leap in, heal hot.', 'Space leaps 9m the way you are moving (8s). For 3s after you land, your heals are 30% stronger.'),
+        t('skates', 'steady', 'Nanite Skates', 'Always in reach.', 'Space gives you 50% more speed for 3s (8s), and you can keep beaming and shooting the whole time.'),
+        t('medevac', 'squad', 'Medevac', 'Go to them.', 'Space leaps to the ally nearest your crosshair (or the most hurt) within 25m and gives them a 150 shield (12s).')
       ],
       rig: [
-        t('pump', 'aggressive', 'Adrenaline Shot', 'Work best on the edge.', 'Drop below 30% health and for 6s you deal and heal 40% more and take 25% less. Once a minute.'),
-        t('selfrepair', 'steady', 'Self-Repair Nanites', 'Keep yourself in the fight.', 'Every heal you cast on someone else also heals you for 15% of it.'),
-        t('lifeline', 'squad', 'Lifeline', 'Nobody dies on your watch.', 'When a squad member drops below 20% health they are instantly healed for 35% of it. Recharges after 90s.')
+        t('siphon', 'aggressive', 'Siphon Link', 'Beam: heal one, hurt another.', 'Your beam also arcs from your ally to the nearest enemy within 10m of them for 50 a second, and the arc pays for the beam: no Nanite drain while it bites.'),
+        t('longlink', 'steady', 'Long Link', 'Beam: never let go.', 'Your beam latches from 40m instead of 25, only snaps past 42m, and drains 3 Nanites a second instead of 5.'),
+        t('chainlink', 'squad', 'Chain Link', 'Beam: two at once.', 'Your beam jumps on to the most hurt ally within 8m of your target and heals them for half as much.')
       ],
       implant: [
-        t('battlemedic', 'aggressive', 'Battle Medic', 'Heal by shooting.', 'Your builder does 60% more damage, and what it heals or shields reaches one more ally.'),
-        t('overflow', 'steady', 'Overflow', 'Top everyone up early.', 'Healing past full health turns into a shield, up to 300.'),
-        t('chain', 'squad', 'Chain Heal', 'Heal where they bunch up.', 'Every heal you cast also gives 30% of it to the most hurt ally within 8m of the target.')
+        t('shockburst', 'aggressive', 'Shock Burst', 'Burst: clear them off.', 'Nanite Burst also blasts every enemy within 10m for 200 and stuns drones for 1.5s.'),
+        t('recycler', 'steady', 'Recycler', 'Burst: little and often.', 'Nanite Burst gives back 8 Nanites for every hurt ally it heals: catch four and it costs 3.'),
+        t('burstshield', 'squad', 'Burst Shield', 'Burst: get ahead of the hit.', 'Nanite Burst also leaves everyone it touches with a 200 shield.')
       ],
       util: [
-        t('livefire', 'aggressive', 'Live Fire', 'Every heal is a shot too.', 'Every heal on key 2 also fires a 105-damage bolt at your enemy target. Your crit chance is 15%.'),
-        t('supply', 'steady', 'Supply Drop', 'Little and often.', 'Health Keg is ready every 12s instead of 20s, but heals 25% less.'),
-        t('defib', 'squad', 'Defibrillator', 'Clear!', 'Once per raid, the first squad member to go down is shocked back up 3s later with 30% health.')
+        t('caustic', 'aggressive', 'Caustic Field', 'Field: it bites.', 'Enemies standing in your Nano Field take 80 a second.'),
+        t('lingering', 'steady', 'Lingering Field', 'Field: lasts longer.', 'Your Nano Field lasts 10s instead of 6.'),
+        t('purgefield', 'squad', 'Purging Field', 'Field: wash it off.', 'Anyone standing in your Nano Field is cleansed of Bio Sludge.')
       ]
     },
     dps: {
@@ -311,7 +313,7 @@
   /* What the bots take: a mix of styles, close to an average person's build. */
   var BOT_GEAR = {
     tank: { weapon: 'hammer', boots: 'twincharge', rig: 'hardened', implant: 'breathing', util: 'brand' },
-    healer: { weapon: 'bio', boots: 'mag', rig: 'lifeline', implant: 'overflow', util: 'supply' },
+    healer: { weapon: 'link', boots: 'medevac', rig: 'siphon', implant: 'burstshield', util: 'lingering' },
     dps: { weapon: 'rockets', boots: 'dodge', rig: 'pump', implant: 'spotter', util: 'breaker' },
     melee: { weapon: 'chainsaw', boots: 'escort', rig: 'pump', implant: 'flanker', util: 'breaker' }
   };
@@ -761,6 +763,7 @@
   }
   function heal(S, src, p, amt, label) {
     if (!p.alive) return;
+    if (src.kind === 'player' && src.momentum > 0 && T(src, 'stim') && aimWeapon(src)) amt *= 1.3;   // Stim Leap window
     if (src.kind === 'player') {
       if (src.pump > 0) amt *= 1.4;
       amt *= (src.boostNow || 1) * (src.opp > 0 ? 1.3 : 1);
@@ -1128,13 +1131,23 @@
       case 'lburst':
         p.pips = Math.max(0, (p.pips || 0) - 35);
         emit(S, { type: 'fx', fx: 'burst', src: p.id });
-        players(S, true).forEach(function (q) { if (dist(q, p) <= ab.range) heal(S, p, q, 260, 'Nanite Burst'); });
+        players(S, true).forEach(function (q) {
+          if (dist(q, p) > ab.range) return;
+          if (T(p, 'recycler') && q.hp < q.maxHp) p.pips = Math.min(resOf(p).max, p.pips + 8);
+          heal(S, p, q, 260, 'Nanite Burst');
+          if (T(p, 'burstshield')) shieldUp(q, p, 200, 400);
+        });
+        if (T(p, 'shockburst')) enemies(S).forEach(function (e) {
+          if (dist(e, p) > ab.range + (e.radius || 0)) return;
+          damageEnemy(S, p, e, 200, 4, 'Shock Burst');
+          if (e.alive && e.type !== 'boss') e.stagger = Math.max(e.stagger || 0, 1.5);
+        });
         p.gcd = TUNE.boltGcd;
         break;
       case 'field':
         // A grenade: lobbed where you aim, as far as you were aiming (p.aimDist). It settles on an ally within 3m of where it lands.
         var fpos = fieldSpot(S, p);
-        S.fields.push({ id: S.nextId++, x: fpos.x, z: fpos.z, r: 6, t: 6 + TUNE.lobTime, by: p.id, acc: 0 });
+        S.fields.push({ id: S.nextId++, x: fpos.x, z: fpos.z, r: 6, t: (T(p, 'lingering') ? 10 : 6) + TUNE.lobTime, life: T(p, 'lingering') ? 10 : 6, by: p.id, acc: 0 });
         emit(S, { type: 'fx', fx: 'lob', src: p.id, x2: Math.round(fpos.x * 10) / 10, z2: Math.round(fpos.z * 10) / 10 });
         break;
       case 'cloak':
@@ -1414,17 +1427,33 @@
     if (both && !p.bothHeld) { var bi = abilitiesOf(p).map(function (a) { return a.id; }).indexOf('lburst'); if (bi >= 0) tryUse(S, p, bi); }
     p.bothHeld = both;
     var wantBeam = (!!hold[1] || p.beamHoldT > 0) && !both && !p.cast;
+    var longL = T(p, 'longlink');
     if (wantBeam && !p.beamTo) {
-      var lock = softTarget(S, p, { range: 25, dot: 0.75, ally: true });
+      var lock = softTarget(S, p, { range: longL ? 40 : 25, dot: 0.75, ally: true });
       if (lock && (p.pips || 0) > 1) { p.beamTo = lock.id; p.beamAcc = 0; emit(S, { type: 'fx', fx: 'beamon', src: p.id }); }
     }
     if (p.beamTo) {
       var bt = ent(S, p.beamTo);
-      if (!wantBeam || !bt || !bt.alive || dist(p, bt) > 27 || (p.pips || 0) <= 0) { p.beamTo = 0; p.beamAcc = 0; }
+      if (!wantBeam || !bt || !bt.alive || dist(p, bt) > (longL ? 42 : 27) || (p.pips || 0) <= 0) { p.beamTo = 0; p.beamAcc = 0; p.siphonTo = 0; p.chainTo = 0; }
       else {
-        p.pips = Math.max(0, (p.pips || 0) - 5 * dt);
-        p.beamAcc = (p.beamAcc || 0) + 160 * dt;
-        if (p.beamAcc >= 40) { heal(S, p, bt, p.beamAcc, 'Link Beam'); p.beamAcc = 0; }
+        // Siphon Link: the beam arcs on from your ally to the nearest enemy, and the arc pays for the beam.
+        var arc = null;
+        if (T(p, 'siphon')) arc = enemies(S).filter(function (e) { return dist(e, bt) <= 10 + (e.radius || 0); }).sort(function (a, c) { return dist(a, bt) - dist(c, bt); })[0] || null;
+        p.siphonTo = arc ? arc.id : 0;
+        if (!arc) p.pips = Math.max(0, (p.pips || 0) - (longL ? 3 : 5) * dt);
+        p.beamAcc = (p.beamAcc || 0) + 185 * dt;
+        if (p.beamAcc >= 40) {
+          heal(S, p, bt, p.beamAcc, 'Link Beam');
+          if (T(p, 'chainlink')) {
+            // Chain Link: on to the most hurt ally near them, at half strength.
+            var nx = players(S, true).filter(function (q) { return q !== bt && q !== p && q.hp < q.maxHp && dist(q, bt) <= 8; })
+              .sort(function (a, c) { return a.hp / a.maxHp - c.hp / c.maxHp; })[0];
+            p.chainTo = nx ? nx.id : 0;
+            if (nx) heal(S, p, nx, p.beamAcc * 0.5, 'Chain Link');
+          }
+          if (arc) damageEnemy(S, p, arc, 50 * p.beamAcc / 185, 1, 'Siphon');
+          p.beamAcc = 0;
+        }
         return;
       }
     }
@@ -1529,17 +1558,20 @@
     };
     if (T(p, 'dodge')) { var d1 = dir(); land(p.x + d1[0] * 7, p.z + d1[1] * 7, 4, 2, 'leap'); return; }
     if (T(p, 'stim')) { var d2 = dir(); land(p.x + d2[0] * 9, p.z + d2[1] * 9, 8, 3, 'leap'); return; }
+    if (T(p, 'skates')) { p.cds.leap = 8; p.skates = 3; emit(S, { type: 'fx', fx: 'boost', src: p.id }); return; }
     if (p.role === 'tank') { riotCharge(S, p, ox, oz); return; }
     if (T(p, 'medevac')) {
-      var hurt = players(S, true).filter(function (q) { return q !== p && q.hp < q.maxHp && dist(q, p) <= 25; })
-        .sort(function (a, c) { return a.hp / a.maxHp - c.hp / c.maxHp; })[0];
+      // Aimed: whoever you're pointing at. Otherwise (or nobody there), the most hurt.
+      var hurt = (aimWeapon(p) ? softTarget(S, p, { range: 25, dot: 0.75, ally: true }) : null) ||
+        players(S, true).filter(function (q) { return q !== p && q.hp < q.maxHp && dist(q, p) <= 25; })
+          .sort(function (a, c) { return a.hp / a.maxHp - c.hp / c.maxHp; })[0];
       if (!hurt) return;
       var hx = p.x - hurt.x, hz = p.z - hurt.z, hl = Math.sqrt(hx * hx + hz * hz) || 1;
       land(hurt.x + hx / hl * 1.5, hurt.z + hz / hl * 1.5, 12, 0, 'leap');
       shieldUp(hurt, p, 150, 400); emit(S, { type: 'fx', fx: 'guard', src: hurt.id });
     }
   }
-  function moveSpeed(S, p) { return p.speed * (nearby(S, p, 'escort', 8) ? 1.2 : 1) * (p.barrierUp ? 0.5 : 1); }
+  function moveSpeed(S, p) { return p.speed * (nearby(S, p, 'escort', 8) ? 1.2 : 1) * (p.barrierUp ? 0.5 : 1) * (p.skates > 0 ? 1.5 : 1); }
   function tickPlayer(S, p, dt) {
     if (!p.alive) { p.dash = null; return; }
     if (p.dash) tickDash(S, p, dt);
@@ -1567,7 +1599,7 @@
       p.barrierRestT = (p.barrierRestT || 0) + dt;
       if (!(p.barrierBroken > 0) && p.barrierRestT >= TUNE.barrierRest) p.barrier = Math.min(barrierMax(p), p.barrier + TUNE.barrierRegen * (T(p, 'hardened') ? 2 : 1) * dt);
     }   // "recent" fades over a few seconds
-    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
+    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm', 'skates'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
     if (p.hot > 0) {
       var src = ent(S, p.hotSrc), step = Math.min(dt, p.hot);
       p.hot -= dt;
@@ -1917,11 +1949,16 @@
     for (var fi = S.fields.length - 1; fi >= 0; fi--) {
       // Nano Field: heals anyone standing in it, half a second at a time.
       var fd = S.fields[fi], fby = ent(S, fd.by); fd.t -= dt;
-      if (fd.t > 6) continue;   // still in the air
+      if (fd.t > (fd.life || 6)) continue;   // still in the air
       if (!fd.landed) { fd.landed = true; emit(S, { type: 'fx', fx: 'field', src: fd.by, x2: fd.x, z2: fd.z }); }
       fd.acc += dt;
       if (fd.acc >= 0.5) {
-        players(S, true).forEach(function (q) { if (fby && Math.hypot(q.x - fd.x, q.z - fd.z) <= fd.r) heal(S, fby, q, 60 * fd.acc, 'Nano Field'); });
+        players(S, true).forEach(function (q) {
+          if (!fby || Math.hypot(q.x - fd.x, q.z - fd.z) > fd.r) return;
+          heal(S, fby, q, 70 * fd.acc, 'Nano Field');
+          if (T(fby, 'purgefield') && q.sludge > 0) { q.sludge = 0; emit(S, { type: 'log', text: fby.name + "'s field washes the sludge off " + q.name + '.' }); }
+        });
+        if (fby && T(fby, 'caustic')) enemies(S).forEach(function (e) { if (Math.hypot(e.x - fd.x, e.z - fd.z) <= fd.r + (e.radius || 0)) damageEnemy(S, fby, e, 80 * fd.acc, 1, 'Caustic Field'); });
         fd.acc = 0;
       }
       if (fd.t <= 0) S.fields.splice(fi, 1);
@@ -2055,7 +2092,12 @@
     S.telegraphs.forEach(function (g) { if (!g.down && inTele(g, p, 1.2)) inside = g; });   // fallen floor: see avoidFallen
     if (inside) {
       b.danger += dt;
-      if (b.danger > b.react * slow) { var e = escapeDir(inside, p); inp.mx = e.x; inp.mz = e.z; if (T(p, 'dodge') || T(p, 'stim')) inp.jump = true; return inp; }
+      if (b.danger > b.react * slow) {
+        var e = escapeDir(inside, p); inp.mx = e.x; inp.mz = e.z; if (T(p, 'dodge') || T(p, 'stim')) inp.jump = true;
+        // About to land and still under it: pop the personal defensive if there is one.
+        if (inside.dur - inside.t < 0.7 && ready('cloak')) inp.ability = idx('cloak');
+        return inp;
+      }
     } else b.danger = 0;
 
     b.think -= dt / slow;
@@ -2341,7 +2383,7 @@
         if (e.dash) o.ds = 1;
         if (e.lastDeath) o.ld = [e.lastDeath.label, e.lastDeath.t, e.lastDeath.log || []];
         if (e.cast) o.k = [e.cast.ab.id, r2(e.cast.t), r2(e.cast.dur), e.cast.targetId];
-        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
+        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
         snap.p.push(o);
       } else {
         var q = { i: e.id, ty: e.type, n: e.name, x: r2(e.x), z: r2(e.z), f: r2(e.facing), h: Math.round(e.hp), mh: e.maxHp, a: e.alive ? 1 : 0, tg: e.target, ra: e.radius };
@@ -2384,7 +2426,7 @@
       p.x = o.x; p.z = o.z; p.facing = o.f; p.hp = o.h; p.alive = !!o.a; p.target = o.tg; p.gcd = o.g; p.cds = o.c || {};
       p.moving = !!o.mv; p.auto = !!o.au || !p.human; p.defibUsed = !!o.du;
       p.lastDeath = o.ld ? { label: o.ld[0], t: o.ld[1], log: o.ld[2] || [] } : null;
-      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm'].forEach(function (f) { p[f] = o[f] || 0; });
+      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates'].forEach(function (f) { p[f] = o[f] || 0; });
       if (o.k) {
         var ab = abilitiesOf(p).filter(function (a) { return a.id === o.k[0]; })[0];
         p.cast = ab ? { ab: ab, t: o.k[1], dur: o.k[2], targetId: o.k[3] } : null;
@@ -2506,7 +2548,7 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.22.1';
+  var VERSION = '0.23.0';
 
   var api = {
     VERSION: VERSION,

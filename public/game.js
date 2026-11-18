@@ -386,7 +386,7 @@
     var showRes = function () {
       var wi = Math.max(0, k.weapons.map(function (w) { return w.id; }).indexOf(gearFor[r].weapon));
       $('#armoryRes').textContent = (k.weapons[wi].res || k.res).how;
-      $('#armoryWeapons').textContent = 'Always carried: ' + k.utils.map(function (u) { return u.name; }).join(', ') + '. Ultimate: ' + (k.weapons[wi].ult || k.ult).name + (r === 'tank' ? '. Space: Riot Charge' : '');
+      $('#armoryWeapons').textContent = 'Always carried: ' + (k.weapons[wi].utils || k.utils).map(function (u) { return u.name; }).join(', ') + '. Ultimate: ' + (k.weapons[wi].ult || k.ult).name + (r === 'tank' ? '. Space: Riot Charge' : '');
     };
     showRes();
     $('#armoryTheme').textContent = tree.theme; $('#armoryTheme').className = 'armtheme display role-' + r;
@@ -1104,7 +1104,12 @@
     Sim.players(S).forEach(function (p) {
       if (!p.alive) return;
       var bt = p.beamTo ? Sim.ent(S, p.beamTo) : null;
-      if (bt && bt.alive) linkLine('b' + p.id, p, bt, 0x4fd88f, 0.95);
+      if (bt && bt.alive) {
+        linkLine('b' + p.id, p, bt, 0x4fd88f, 0.95);
+        var sf = p.siphonTo ? Sim.ent(S, p.siphonTo) : null, ch = p.chainTo ? Sim.ent(S, p.chainTo) : null;
+        if (sf && sf.alive) linkLine('x' + p.id, bt, sf, 0xb46bff, 0.9);    // Siphon Link: the arc on to an enemy
+        if (ch && ch.alive) linkLine('c' + p.id, bt, ch, 0x9dffc8, 0.6);    // Chain Link: the jump on to a second ally
+      }
       if (p.storm > 0) Sim.players(S).forEach(function (q) { if (q !== p && q.alive && Math.hypot(q.x - p.x, q.z - p.z) <= 25) linkLine('s' + p.id + '-' + q.id, p, q, 0x9dffc8, 0.6); });
     });
     for (var lk in special.links) if (!seenL[lk]) { fxRoot.remove(special.links[lk]); special.links[lk].geometry.dispose(); delete special.links[lk]; }

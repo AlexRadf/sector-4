@@ -4,6 +4,22 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.23.0 (2026-11-18) Medic talents for the aimed Link Gun
+- A new Medic tree, themed to the Link Gun. Like the Juggernaut's, no talent adds a button; each row changes one you already have.
+  - **Footwork (Space):** Stim Leap (leap 9m, heals 30% stronger for 3s after) / Nanite Skates (50% more speed for 3s, keep
+    beaming and shooting) / Medevac (leap to the ally you're pointing at, or the most hurt, and shield them 150).
+  - **Link (your beam):** Siphon Link (the beam arcs on to the nearest enemy for 50 a second and costs nothing while it bites) /
+    Long Link (latches from 40m, drains 3 a second) / Chain Link (jumps on to the most hurt ally within 8m of your target at half strength).
+  - **Burst (LMB + RMB):** Shock Burst (also blasts enemies within 10m for 200 and stuns drones) / Recycler (8 Nanites back
+    for each hurt ally it heals) / Burst Shield (everyone it touches also gets a 200 shield).
+  - **Field (Q):** Caustic Field (enemies in it take 80 a second) / Lingering Field (10s instead of 6) / Purging Field (cleanses Bio Sludge).
+- Removed: Surgical Stance, Adrenaline Shot, Self-Repair Nanites, Lifeline, Battle Medic, Overflow, Chain Heal, Live Fire, Supply Drop,
+  Defibrillator. Saved builds fall back to the first pick in each row. Rows 2 to 4 only work on the Link Gun until the Bio Rifle and
+  Shield Gun are converted.
+- The beam is a little stronger (185 a second) and Nano Field heals 70 a second.
+- Bot Medics now play the aimed Link Gun (Medevac, Siphon Link, Burst Shield, Lingering Field), and any bot pops its personal defensive
+  if it's still under something about to land.
+
 ## 0.22.1 (2026-11-18) A death log that explains wipes
 - Every hit in the death log is labelled: **Avoidable** (step out of it), **Tank buster** (block or shield it), **AoE** (hits the whole
   squad, heal through it), **Debuff** (get it purged), **Squad** (the shield wasn't broken), **Tanking** (the boss's fists on the tank),

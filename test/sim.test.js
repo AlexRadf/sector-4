@@ -81,24 +81,13 @@ test('Riot Charge closes the gap to the target', () => {
   assert.ok(p.charges < 1);
 });
 
-test('Medevac leaps to the most hurt ally and shields them', () => {
-  const { S, p } = solo('healer', { boots: 'medevac' });
+test('Medevac leaps to the most hurt ally and shields them (or, aimed, to whoever you point at)', () => {
+  const { S, p } = solo('healer', { weapon: 'bio', boots: 'medevac' });
   const hurt = Sim.players(S).find((q) => q.role === 'dps');
   hurt.hp = Math.round(hurt.maxHp * 0.3);
   run(S, 0.1, { jump: true });
   assert.ok(Math.hypot(p.x - hurt.x, p.z - hurt.z) < 3);
   assert.ok(hurt.armor > 0);
-});
-
-test('Defibrillator brings the first downed player back once', () => {
-  const { S, p } = solo('healer', { util: 'defib' });
-  const ally = Sim.players(S).find((q) => q !== p && q.role !== 'tank');
-  ally.hp = 1; ally.armor = 0;
-  Sim.damagePlayer(S, S.bossId, ally, 5000, 'Test', true);
-  assert.strictEqual(ally.alive, false);
-  run(S, 3.5);
-  assert.strictEqual(ally.alive, true);
-  assert.ok(p.defibUsed);
 });
 
 test('Rampage stacks while the Wrecker keeps swinging', () => {
@@ -615,7 +604,7 @@ test('phase three: the floor falls for good, and a drone shoved onto it goes dow
 
 /* The aimed Link Gun: a Medic in a clear space, everyone else frozen so the test is about the gun. */
 function medic() {
-  const a = arena('healer', { weapon: 'link' });
+  const a = arena('healer', { weapon: 'link', rig: 'chainlink' });
   Sim.players(a.S).forEach((q) => { if (q !== a.p) { q.human = true; q.auto = false; } q.armor = 0; });
   a.p.x = 0; a.p.z = 0; a.boss.x = 0; a.boss.z = 25;
   const tank = Sim.players(a.S).find((q) => q.role === 'tank'), dps = Sim.players(a.S).find((q) => q.role === 'dps');
@@ -682,4 +671,54 @@ test('Nano Field is a grenade: thrown as far as you aim, in the air for a moment
   assert.strictEqual(dps.hp, 300, 'still in the air');
   idle(a.S, 1.5);
   assert.ok(dps.hp > 300);
+});
+
+test('Medevac, aimed: leaps to the ally you point at, not the most hurt', () => {
+  const a = medic();
+  a.p.gear.boots = 'medevac';
+  a.tank.x = 15; a.tank.z = 0; a.tank.hp = a.tank.maxHp - 100;
+  a.dps.x = -15; a.dps.z = 0; a.dps.hp = 100;
+  Sim.step(a.S, 1 / 30, { aim: Math.PI / 2, jump: true });
+  assert.ok(Math.hypot(a.p.x - a.tank.x, a.p.z - a.tank.z) < 3, a.p.x + ',' + a.p.z);
+});
+
+test('Medic beam talents: Siphon Link bites an enemy and costs nothing, Long Link reaches 40m, Chain Link jumps on', () => {
+  const beam = (rig, setup) => {
+    const a = medic(); a.p.gear.rig = rig; a.p.pips = 50;
+    a.tank.x = 0; a.tank.z = 10; a.tank.hp = 400;
+    if (setup) setup(a);
+    a.S.events.length = 0;
+    for (let i = 0; i < 45; i++) Sim.step(a.S, 1 / 30, { aim: toward(a.p, a.tank), hold: [false, true] });
+    return a;
+  };
+  const si = beam('siphon', (a) => { a.boss.x = 0; a.boss.z = 16; });
+  assert.ok(si.S.events.some((e) => e.type === 'dmg' && e.label === 'Siphon'));
+  assert.ok(si.p.pips >= 50, 'no drain while it bites: ' + si.p.pips);
+  const ll = beam('longlink', (a) => { a.tank.z = 35; });
+  assert.strictEqual(ll.p.beamTo, ll.tank.id);
+  const cl = beam('chainlink', (a) => { a.dps.x = 3; a.dps.z = 12; a.dps.hp = 300; });
+  assert.ok(cl.S.events.some((e) => e.type === 'heal' && e.dst === cl.dps.id && e.label === 'Chain Link'));
+});
+
+test('Medic burst and field talents: Shock Burst hits, Burst Shield shields, Recycler refunds; Caustic burns, Lingering lasts, Purging cleanses', () => {
+  const burst = (implant) => {
+    const a = medic(); a.p.gear.implant = implant; a.p.pips = 60;
+    a.tank.x = 3; a.tank.z = 3; a.tank.hp = 500; a.boss.x = 0; a.boss.z = 9;
+    a.S.events.length = 0; a.S.rng = () => 0.5;
+    Sim.step(a.S, 1 / 30, { aim: 0, hold: [true, true] });
+    return a;
+  };
+  assert.ok(burst('shockburst').S.events.some((e) => e.type === 'dmg' && e.label === 'Shock Burst'));
+  assert.ok(burst('burstshield').tank.armor >= 200);
+  assert.ok(burst('recycler').p.pips >= 60 - 35 + 8);
+  const field = (util) => {
+    const a = medic(); a.p.gear.util = util; a.p.pips = 60;
+    a.tank.x = 0; a.tank.z = 6; a.tank.sludge = 8; a.boss.x = 0; a.boss.z = 9;
+    press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'field'), { aim: 0, ad: 6 });
+    a.S.events.length = 0; idle(a.S, 1.5);
+    return a;
+  };
+  assert.ok(field('caustic').S.events.some((e) => e.type === 'dmg' && e.label === 'Caustic Field'));
+  assert.ok(field('lingering').S.fields[0].t > 8);
+  assert.ok(!(field('purgefield').tank.sludge > 0));
 });
