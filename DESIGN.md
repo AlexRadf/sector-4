@@ -1,7 +1,7 @@
 # Sector-4 design pillars
 
 The rules every change is checked against. If a feature breaks one of these, change the feature or
-change this file on purpose, never by drift. Last revised: v0.23.1 (2026-11-17).
+change this file on purpose, never by drift. Last revised: v0.25.0 (2026-11-17).
 
 ## What the game is
 
@@ -65,6 +65,6 @@ while dodging). Rules for the healer prototype:
 1. Impact Hammer tuned (done, v0.19.0) and played by Alex and Katie.
 2. Open items: death log, boss targeting the dead, phase 3 floor, keybinds (v0.20.0).
 3. **Aimed healer prototype**: the Link Gun (v0.21.0) and its talent tree (v0.23.0), being played.
-4. One aimed DPS weapon.
+4. One aimed DPS weapon: the Shock Rifle and the Foreman's back vent (v0.25.0), to be played. Then a Striker talent pass.
 5. Only then convert the remaining weapons (Flak Cannon, Minigun, other Medic and Striker weapons),
    or cut weapons if one good one per role is enough.

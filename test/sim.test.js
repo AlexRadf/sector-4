@@ -200,7 +200,7 @@ test('Impact Hammer: swing, swing, slam, and holding key 1 keeps the chain going
   assert.ok(hits.length >= 4, hits.join(','));
   assert.deepStrictEqual(hits.slice(0, 3), ['Swing', 'Swing', 'Slam!']);
   S.events.length = 0; p.gcd = 0; press(S, 0, { aim: face + Math.PI });
-  assert.ok(!S.events.some((e) => e.type === 'dmg' && e.dst === boss.id), 'facing away misses');
+  assert.ok(!S.events.some((e) => e.type === 'dmg' && e.dst === boss.id && e.src === p.id), 'facing away misses');
 });
 
 test('Impact Hammer: swings and blocks fill Shield Energy, and both buttons together Shove', () => {
@@ -423,7 +423,7 @@ test('Counter-Slam during a Haymaker cancels it and staggers the Foreman', () =>
 });
 
 test('Deadeye shoots the Heavy Rocket down; Field Hospital clears radiation', () => {
-  const a = arena('dps');
+  const a = arena('dps', { weapon: 'rockets' });
   a.p.ult = 100;
   a.S.missile = { x: 0, z: 0, x0: 0, z0: 0, tgt: Sim.players(a.S)[1].id, t: 2, dur: 7 };
   a.S.hero = { role: 'dps', t: 0 };
@@ -734,4 +734,58 @@ test('Purge is smart: a sludged ally roughly in front first, then yourself, with
   a.p.cds.purge = 0; a.p.gcd = 0;
   press(a.S, i, { aim: 0 });   // still pointing at the dps, nobody else sludged
   assert.ok(!(a.p.sludge > 0), 'then yourself, no aiming away needed');
+});
+
+/* The aimed Shock Rifle: a Striker with everyone else frozen, the Foreman 20m ahead facing away (his back to us). */
+function striker() {
+  const a = arena('dps', { weapon: 'shock' });
+  Sim.players(a.S).forEach((q) => { if (q !== a.p) { q.human = true; q.auto = false; q.x = 30; q.z = -20; } });
+  a.p.x = 0; a.p.z = 0; a.boss.x = 0; a.boss.z = 20; a.boss.facing = 0; a.p.pips = 100;
+  a.S.rng = () => 0.5;
+  return a;
+}
+const drone = (id, x, z) => ({ id, kind: 'enemy', type: 'drone', name: 'SECURITY DRONE', x, z, facing: 0, speed: 0, radius: 1, hp: 1600, maxHp: 1600, alive: true, threat: {}, target: null, fixate: null, swing: 9, melee: 0, swingInt: 9, cast: null });
+
+test('Shock Rifle: the beam snaps tighter than the Medic, and the vent on his back takes 30% more', () => {
+  const a = striker();
+  press(a.S, 0, { aim: 0.12 });
+  const hit = a.S.events.find((e) => e.type === 'dmg' && e.src === a.p.id && e.label === 'Shock Beam');
+  assert.ok(hit && hit.vent === 1, 'hit the vent from behind');
+  a.p.gcd = 0; a.S.events.length = 0;
+  press(a.S, 0, { aim: 0.6 });
+  assert.ok(!a.S.events.some((e) => e.type === 'dmg' && e.label === 'Shock Beam'), 'too far off: no snap');
+  const b = striker(); b.boss.facing = Math.PI;   // facing us: no vent
+  press(b.S, 0, { aim: 0 });
+  const front = b.S.events.find((e) => e.type === 'dmg' && e.label === 'Shock Beam');
+  assert.ok(front && !front.vent && hit.amt > front.amt * 1.2, hit.amt + ' vs ' + front.amt);
+});
+
+test('Shock Rifle: the stream builds while you stay on one target and starts again when you switch', () => {
+  const a = striker();
+  a.S.ents.push(drone(960, 14, 6));
+  for (let i = 0; i < 90; i++) Sim.step(a.S, 1 / 30, { aim: 0, hold: [false, true] });
+  assert.ok(a.p.streamRamp > 2.9 && a.p.streamTo === a.boss.id);
+  assert.ok(a.p.pips < 100 - 3 * 12 + 3 * 8 + 1);
+  Sim.step(a.S, 1 / 30, { aim: Math.atan2(14, 6), hold: [false, true] });
+  assert.strictEqual(a.p.streamTo, 960); assert.ok(a.p.streamRamp < 0.1, 'new target: built from zero');
+});
+
+test('Shock Rifle: both buttons detonate a Shock Combo on what you point at, splashing everything near it', () => {
+  const a = striker();
+  const d1 = drone(961, 2, 18), d2 = drone(962, 0, 30);
+  a.S.ents.push(d1, d2); a.S.events.length = 0;
+  Sim.step(a.S, 1 / 30, { aim: 0, hold: [true, true] });
+  const combo = a.S.events.filter((e) => e.type === 'dmg' && e.label === 'Shock Combo!');
+  assert.ok(combo.some((e) => e.dst === a.boss.id) && combo.some((e) => e.dst === 961) && !combo.some((e) => e.dst === 962), combo.map((e) => e.dst).join(','));
+  assert.ok(Math.abs(a.p.pips - 50) < 1);
+});
+
+test('EMP Grenade: thrown where you aim, stuns drones and hits an overcharge shield hard', () => {
+  const a = striker();
+  const d = drone(963, 0, 10); a.S.ents.push(d);
+  a.boss.x = 0; a.boss.z = 14; a.boss.oshield = { hp: 5000, max: 10000, t: 0, dur: 14 };
+  press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'emp'), { aim: 0, ad: 11 });
+  idle(a.S, 0.8);
+  assert.ok(d.stagger >= 2, 'drone stunned');
+  assert.ok(a.boss.oshield ? a.boss.oshield.hp <= 4400 : true, 'shield took the EMP');
 });

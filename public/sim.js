@@ -58,15 +58,30 @@
     return best;
   }
   /* Where a Nano Field grenade thrown now would land: along your aim, as far as you're aiming, pulled onto a nearby ally. */
-  function fieldSpot(S, p) {
+  function fieldSpot(S, p) { return lobSpot(S, p, true); }
+  /* A thrown thing (Nano Field, EMP Grenade): along your aim, as far as you're aiming, settling on a nearby ally or enemy. */
+  function lobSpot(S, p, allies) {
     var d = p.aimDist == null ? 10 : p.aimDist;
     var spot = { x: p.x + Math.sin(p.facing) * d, z: p.z + Math.cos(p.facing) * d };
-    var near = players(S, true).filter(function (q) { return Math.hypot(q.x - spot.x, q.z - spot.z) <= 3; })
+    var pool = allies ? players(S, true) : enemies(S);
+    var near = pool.filter(function (q) { return Math.hypot(q.x - spot.x, q.z - spot.z) <= 3 + (allies ? 0 : (q.radius || 0)); })
       .sort(function (a, c) { return Math.hypot(a.x - spot.x, a.z - spot.z) - Math.hypot(c.x - spot.x, c.z - spot.z); })[0];
-    if (near) { spot.x = near.x; spot.z = near.z; }
+    if (near && (allies || near.type !== 'boss')) { spot.x = near.x; spot.z = near.z; }
     clampArena(spot, 2);
     return spot;
   }
+  /* The Shock Combo: a detonation on one enemy that splashes everything near it. */
+  function shockBlast(S, p, t, main, splash, r, stun, label) {
+    emit(S, { type: 'fx', fx: 'scombo', src: t.id, pw: r });
+    damageEnemy(S, p, t, main, 1.5, label);
+    enemies(S).forEach(function (e) {
+      if (e === t || !e.alive || dist(e, t) > r + (e.radius || 0)) return;
+      damageEnemy(S, p, e, splash, 1.5, label);
+      if (stun && e.alive && e.type !== 'boss') e.stagger = Math.max(e.stagger || 0, stun);
+    });
+    if (stun && t.alive && t.type !== 'boss') t.stagger = Math.max(t.stagger || 0, stun);
+  }
+  var SHOCK_AIM = { range: 35, dot: 0.95, enemy: true };
   var BOLT_AIM = { range: 35, dot: 0.9, ally: true, enemy: true, hurt: true };
   function aimWeapon(p) { var w = p.kit && p.kit.weapons[p.weapon]; return !!(w && w.aim); }
   function W(id, name, pitch, b, sp, pr) {
@@ -124,7 +139,7 @@
            { id: 'lbeam', key: 'RMB', name: 'Link Beam', kind: 'aim', range: 25, hold: 'channel', gcd: false, desc: 'Hold to latch onto the ally nearest your crosshair. The beam stays attached and heals 185 a second for 5 Nanites a second. It snaps if they get more than 25m away. No bolts while it\'s on.' },
            { id: 'lburst', key: 'L+R', name: 'Nanite Burst', kind: 'aim', range: 10, needs: 35, gcd: false, desc: 'Press both mouse buttons (35 Nanites). Heals everyone within 10m of you, you included, for 260. Get into the group, then pop it.' }],
           { aim: true,
-            utils: [A({ id: 'field', key: 'Q', name: 'Nano Field', kind: 'aim', range: 25, cd: 10, cost: 25, desc: '25 Nanites. Hold to aim a healing grenade (look further up or down the room to throw it further or nearer), let go to throw. It lands as a 6m field, settling on any ally within 3m of where it lands. Anyone standing in it heals 70 a second for 6s.' }),
+            utils: [A({ id: 'field', key: 'Q', name: 'Nano Field', kind: 'aim', range: 25, cd: 10, cost: 25, lob: true, lobR: 6, desc: '25 Nanites. Hold to aim a healing grenade (look further up or down the room to throw it further or nearer), let go to throw. It lands as a 6m field, settling on any ally within 3m of where it lands. Anyone standing in it heals 70 a second for 6s.' }),
                     A({ id: 'purge', key: 'E', name: 'Purge', kind: 'friend', range: 30, cd: 6, gcd: false, desc: 'Cleanses Bio Sludge and heals for 60. Smart: it takes a sludged ally roughly in front of you first, then you if you have it, then whoever you point at.' }),
                     A({ id: 'cloak', key: 'F', name: 'Nanite Cloak', kind: 'self', range: 0, cd: 25, gcd: false, desc: 'You take 40% less damage for 4s. For when you had to stand somewhere dangerous to reach someone.' })],
             ult: A({ id: 'storm', key: 'R', name: 'Link Storm', kind: 'self', range: 25, gcd: false, role: 'ult', desc: 'Ultimate. Every ally within 25m of you is instantly healed for 35% of their health, then your beam links to all of them for 5s, healing each 150 a second. Free.' }) }),
@@ -149,10 +164,17 @@
         how: 'Capacitor. Recharges on its own. Key 1 is free, key 2 drains 50. Fire as it fills, or pool to 100 and dump two in a row. Crits give 10 back.' },
       blurb: 'Ranged damage from a safe distance.',
       weapons: [
-        W('shock', 'Shock Rifle', 'The combo rifle. Beam marks, Core within 3s detonates the mark for 40% more.',
-          { id: 'beam', name: 'Shock Beam', kind: 'enemy', range: 35, procChance: 0.2, desc: 'Free. Instant 70. Marks the target for 3s.' },
-          { id: 'core', name: 'Shock Core', kind: 'enemy', range: 35, cast: 1.2, desc: '50 Capacitor. 390, 1.2s cast. 40% more on a marked target: the Shock Combo.' },
-          { id: 'gib', name: 'Instagib', kind: 'enemy', range: 50, desc: 'Proc. Instant 380.' }),
+        TW('shock', 'Shock Rifle', 'Aimed precision. A quick beam, a stream that builds while you hold it on one target, and the Shock Combo on both buttons: a core that detonates on whatever you are pointing at. Hit the Foreman\'s back vent for 30% more.',
+          { id: 'cap', name: 'Capacitor', max: 100, start: 60, regen: 8, build: 0,
+            how: 'Capacitor. Recharges on its own, 8 a second. The Shock Beam is free; the stream drains 12 a second and the Shock Combo costs 50. Crits give 10 back.' },
+          [{ id: 'sbeam', key: 'LMB', name: 'Shock Beam', kind: 'aim', range: 35, hold: 'repeat', desc: 'Hold or tap. An instant beam at the enemy nearest your crosshair (a tighter snap than the Medic\'s: aim matters): 80.' },
+           { id: 'stream', key: 'RMB', name: 'Shock Stream', kind: 'aim', range: 30, hold: 'channel', gcd: false, desc: 'Hold on one enemy: a continuous stream that builds from 60 to 220 a second over 3s, draining 12 Capacitor a second. Lose them from your crosshair and it starts again. No beams while it\'s on.' },
+           { id: 'scombo', key: 'L+R', name: 'Shock Combo', kind: 'aim', range: 35, needs: 50, gcd: false, desc: 'Press both mouse buttons (50 Capacitor). A core detonates on the enemy nearest your crosshair: 420 to it and 240 to everything within 6m of it.' }],
+          { aim: true,
+            utils: [A({ id: 'emp', key: 'Q', name: 'EMP Grenade', kind: 'aim', range: 25, cd: 15, lob: true, lobR: 6, desc: 'Hold to aim, let go to throw (look further up the room to throw further). 6m blast: 200 damage, drones stunned for 2.5s, and an overcharge shield takes 600 more.' }),
+                    A({ id: 'adren', key: 'E', name: 'Adrenaline', kind: 'self', range: 0, cd: 30, gcd: false, desc: '40% more damage for 6s. Save it for the vent, the shield or the stagger.' }),
+                    A({ id: 'kshield', key: 'F', name: 'Kinetic Shield', kind: 'self', range: 0, cd: 25, gcd: false, desc: 'A 350 shield on yourself for 4s.' })],
+            ult: A({ id: 'nova', key: 'R', name: 'Shock Nova', kind: 'aim', range: 40, gcd: false, role: 'ult', desc: 'Ultimate. The biggest combo there is, on the enemy nearest your crosshair: 900 to it, 450 to everything within 10m, and drones stunned for 3s.' }) }),
         W('rockets', 'Rocket Launcher', 'Lock-on. Each Rocket on a target adds a rocket to your next Volley, up to five in the salvo. All instant.',
           { id: 'rocket', name: 'Rocket', kind: 'enemy', range: 30, procChance: 0.2, desc: 'Free. 85, splashing 55 within 4m. Adds a Lock-on.' },
           { id: 'volley', name: 'Rocket Volley', kind: 'enemy', range: 30, desc: '50 Capacitor. Two rockets of 110 plus one for each Lock-on (up to 3), each splashing 45.' },
@@ -314,7 +336,7 @@
   var BOT_GEAR = {
     tank: { weapon: 'hammer', boots: 'twincharge', rig: 'hardened', implant: 'breathing', util: 'brand' },
     healer: { weapon: 'link', boots: 'medevac', rig: 'chainlink', implant: 'burstshield', util: 'lingering' },
-    dps: { weapon: 'rockets', boots: 'dodge', rig: 'pump', implant: 'spotter', util: 'breaker' },
+    dps: { weapon: 'shock', boots: 'dodge', rig: 'pump', implant: 'spotter', util: 'breaker' },
     melee: { weapon: 'chainsaw', boots: 'escort', rig: 'pump', implant: 'flanker', util: 'breaker' }
   };
   function validGear(role, g) {
@@ -335,7 +357,7 @@
        hold: seconds a key direction is held before re-deciding. aim: radians of error on a new direction.
        eightWay: WASD gives eight directions relative to the camera, not any angle. */
     hands: { holdMin: 0.12, holdMax: 0.34, aim: 0.22, release: 0.07, eightWay: true },
-    bossHp: 165000, bossMelee: 515, bossSwing: 2.0, cleaveMult: 0.5,
+    bossHp: 182000, bossMelee: 515, bossSwing: 2.0, cleaveMult: 0.5,
     barrageEvery: 12, barrageDelay: 2.6, barrageR: 6, barrageDmg: 660,
     // Overcharge shield: break it inside the window or the whole room takes the pulse. Breaking it staggers him.
     // Overcharge: energy fills over overEvery seconds, then he walks to the middle, channels a shield and pulses the room.
@@ -353,7 +375,7 @@
     chargeEvery: 19, chargeDelay: 1.8, chargeW: 4.5, chargeDmg: 380,
     // Crusher: a telegraphed tank buster on whoever the Foreman is fighting. Mitigate it or eat most of your health.
     // Impact Hammer: combo pacing, Aegis Dome size, Riot Charge recharge, and how the barrier holds and recovers.
-    boltGcd: 0.6, lobTime: 0.6, swingGcd: 0.6, slamGcd: 0.9, comboReset: 2, aegisR: 9, aegisDur: 5, chargeCd: 10,
+    boltGcd: 0.6, lobTime: 0.6, ventMult: 1.3, sbeamGcd: 0.6, swingGcd: 0.6, slamGcd: 0.9, comboReset: 2, aegisR: 9, aegisDur: 5, chargeCd: 10,
     barrierHp: 1800, barrierRegen: 180, barrierRest: 1.5, barrierBreak: 5,
     busterEvery: 15, busterCast: 2.5, busterDmg: 1860,
     droneEvery: 32, droneHp: 1600, droneMelee: 90, droneSwing: 1.5,
@@ -475,7 +497,7 @@
     var humans = opts.humans || (opts.humanRole ? [{ role: opts.humanRole, gear: opts.gear, name: 'YOU' }] : []);
     var S = {
       t: 0, phase: 1, result: null, enraged: false, countdown: 4,
-      ents: [], telegraphs: [], events: [], revives: [], domes: [], fields: [], nextId: 1,
+      ents: [], telegraphs: [], events: [], revives: [], domes: [], fields: [], blasts: [], nextId: 1,
       m: { p: {}, taken: {}, killers: {}, shields: { raised: 0, broken: 0 }, heroes: { tank: [0, 0], healer: [0, 0], dps: [0, 0], melee: [0, 0] } },
       rng: makeRng(opts.seed || 12345),
       timers: { buster: 11, barrage: 8, over: 22, drone: 4, sludge: 7, charge: 13, leap: 30, collapse: 6, hero: 0 },
@@ -572,6 +594,9 @@
       }
     }
     if (tgt.spotted > 0) amt *= 1.06;
+    // The Foreman's back vent: aimed weapons hitting him from behind hit the glowing vent. The tank turns him; the DPS cash in.
+    var vent = tgt.type === 'boss' && src.kind === 'player' && aimWeapon(src) && src.role !== 'tank' && behind(src, tgt);
+    if (vent) amt *= TUNE.ventMult;
     if (tgt.branded > 0) amt *= 1.15;
     if (tgt.stagger > 0) amt *= TUNE.staggerBonus;
     amt = Math.round(amt);
@@ -589,7 +614,7 @@
     if (src.kind === 'player') met(S, src.id).dmg += dealt;
     tgt.hp -= amt;
     addThreat(S, tgt, src.id, shown * (threatMult || 1));
-    emit(S, { type: 'dmg', src: src.id, dst: tgt.id, amt: shown, label: label, crit: crit ? 1 : 0, sh: soaked > 0 ? 1 : 0 });
+    emit(S, { type: 'dmg', src: src.id, dst: tgt.id, amt: shown, label: label, crit: crit ? 1 : 0, sh: soaked > 0 ? 1 : 0, vent: vent ? 1 : 0 });
     var killed = tgt.hp <= 0;
     if (killed) {
       tgt.hp = 0; tgt.alive = false; tgt.cast = null; tgt.charging = null;
@@ -939,15 +964,17 @@
   /* Bots treat fallen floor like a wall: off it straight away (towards the middle, which never falls),
      and steer round it rather than walking in. */
   function avoidFallen(S, p, inp) {
-    if (!S.telegraphs.some(function (g) { return g.down; })) return inp;
+    if (!S.telegraphs.length) return inp;
     var r = Math.sqrt(p.x * p.x + p.z * p.z) || 1;
     if (fallen(S, p)) { inp.mx = -p.x / r; inp.mz = -p.z / r; return inp; }
+    // A live warning (not one we're already standing in, which the escape handles) is a wall too: don't walk back into it.
+    var bad = function (pt) { return fallen(S, pt) || S.telegraphs.some(function (g) { return !g.down && g.t < g.dur && !inTele(g, p, 0.5) && inTele(g, pt, 0.8); }); };
     var mx = inp.mx || 0, mz = inp.mz || 0, len = Math.sqrt(mx * mx + mz * mz);
     if (len < 0.01) return inp;
     var a0 = Math.atan2(mx, mz), tries = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2];
     for (var i = 0; i < tries.length; i++) {
       var a = a0 + tries[i];
-      if (!fallen(S, { x: p.x + Math.sin(a) * 2.5, z: p.z + Math.cos(a) * 2.5 })) { inp.mx = Math.sin(a); inp.mz = Math.cos(a); return inp; }
+      if (!bad({ x: p.x + Math.sin(a) * 2.5, z: p.z + Math.cos(a) * 2.5 })) { inp.mx = Math.sin(a); inp.mz = Math.cos(a); return inp; }
     }
     inp.mx = 0; inp.mz = 0; return inp;
   }
@@ -1120,6 +1147,39 @@
         emit(S, { type: 'beam', src: p.id, dst: pt.id, fx: 'shell' });
         damageEnemy(S, p, pt, 120, 14, 'Piston Shot');
         break;
+      /* ---- Striker, aimed Shock Rifle ---- */
+      case 'sbeam':
+        var sbt = softTarget(S, p, SHOCK_AIM);
+        p.gcd = TUNE.sbeamGcd;
+        if (!sbt) { emit(S, { type: 'fx', fx: 'boltmiss', src: p.id }); break; }
+        emit(S, { type: 'beam', src: p.id, dst: sbt.id, fx: 'shock' });
+        damageEnemy(S, p, sbt, 80, 1, 'Shock Beam');
+        if (p.critThis) p.pips = Math.min(resOf(p).max, (p.pips || 0) + 10);
+        break;
+      case 'stream':
+        p.streamHoldT = 1.2;
+        break;
+      case 'scombo':
+        var sct = softTarget(S, p, { range: ab.range, dot: 0.9, enemy: true });
+        if (!sct) { p.gcd = 0.3; return fail(S, p, 'Nothing to detonate on'); }
+        p.pips = Math.max(0, (p.pips || 0) - 50);
+        shockBlast(S, p, sct, 420, 240, 6, 0, 'Shock Combo!');
+        p.gcd = TUNE.sbeamGcd;
+        break;
+      case 'emp':
+        var es = lobSpot(S, p, false);
+        S.blasts.push({ x: es.x, z: es.z, t: TUNE.lobTime, by: p.id, kind: 'emp', r: 6 });
+        emit(S, { type: 'fx', fx: 'lob', src: p.id, x2: Math.round(es.x * 10) / 10, z2: Math.round(es.z * 10) / 10, c: 'emp' });
+        break;
+      case 'kshield':
+        shieldUp(p, p, 350, 700); p.kshieldT = 4; emit(S, { type: 'fx', fx: 'guard', src: p.id });
+        break;
+      case 'nova':
+        var nt = softTarget(S, p, { range: ab.range, dot: 0.85, enemy: true }) || ent(S, S.bossId);
+        if (nt && nt.alive) shockBlast(S, p, nt, 900, 450, 10, 3, 'Shock Nova!');
+        proc(S, p, 'nova', 'SHOCK NOVA', 'all');
+        break;
+
       /* ---- Medic, aimed Link Gun ---- */
       case 'lbolt':
         var lt = softTarget(S, p, BOLT_AIM);
@@ -1320,7 +1380,7 @@
       case 'headshot':
         emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'snipe' });
         damageEnemy(S, p, tgt, 420, 1, 'Headshot!'); break;
-      case 'adren': p.adren = 8; emit(S, { type: 'fx', fx: 'adren', src: p.id }); break;
+      case 'adren': p.adren = aimWeapon(p) ? 6 : 8; emit(S, { type: 'fx', fx: 'adren', src: p.id }); break;
       case 'trans':
         var fx = p.x, fz = p.z, jx, jz;
         if (p.moving) { jx = p.inMx; jz = p.inMz; }
@@ -1419,7 +1479,8 @@
     if (p.dash) { p.moving = true; p.still = 0; return; }   // mid-charge: the boosters are in control
     if (aimWeapon(p)) {
       if (typeof inp.aim === 'number' && isFinite(inp.aim)) p.facing = inp.aim;
-      if (p.kit.weapons[p.weapon].id === 'link') medicHold(S, p, inp.hold || [], dt); else hammerHold(S, p, inp.hold || [], dt);
+      var hw0 = p.kit.weapons[p.weapon].id;
+      if (hw0 === 'link') medicHold(S, p, inp.hold || [], dt); else if (hw0 === 'shock') shockHold(S, p, inp.hold || [], dt); else hammerHold(S, p, inp.hold || [], dt);
     }
     if (inp.jump && (p.role === 'tank' || (p.cds.leap || 0) <= 0)) spaceTalent(S, p);
     if (inp.ability != null && inp.ability >= 0) p.queued = { idx: inp.ability, t: 0.45 };
@@ -1466,6 +1527,26 @@
       }
     }
     if (both || wantBeam) return;
+    if (hold[0] && p.gcd <= 0 && !p.cast) tryUse(S, p, 0);
+  }
+  /* Aimed Shock Rifle held inputs: hold[0] keeps beams going, hold[1] streams on whatever you hold it on, both = Shock Combo. */
+  function shockHold(S, p, hold, dt) {
+    var both = !!hold[0] && !!hold[1];
+    if (both && !p.bothHeld) { var ci = abilitiesOf(p).map(function (a) { return a.id; }).indexOf('scombo'); if (ci >= 0) tryUse(S, p, ci); }
+    p.bothHeld = both;
+    var want = (!!hold[1] || p.streamHoldT > 0) && !both && !p.cast;
+    if (want && (p.pips || 0) > 0.5) {
+      var st = softTarget(S, p, { range: 30, dot: 0.93, enemy: true });
+      if (!st) { p.streamTo = 0; p.streamRamp = 0; return; }
+      if (st.id !== p.streamTo) { p.streamTo = st.id; p.streamRamp = 0; p.streamAcc = 0; }   // new target: start again
+      p.streamRamp = Math.min(3, (p.streamRamp || 0) + dt);
+      p.pips = Math.max(0, (p.pips || 0) - 12 * dt);
+      p.streamAcc = (p.streamAcc || 0) + (60 + 160 * p.streamRamp / 3) * dt;
+      if (p.streamAcc >= 30) { damageEnemy(S, p, st, p.streamAcc, 1, 'Shock Stream'); p.streamAcc = 0; }
+      return;
+    }
+    p.streamTo = 0; p.streamRamp = 0;
+    if (both || want) return;
     if (hold[0] && p.gcd <= 0 && !p.cast) tryUse(S, p, 0);
   }
   /* Impact Hammer held inputs: hold[0] keeps the combo swinging, hold[1] keeps the barrier up. */
@@ -1597,6 +1678,7 @@
       if (p.rad < 0) p.rad = 0;
     }
     if (p.recoil > 0) p.recoil = Math.max(0, p.recoil - p.recoil * dt / 3);
+    if (p.kshieldT > 0 && p.kshieldT - dt <= 0 && p.armorSrc === p.id) p.armor = 0;   // Kinetic Shield fades after 4s
     if (p.comboStep && S.t - (p.comboT || 0) > TUNE.comboReset) p.comboStep = 0;   // the slam doesn't wait for you
     if (p.role === 'tank') {
       var maxC = T(p, 'twincharge') ? 2 : 1;
@@ -1607,7 +1689,7 @@
       p.barrierRestT = (p.barrierRestT || 0) + dt;
       if (!(p.barrierBroken > 0) && p.barrierRestT >= TUNE.barrierRest) p.barrier = Math.min(barrierMax(p), p.barrier + TUNE.barrierRegen * (T(p, 'hardened') ? 2 : 1) * dt);
     }   // "recent" fades over a few seconds
-    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm', 'skates'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
+    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm', 'skates', 'streamHoldT', 'kshieldT'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
     if (p.hot > 0) {
       var src = ent(S, p.hotSrc), step = Math.min(dt, p.hot);
       p.hot -= dt;
@@ -1971,6 +2053,20 @@
       }
       if (fd.t <= 0) S.fields.splice(fi, 1);
     }
+    for (var bi2 = S.blasts.length - 1; bi2 >= 0; bi2--) {
+      // EMP Grenade: lands, then pops. Drones go down, an overcharge shield takes a big hit.
+      var bl = S.blasts[bi2], bby = ent(S, bl.by); bl.t -= dt;
+      if (bl.t > 0) continue;
+      S.blasts.splice(bi2, 1);
+      emit(S, { type: 'fx', fx: 'emp', src: bl.by, x2: bl.x, z2: bl.z });
+      if (!bby) continue;
+      enemies(S).forEach(function (e) {
+        if (Math.hypot(e.x - bl.x, e.z - bl.z) > bl.r + (e.radius || 0)) return;
+        if (e.oshield && e.oshield.hp > 0) { var bonus = Math.min(e.oshield.hp, 600); e.oshield.hp -= bonus; met(S, bby.id).shield += bonus; if (e.oshield.hp <= 0) breakShield(S, e, bby); }
+        damageEnemy(S, bby, e, 200, 4, 'EMP');
+        if (e.alive && e.type !== 'boss') e.stagger = Math.max(e.stagger || 0, 2.5);
+      });
+    }
     players(S, true).forEach(function (q) {
       if (!(q.storm > 0)) return;
       // Link Storm: the beam on everyone in reach.
@@ -2226,6 +2322,7 @@
       var tg = (boss.alive && boss.oshield) ? boss : (dr[0] || boss);
       inp.target = tg.id;
       if (ready('adren') && boss.alive && canAct && boss.hp < boss.maxHp * 0.97) { inp.ability = idx('adren'); b.think = 0.2; return inp; }
+      if (p.role === 'dps' && W === 'shock') return strikerBot(S, p, inp, b, tg, boss, foes, canAct, idx, ready, slow);
       if (p.role === 'dps') {
         var dd = dist(p, tg);
         if (dd > 28) { moveTo(tg.x, tg.z); return inp; }
@@ -2317,6 +2414,36 @@
     return inp;
   }
 
+  /* The aimed Striker bot: stands behind the Foreman for the vent, beams, streams, and spends the Capacitor on
+     Shock Combos when it's full or there's a window. Throws the EMP at drones and at the overcharge shield. */
+  function strikerBot(S, p, inp, b, tg, boss, foes, canAct, idx, ready, slow) {
+    var m = b.str || (b.str = { hold: [true, false], aim: null });
+    if (tg.type === 'boss' && !tg.oshield && !tg.goCentre) {
+      var spot = { x: tg.x - Math.sin(tg.facing) * 14, z: tg.z - Math.cos(tg.facing) * 14 }; clampArena(spot, 2);
+      if (Math.hypot(spot.x - p.x, spot.z - p.z) > 2.5) moveTo(spot.x, spot.z);
+    } else if (dist(p, tg) > 24) moveTo(tg.x, tg.z);
+    function moveTo(x, z) { inp.mx = x - p.x; inp.mz = z - p.z; }
+    if (canAct) {
+      b.think = 0.25 + S.rng() * 0.35;
+      var cap = p.pips || 0, drones = foes.filter(function (f) { return f.type === 'drone' && dist(p, f) <= 25; });
+      m.aim = tg.id; m.hold = [true, false];
+      // Let the tank build threat before opening up; back off the stream if the Foreman turns round.
+      var wait = S.t < 4 || (boss.alive && boss.target === p.id);
+      if (p.hp < p.maxHp * 0.45 && ready('kshield')) inp.ability = idx('kshield');
+      else if (wait) m.hold = S.t < 1.5 ? [false, false] : [true, false];
+      else if (ready('emp') && (drones.length || (boss.alive && boss.oshield))) {
+        var et = drones[0] || boss; m.aim = et.id; inp.ad = Math.max(2, dist(p, et) - (et.type === 'boss' ? et.radius : 0)); inp.ability = idx('emp');
+      }
+      else if (cap >= 50 && (cap >= 90 || drones.length >= 2 || (boss.alive && (boss.oshield || boss.stagger > 0)))) m.hold = [true, true];
+      else if (cap >= 25) m.hold = [false, true];
+    }
+    var at = m.aim != null ? ent(S, m.aim) : null;
+    if (!at || !at.alive) at = tg;
+    inp.aim = Math.atan2(at.x - p.x, at.z - p.z); inp.target = at.id;
+    inp.hold = m.hold.slice();
+    return inp;
+  }
+
   /* ---------- main step ---------- */
 
   /* inputs: { [playerId]: { mx, mz, ability, target, jump } }. A bare input object means the solo player. */
@@ -2391,7 +2518,7 @@
         if (e.dash) o.ds = 1;
         if (e.lastDeath) o.ld = [e.lastDeath.label, e.lastDeath.t, e.lastDeath.log || []];
         if (e.cast) o.k = [e.cast.ab.id, r2(e.cast.t), r2(e.cast.dur), e.cast.targetId];
-        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
+        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'streamTo', 'streamRamp', 'adren'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
         snap.p.push(o);
       } else {
         var q = { i: e.id, ty: e.type, n: e.name, x: r2(e.x), z: r2(e.z), f: r2(e.facing), h: Math.round(e.hp), mh: e.maxHp, a: e.alive ? 1 : 0, tg: e.target, ra: e.radius };
@@ -2434,7 +2561,7 @@
       p.x = o.x; p.z = o.z; p.facing = o.f; p.hp = o.h; p.alive = !!o.a; p.target = o.tg; p.gcd = o.g; p.cds = o.c || {};
       p.moving = !!o.mv; p.auto = !!o.au || !p.human; p.defibUsed = !!o.du;
       p.lastDeath = o.ld ? { label: o.ld[0], t: o.ld[1], log: o.ld[2] || [] } : null;
-      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates'].forEach(function (f) { p[f] = o[f] || 0; });
+      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'streamTo', 'streamRamp', 'adren'].forEach(function (f) { p[f] = o[f] || 0; });
       if (o.k) {
         var ab = abilitiesOf(p).filter(function (a) { return a.id === o.k[0]; })[0];
         p.cast = ab ? { ab: ab, t: o.k[1], dur: o.k[2], targetId: o.k[3] } : null;
@@ -2556,14 +2683,14 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.24.0';
+  var VERSION = '0.25.0';
 
   var api = {
     VERSION: VERSION,
     summary: summary,
     snapshot: snapshot, applySnapshot: applySnapshot, predictMove: predictMove,
     create: create, step: step, usable: usable, GEAR: GEAR, TALENTS: TALENTS, SLOTS: SLOTS, talentList: talentList, talentChips: talentChips, STYLES: STYLES, braced: braced, hasTalent: T, BOT_GEAR: BOT_GEAR, validGear: validGear, gearName: gearName, abilitiesOf: abilitiesOf, behind: behind, inTele: inTele,
-    damageEnemy: damageEnemy, damagePlayer: damagePlayer, resOf: resOf, aimWeapon: aimWeapon, barrierMax: barrierMax, inCone: inCone, barrierFor: barrierFor, softTarget: softTarget, BOLT_AIM: BOLT_AIM, fieldSpot: fieldSpot,
+    damageEnemy: damageEnemy, damagePlayer: damagePlayer, resOf: resOf, aimWeapon: aimWeapon, barrierMax: barrierMax, inCone: inCone, barrierFor: barrierFor, softTarget: softTarget, BOLT_AIM: BOLT_AIM, SHOCK_AIM: SHOCK_AIM, fieldSpot: fieldSpot, lobSpot: lobSpot,
     ent: ent, players: players, enemies: enemies, KITS: KITS, TUNE: TUNE, PIP_MAX: PIP_MAX, PROC_WINDOW: PROC_WINDOW,
     ARENA_R: ARENA_R, GCD: GCD, dist: dist
   };

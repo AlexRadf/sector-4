@@ -4,6 +4,23 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.25.0 (2026-11-18) The aimed Striker: Shock Rifle, and the Foreman's back vent
+- The Shock Rifle is now an aimed weapon, the DPS prototype for the design pillars:
+  - **LMB Shock Beam**: an instant 80 at the enemy nearest your crosshair. It snaps tighter than the Medic's bolt: aim matters.
+  - **RMB Shock Stream**: hold it on one enemy and it builds from 60 to 220 a second over 3s (12 Capacitor a second). Switch target and it starts again.
+  - **LMB + RMB Shock Combo** (50 Capacitor): a core detonates on whatever you're pointing at: 420 to it and 240 to everything within 6m.
+  - **Q EMP Grenade**: held to aim like the Nano Field. 200 damage, drones stunned 2.5s, and an overcharge shield takes 600 more.
+  - **E Adrenaline** (40% more damage for 6s), **F Kinetic Shield** (350 for 4s), **R Shock Nova** (900 on the target, 450 within 10m, drones stunned 3s).
+- **The vent**: a glowing grille on the Foreman's back. Aimed weapons hitting him from behind hit it for 30% more, and the number says VENT.
+  The tank turns him; the DPS get round the back.
+- Thrown abilities share one system: anything marked as a throw is held to aim with an arc and landing ring (green for heals, blue for the EMP).
+- The reticle locks onto your Shock Beam or Stream target. The Stream draws a beam that whitens as it builds.
+- Bot Strikers now play the aimed Shock Rifle (they stand behind the Foreman and let the tank open before streaming).
+- Every bot now treats a live warning circle like a wall: no more stepping out of a rocket barrage and straight back in.
+  Bots got much better at surviving, so the Foreman has 182,000 health (was 165,000). An all-bot squad wins about 90% in roughly 4:45.
+- `CLAUDE.md` now covers the whole workflow for working on the game in Claude Code, and `scripts/role-sims.js` and
+  `scripts/output.js` are the quick balance checks.
+
 ## 0.24.0 (2026-11-18) A reticle for aimed weapons
 - Aimed weapons (Impact Hammer, Link Gun) show a reticle in the arena where your attack lands: a few metres ahead for the Hammer,
   further out for the Link Gun. When your weapon would lock onto something it snaps onto them, closes in and colours up:

@@ -293,6 +293,14 @@
   function makeView(e) {
     var g = new THREE.Group(), holder = new THREE.Group();
     g.add(holder); buildModel(modelKey(e), holder);
+    var vent = null;
+    if (e.type === 'boss') {
+      // The weak point: a glowing vent on the Foreman's back. Aimed weapons hitting it from behind do 30% more.
+      vent = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.3, 0.35), new THREE.MeshBasicMaterial({ color: 0xff9a30, transparent: true, opacity: 0.85 }));
+      vent.position.set(0, 3.9, -(e.radius || 3) * 0.62); holder.add(vent);
+      var grille = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.12, 0.4), new THREE.MeshBasicMaterial({ color: 0x1a1008 }));
+      for (var gy = -1; gy <= 1; gy++) { var gm = grille.clone(); gm.position.set(0, 3.9 + gy * 0.35, -(e.radius || 3) * 0.62 - 0.03); holder.add(gm); }
+    }
     var rad = e.kind === 'player' ? 0.9 : (e.radius || 1) + 0.4;
     var shadow = new THREE.Mesh(new THREE.CircleGeometry(rad, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false }));
     shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.02; g.add(shadow);
@@ -304,7 +312,7 @@
     var plate = el('div', 'plate ' + (e.kind === 'player' ? 'friend' : e.type));
     var nm = el('div', null, e.name), bar = el('div', 'bar'), fill = el('i'); bar.appendChild(fill); plate.appendChild(nm); plate.appendChild(bar);
     $('#plates').appendChild(plate);
-    return { g: g, holder: holder, ring: ring, aura: aura, plate: plate, fill: fill, key: modelKey(e), kind: e.kind, dead: false };
+    return { g: g, holder: holder, ring: ring, aura: aura, plate: plate, fill: fill, key: modelKey(e), kind: e.kind, dead: false, vent: vent, ventHit: 0 };
   }
   function dropView(id) {
     var v = views[id]; if (!v) return;
@@ -342,7 +350,8 @@
     $('#hud').classList.toggle('spectate', watching); updateSpec();
     running = true; acc = 0; lastSim = performance.now(); Net.evMark = 0;
     logLine(watching ? 'Shift started. You are watching from the gantry.' : 'Shift started. ' + human.kit.title + ' on the floor.');
-    if (!watching && Sim.aimWeapon(human)) logLine(human.kit.weapons[human.weapon].id === 'link'
+    if (!watching && Sim.aimWeapon(human) && human.kit.weapons[human.weapon].id === 'shock') logLine('Click the arena to aim with the mouse. Left click beams, hold right click to stream (it builds on one target), both together Shock Combo on whatever you point at. Hit the glowing vent on the Foreman\'s back for 30% more. Esc releases it.');
+    else if (!watching && Sim.aimWeapon(human)) logLine(human.kit.weapons[human.weapon].id === 'link'
       ? 'Click the arena to aim with the mouse. Left click fires at whatever is nearest your crosshair (green ring: heal, red: damage), right click holds the beam on an ally, both together Nanite Burst. Esc releases it.'
       : 'Click the arena to aim with the mouse: left click swings, right click holds the barrier, both together Shove. Esc releases it.');
     if (Net.mode !== 'solo') logLine(Sim.players(S).filter(function (p) { return p.human; }).map(function (p) { return p.name; }).join(', ') + ' on the squad. Bots fill the rest.');
@@ -752,10 +761,11 @@
       switch (ev.type) {
         case 'dmg':
           var dst = Sim.ent(S, ev.dst);
+          if (ev.vent && views[ev.dst]) views[ev.dst].ventHit = 1;
           if (stats[ev.src] && (!dst || dst.kind === 'enemy')) stats[ev.src].dmg += ev.amt;
           if (stats[ev.dst]) stats[ev.dst].taken += ev.amt;
           if (ev.src === human.id) {
-            floatText(ev.dst, String(ev.amt) + (ev.crit || /!$/.test(ev.label) ? '!' : ''), 'out' + (ev.crit ? ' crit' : '') + (ev.sh ? ' sh' : ''));
+            floatText(ev.dst, String(ev.amt) + (ev.crit || /!$/.test(ev.label) ? '!' : '') + (ev.vent ? ' VENT' : ''), 'out' + (ev.crit ? ' crit' : '') + (ev.sh ? ' sh' : '') + (ev.vent ? ' vent' : ''));
             if (ev.crit) Snd.play('crit');
           }
           else if (ev.dst === human.id) {
@@ -800,11 +810,13 @@
           else if (ev.fx === 'lob') {
             // The Nano Field grenade: a glowing ball arcing to where it'll land.
             var lx0 = x, lz0 = z, lx1 = ev.x2, lz1 = ev.z2;
-            var ball = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 8), new THREE.MeshBasicMaterial({ color: 0x4fd88f }));
+            var ball = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 8), new THREE.MeshBasicMaterial({ color: ev.c === 'emp' ? 0x7fb8ff : 0x4fd88f }));
             addFx(ball, Sim.TUNE.lobTime, function (f, k) { f.m.position.set(lx0 + (lx1 - lx0) * k, 1.4 + 5 * k * (1 - k) - 1.2 * k, lz0 + (lz1 - lz0) * k); });
             if (ev.src === human.id) Snd.play('charge');
           }
           else if (ev.fx === 'field') { ringFx(ev.x2, ev.z2, 0.5, 6, 0x4fd88f, 0.5); if (ev.src === human.id) Snd.play('belt'); }
+          else if (ev.fx === 'emp') { ringFx(ev.x2, ev.z2, 0.5, 6, 0x7fb8ff, 0.5); ringFx(ev.x2, ev.z2, 6, 5, 0xffffff, 0.3); Snd.play('boom'); }
+          else if (ev.fx === 'scombo') { ringFx(x, z, 0.5, ev.pw || 6, 0xb98cff, 0.55); ringFx(x, z, 0.3, (ev.pw || 6) * 0.6, 0xffffff, 0.35); Snd.play('boom'); }
           else if (ev.fx === 'storm') { ringFx(x, z, 1, 25, 0x9dffc8, 0.9); ringFx(x, z, 0.5, 12, 0xffffff, 0.5); Snd.play('ult'); if (!watching) hitFlash(); }
           else if (ev.fx === 'beamon') { if (ev.src === human.id) Snd.play('belt'); }
           else if (ev.fx === 'slammed') { ringFx(x, z, 0.5, 4, 0xffffff, 0.45); Snd.play('hammer'); }
@@ -871,6 +883,7 @@
       v.aura.visible = e.kind === 'player' && e.alive && (e.belt > 0 || e.sludge > 0 || e.dome > 0 || e.rad > 0);
       if (v.aura.visible) v.aura.material.color.setHex(e.dome > 0 ? 0x4fd88f : e.rad > 0 ? 0xd4ff3a : e.belt > 0 ? 0xffb000 : 0xb46bff);   // sludge: purple, the cleanse colour
       if (e.type === 'boss') v.holder.rotation.z = e.stagger > 0 ? 0.22 * Math.sin(S.t * 9) : 0;
+      if (v.vent) { v.ventHit = Math.max(0, v.ventHit - dt * 3); v.vent.material.opacity = 0.55 + 0.25 * Math.sin(performance.now() / 250) + 0.4 * v.ventHit; v.vent.material.color.setHex(v.ventHit > 0.2 ? 0xffe0a0 : 0xff9a30); }
       var pt = project(v.g.position.x, entHeight(e) + 0.5, v.g.position.z);
       if (pt) { v.plate.style.display = ''; v.plate.style.left = pt.x + 'px'; v.plate.style.top = pt.y + 'px'; setBar(v.fill, e.hp / e.maxHp); }
       if (e.kind === 'player') {
@@ -1112,6 +1125,10 @@
       }
       if (p.storm > 0) Sim.players(S).forEach(function (q) { if (q !== p && q.alive && Math.hypot(q.x - p.x, q.z - p.z) <= 25) linkLine('s' + p.id + '-' + q.id, p, q, 0x9dffc8, 0.6); });
     });
+    Sim.players(S).forEach(function (p) {
+      var stt = p.alive && p.streamTo ? Sim.ent(S, p.streamTo) : null;
+      if (stt && stt.alive) linkLine('st' + p.id, p, stt, (p.streamRamp || 0) >= 2.9 ? 0xffffff : 0xb98cff, 0.6 + 0.13 * (p.streamRamp || 0));   // the Shock Stream, whiter as it builds
+    });
     for (var lk in special.links) if (!seenL[lk]) { fxRoot.remove(special.links[lk]); special.links[lk].geometry.dispose(); delete special.links[lk]; }
     // Anyone in trouble glows red at their feet, so a healer reads the fight from the floor, not the party frames.
     special.lows = special.lows || {};
@@ -1151,8 +1168,11 @@
     special.lob.visible = special.lob.path.visible = !!lobOn;
     if (lobOn) {
       var hp1 = views[human.id] ? views[human.id].g.position : human;
-      var spot = Sim.fieldSpot(S, { x: hp1.x, z: hp1.z, facing: aimAngle(), aimDist: throwDist() });
+      var lobAb = Sim.abilitiesOf(human)[lobAim], lobAlly = lobAb.id === 'field', lobCol = lobAlly ? 0x4fd88f : 0x7fb8ff;
+      var spot = Sim.lobSpot(S, { x: hp1.x, z: hp1.z, facing: aimAngle(), aimDist: throwDist() }, lobAlly);
       special.lob.ring.position.set(spot.x, 0.14, spot.z);
+      var lr = (lobAb.lobR || 6) / 6; special.lob.ring.scale.set(lr, lr, 1);
+      special.lob.ring.material.color.setHex(lobCol); special.lob.path.material.color.setHex(lobCol);
       var pa2 = special.lob.path.geometry.attributes.position;
       for (var lj = 0; lj <= 20; lj++) { var kk2 = lj / 20; pa2.setXYZ(lj, hp1.x + (spot.x - hp1.x) * kk2, 1.4 + 5 * kk2 * (1 - kk2) - 1.2 * kk2, hp1.z + (spot.z - hp1.z) * kk2); }
       pa2.needsUpdate = true; special.lob.path.computeLineDistances();
@@ -1162,6 +1182,7 @@
     if (retOn) {
       var hpR = views[human.id] ? views[human.id].g.position : human, lockT = null, reach = 6, ry = 1.0;
       if (wpnId === 'link') { lockT = human.beamTo ? Sim.ent(S, human.beamTo) : Sim.softTarget(S, human, Sim.BOLT_AIM); reach = 20; }
+      else if (wpnId === 'shock') { lockT = human.streamTo ? Sim.ent(S, human.streamTo) : Sim.softTarget(S, human, Sim.SHOCK_AIM); reach = 22; }
       else if (wpnId === 'hammer') { lockT = human.barrierUp ? null : Sim.softTarget(S, human, { range: 6.5, dot: 0.5, enemy: true }); reach = 6; }
       var wp;
       if (lockT) { var lv = views[lockT.id] ? views[lockT.id].g.position : lockT; wp = project(lv.x, entHeight(lockT) * 0.6, lv.z); }
@@ -1310,7 +1331,7 @@
   /* How far a thrown thing goes: look further up the room (a flatter camera) to throw further. 3m to 25m. */
   function throwDist() { return 3 + Math.max(0, Math.min(1, (1.35 - cam.pitch) / 1.15)) * 22; }
   var lobAim = null;   // the bar slot of a held-to-aim throw (the Medic's Nano Field), while the key is down
-  function isLob(slot) { var a = slot != null && Sim.abilitiesOf(human)[slot]; return !!a && a.id === 'field'; }
+  function isLob(slot) { var a = slot != null && Sim.abilitiesOf(human)[slot]; return !!a && !!a.lob; }
   function readHold() { return [!!(mouse.l || pad.hold[0]), !!(mouse.r || pad.hold[1])]; }
   function readMove() {
     var f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + pad.f;
