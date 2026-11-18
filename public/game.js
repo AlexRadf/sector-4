@@ -866,6 +866,7 @@
           if (ev.fx === 'barrage') Snd.play('alarm');
           if (ev.fx === 'flak') ringFx(x, z, 1, 8, 0xffb000, 0.35);
           else if (ev.fx === 'challenge') ringFx(x, z, 1, 30, 0xff4a36, 0.6);
+          else if (ev.fx === 'throw') { ringFx(x, z, 0.5, 4, 0xffb000, 0.4); Snd.play('hammer'); }
           else if (ev.fx === 'keg') ringFx(x, z, 1, 22, 0x4fd88f, 0.7);
           else if (ev.fx === 'overcharge') ringFx(x, z, 3, R, 0x5cc8ff, 0.7);
           else if (ev.fx === 'sludge') ringFx(x, z, 0.5, 3, 0x9be25a, 0.6);

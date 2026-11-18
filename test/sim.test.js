@@ -96,16 +96,6 @@ test('Rampage stacks while the Wrecker keeps swinging', () => {
   assert.strictEqual(p.rampage, 8);
 });
 
-test('Killing Spree stacks on highlights and fades', () => {
-  const { S, p, boss } = solo('dps', { util: 'spree' });
-  Sim.damageEnemy(S, p, boss, 10, 0, 'Headshot!');
-  Sim.damageEnemy(S, p, boss, 10, 0, 'Combo!');
-  assert.strictEqual(p.spree, 2);
-  assert.ok(S.events.some((e) => e.type === 'proc' && e.text === 'KILLING SPREE'));
-  run(S, 16);
-  assert.strictEqual(p.spree, 0);
-});
-
 test('bot hands hold a direction for a beat instead of re-aiming every frame', () => {
   const S = Sim.create({ seed: 9 }); S.countdown = 0;
   let changes = 0, last = null, movingFrames = 0;
@@ -495,7 +485,7 @@ test('no two abilities share an id across classes (Adrenaline is shared on purpo
 
 test('the Hammer has seven buttons, one per key, and talents never add one, they change them', () => {
   const kit = (gear) => Sim.abilitiesOf(arena('tank', Object.assign({ weapon: 'hammer' }, gear)).p);
-  assert.deepStrictEqual(kit({}).map((a) => a.id), ['combo', 'ebarrier', 'shove', 'challenge', 'piston', 'belt', 'aegis']);
+  assert.deepStrictEqual(kit({}).map((a) => a.id), ['combo', 'ebarrier', 'shove', 'hthrow', 'piston', 'belt', 'aegis']);
   assert.deepStrictEqual(kit({}).map((a) => a.key), ['LMB', 'RMB', 'L+R', 'Q', 'E', 'F', 'R']);
   for (const slot of Sim.SLOTS) for (const t of Sim.talentList(slot, 'tank')) assert.strictEqual(kit({ [slot]: t.id }).length, 7, t.name);
 });
@@ -538,17 +528,21 @@ test('Shove talents: Piledriver hits harder, Capacitor Bank fills faster, Breath
   assert.ok(Math.abs(cap.p.pips - 9) < 0.01, String(cap.p.pips));
 });
 
-test('Challenge talents: Brand marks it, Daze stuns a drone and softens the boss, Protector shields its victim', () => {
+test('Hammer Throw: a real hit with huge threat that bounces to a second enemy; Brand marks, Daze stuns a drone and softens the boss, Protector shields the victim', () => {
   const chal = (gear, setup) => {
     const a = arena('tank', Object.assign({ weapon: 'hammer' }, gear));
     a.p.x = a.boss.x; a.p.z = a.boss.z - 10;
     const d = { id: 980, kind: 'enemy', type: 'drone', x: a.p.x, z: a.p.z - 5, radius: 1, hp: 1600, maxHp: 1600, alive: true, threat: {}, target: null };
     a.S.ents.push(d); if (setup) setup(a, d);
-    press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'challenge'), { aim: Math.PI });
+    press(a.S, Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'hthrow'), { aim: Math.PI });
     return Object.assign(a, { d });
   };
-  const br = chal({ util: 'brand' });
-  assert.ok(br.d.fixate && br.d.fixate.id === br.p.id && br.d.branded > 0);
+  const br = chal({ util: 'brand' }, (a, d) => { d.threat[999] = 3000; });
+  assert.ok(!br.d.fixate, 'no forced taunt');
+  assert.ok(br.d.threat[br.p.id] > 3000 * 1.1 && br.d.branded > 0, 'out-threats a healer the drone was chasing, and Brands it');
+  assert.ok(br.S.events.some((e) => e.type === 'dmg' && e.dst === 980 && e.label === 'Hammer Throw'));
+  const two = chal({}, (a) => { a.S.ents.push({ id: 981, kind: 'enemy', type: 'drone', x: a.p.x + 3, z: a.p.z - 9, radius: 1, hp: 1600, maxHp: 1600, alive: true, threat: {}, target: null }); });
+  assert.ok(two.S.events.some((e) => e.type === 'dmg' && e.dst === 981 && e.label === 'Hammer Throw'), 'bounces to the second drone');
   const dz = chal({ util: 'daze' });
   assert.ok(dz.d.stagger >= 1.9);
   let ally;
@@ -556,7 +550,7 @@ test('Challenge talents: Brand marks it, Daze stuns a drone and softens the boss
   assert.ok(ally.armor >= 250, String(ally.armor));
   const bz = arena('tank', { weapon: 'hammer', util: 'daze' });
   bz.p.x = bz.boss.x; bz.p.z = bz.boss.z - 10;
-  press(bz.S, Sim.abilitiesOf(bz.p).findIndex((ab) => ab.id === 'challenge'), { aim: 0 });
+  press(bz.S, Sim.abilitiesOf(bz.p).findIndex((ab) => ab.id === 'hthrow'), { aim: 0 });
   assert.ok(bz.boss.weak > 0 && !(bz.boss.stagger > 0), 'the Foreman softens, never stuns');
 });
 
@@ -738,7 +732,7 @@ test('Purge is smart: a sludged ally roughly in front first, then yourself, with
 
 /* The aimed Shock Rifle: a Striker with everyone else frozen, the Foreman 20m ahead facing away (an open coolant port facing us). */
 function striker() {
-  const a = arena('dps', { weapon: 'shock' });
+  const a = arena('dps', { weapon: 'shock', rig: 'spotter', implant: 'arclink', util: 'empburst' });   // talents that don't change the numbers tested here
   Sim.players(a.S).forEach((q) => { if (q !== a.p) { q.human = true; q.auto = false; q.x = 30; q.z = -20; } });
   a.p.x = 0; a.p.z = 0; a.boss.x = 0; a.boss.z = 20; a.boss.facing = 0; a.boss.speed = 0; a.p.pips = 100;
   a.S.rng = () => 0.5;
@@ -813,7 +807,7 @@ test('Overcharge pulses ramp up the longer the shield holds', () => {
   assert.ok(hits.length >= 3 && hits[0] <= 35 && hits[1] > hits[0] * 2 && hits[2] > hits[1] * 1.5, hits.join(','));
 });
 
-test('Space jumps the Ground Pound shockwave; Shift is still the movement ability', () => {
+test('Space jumps a Ground Pound shockwave (built for a future boss); Shift is still the movement ability', () => {
   const run2 = (jumpAt) => {
     const a = striker();   // the wave reaches us about 1.45s after it starts
     a.S.waves.push({ id: 990, x: 0, z: 20, r: 3.5, hit: {} });
@@ -837,4 +831,72 @@ test('EMP Grenade: thrown where you aim, stuns drones and hits an overcharge shi
   idle(a.S, 0.8);
   assert.ok(d.stagger >= 2, 'drone stunned');
   assert.ok(a.boss.oshield ? a.boss.oshield.hp <= 4400 : true, 'shield took the EMP');
+});
+
+test('the Foreman never Ground Pounds: he is a classic raid boss', () => {
+  const { S } = arena('dps');
+  let waves = 0;
+  for (let i = 0; i < 30 * 60; i++) { Sim.step(S, 1 / 30, {}); if (S.waves.length) waves++; Sim.players(S).forEach((q) => { q.hp = q.maxHp; }); }
+  assert.strictEqual(waves, 0);
+});
+
+/* Striker talents: each row changes one button the Shock Rifle already has. */
+const strikerWith = (gear) => {
+  const a = arena('dps', Object.assign({ weapon: 'shock' }, gear));
+  Sim.players(a.S).forEach((q) => { if (q !== a.p) { q.human = true; q.auto = false; q.x = 30; q.z = -20; } });
+  a.p.x = 0; a.p.z = 0; a.boss.x = 0; a.boss.z = 20; a.boss.facing = 0; a.boss.speed = 0; a.p.pips = 100; a.S.rng = () => 0.5;
+  return a;
+};
+const beamAt = (a, aim) => { a.p.gcd = 0; a.S.events.length = 0; hold(a, [true, false], aim); return a.S.events.find((e) => e.type === 'dmg' && e.src === a.p.id); };
+
+test('Striker beam talents: Overload builds on one target, Precision Coils make ports bigger and harder-hitting', () => {
+  const ol = strikerWith({ rig: 'overload' });
+  const first = beamAt(ol, 0.12).amt; let last = first;
+  for (let i = 0; i < 6; i++) last = beamAt(ol, 0.12).amt;
+  assert.ok(last >= first * 1.28 && last <= first * 1.32, first + ' -> ' + last);
+  const base = strikerWith({ rig: 'spotter' }), pr = strikerWith({ rig: 'precision' });
+  assert.strictEqual(beamAt(base, 0.085).label, 'Shock Beam', 'just off the port normally');
+  const hit = beamAt(pr, 0.085);
+  assert.strictEqual(hit.label, 'Weak Point!', 'inside the wider port');
+  const plain = beamAt(strikerWith({ rig: 'overload' }), 0);   // a first Overload hit adds nothing; Spotter's mark would
+  assert.ok(beamAt(strikerWith({ rig: 'precision' }), 0).amt > plain.amt * 1.2, 'two and a half times, not double');
+});
+
+test('Striker core talents: Volatile is bigger and fizzles harmlessly, Magnetic curves in, Arc Link Charges for the squad', () => {
+  const fire = (a, aim, frames) => { hold(a, [false, true], aim); hold(a, [false, false], aim, frames); };
+  const vo = strikerWith({ implant: 'volatile' }); vo.S.ents.push(drone(971, 7, 9));
+  fire(vo, 0, 18); vo.S.events.length = 0; hold(vo, [true, false]);
+  assert.ok(vo.S.events.some((e) => e.dst === 971 && e.label === 'Shock Combo!'), '8m reaches a drone 7m off the line');
+  const vf = strikerWith({ implant: 'volatile' }); fire(vf, 0, 60);
+  assert.ok(!vf.S.events.some((e) => e.label === 'Shock Core'), 'no fizzle damage');
+  const mg = strikerWith({ implant: 'magnet' }); mg.boss.x = 6;   // the boss 6m off to the side, crosshair on him, core fired straight
+  fire(mg, Math.atan2(6, 20) - 0.25, 50);
+  assert.ok(mg.S.events.some((e) => e.label === 'Shock Core' && e.dst === mg.boss.id), 'curved onto him');
+  const ar = strikerWith({ implant: 'arclink' }); fire(ar, 0, 26); hold(ar, [true, false]);
+  const tank = Sim.players(ar.S).find((q) => q.role === 'tank');
+  const n = (a) => { a.S.events.length = 0; Sim.damageEnemy(a.S, tank, a.boss, 1000, 1, 'Test'); return a.S.events.find((e) => e.label === 'Test').amt; };
+  const pl = strikerWith({ implant: 'magnet' }); fire(pl, 0, 26); hold(pl, [true, false]);
+  assert.ok(n(ar) > n(pl) * 1.08, 'the tank hits a Charged target harder with Arc Link');
+});
+
+test('Striker Overcharge talents: Supercharge needs 75 and hits harder, Discharge shields you, EMP Burst cracks the shield', () => {
+  const sc = strikerWith({ util: 'supercharge' }); sc.p.pips = 60;
+  hold(sc, [true, true]); assert.ok(!sc.S.cores.length, 'needs 75');
+  sc.p.pips = 80; sc.p.cds.score = 0; hold(sc, [false, false]); hold(sc, [true, true]); assert.ok(sc.S.cores.length && sc.S.cores[0].big);
+  const ds = strikerWith({ util: 'discharge' }); ds.p.armor = 0; ds.p.pips = 100;
+  hold(ds, [true, true]); assert.ok(ds.p.armor >= 290, String(ds.p.armor));
+  const em = strikerWith({ util: 'empburst' }); em.boss.oshield = { hp: 5000, max: 10000, t: 0, dur: 14 }; em.p.pips = 50;
+  hold(em, [true, true]); hold(em, [false, false], 0, 40); em.S.events.length = 0; hold(em, [true, false]);
+  assert.ok(em.boss.oshield && em.boss.oshield.hp <= 5000 - 600, String(em.boss.oshield && em.boss.oshield.hp));
+});
+
+test('Striker footwork: Kinetic Slide softens hits after, Covering Dash shields allies where you land', () => {
+  const sl = strikerWith({ boots: 'slide' });
+  Sim.step(sl.S, 1 / 30, { jump: true, mx: 1, mz: 0 });
+  const h = sl.p.hp; Sim.damagePlayer(sl.S, sl.S.bossId, sl.p, 100, 'Rocket');
+  assert.ok(h - sl.p.hp <= 71 && h - sl.p.hp >= 69, String(h - sl.p.hp));
+  const cd = strikerWith({ boots: 'coverdash' });
+  const med = Sim.players(cd.S).find((q) => q.role === 'healer'); med.x = 9; med.z = 2; med.armor = 0;
+  Sim.step(cd.S, 1 / 30, { jump: true, mx: 1, mz: 0 });
+  assert.ok(med.armor >= 120 && cd.p.x > 8);
 });

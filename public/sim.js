@@ -80,7 +80,7 @@
       n++;
       damageEnemy(S, p, e, amt, 1.5, label);
       if (!e.alive) return;
-      e.charged = TUNE.chargedDur; e.chargedBy = p.id;
+      e.charged = TUNE.chargedDur; e.chargedBy = p.id; e.arcOn = T(p, 'arclink');
       if (stun && e.type !== 'boss') e.stagger = Math.max(e.stagger || 0, stun);
     });
     return n;
@@ -89,6 +89,7 @@
   function launchCore(S, p, dir, big, spent, life) {
     var c = { id: S.nextId++, by: p.id, x: p.x + Math.sin(dir) * 1.2, z: p.z + Math.cos(dir) * 1.2, dx: Math.sin(dir), dz: Math.cos(dir),
       sp: big ? TUNE.ocoreSpeed : TUNE.coreSpeed, t: 0, life: life || (big ? TUNE.ocoreLife : TUNE.coreLife), big: big ? 1 : 0, spent: spent || 0, flown: 0 };
+    if (T(p, 'magnet')) { var hm = softTarget(S, p, { range: 35, dot: 0.8, enemy: true }); if (hm) c.home = hm.id; }
     S.cores.push(c);
     emit(S, { type: 'fx', fx: big ? 'ocore' : 'core', src: p.id });
     return c;
@@ -113,9 +114,11 @@
     S.cores.splice(S.cores.indexOf(c), 1);
     var travel = 1 + TUNE.comboTravelMult * Math.min(1, c.flown / TUNE.comboTravel);
     var base = c.big ? TUNE.ocoreBase + TUNE.ocorePer * Math.max(0, c.spent - 50) : c.nova ? 420 : TUNE.comboDmg;
-    var r = c.big ? TUNE.ocoreR : TUNE.coreR;
+    var r = c.big ? TUNE.ocoreR : T(p, 'volatile') ? 8 : TUNE.coreR;
+    base *= (T(p, 'volatile') && !c.big ? 1.15 : 1) * (c.big && T(p, 'supercharge') ? 1.3 : 1);
     emit(S, { type: 'beam', src: p.id, x2: Math.round(c.x * 10) / 10, z2: Math.round(c.z * 10) / 10, fx: 'shock' });
-    var n = shockBlast(S, p, c, base * travel, r, c.big ? 1.5 : 0, c.big ? 'Overcharged Combo!' : 'Shock Combo!');
+    var n = shockBlast(S, p, c, base * travel, r, c.big ? (T(p, 'empburst') ? 3 : 1.5) : 0, c.big ? 'Overcharged Combo!' : 'Shock Combo!');
+    if (c.big && T(p, 'empburst')) enemies(S).forEach(function (e) { if (Math.hypot(e.x - c.x, e.z - c.z) <= r + (e.radius || 0)) empShield(S, p, e); });
     if (n >= 2 && !c.nova) { p.cds.score = 0; proc(S, p, 'reset', 'MULTI-COMBO'); }
     return n;
   }
@@ -137,7 +140,7 @@
       var dx = px - p.x, dz = pz - p.z, l = Math.sqrt(dx * dx + dz * dz) || 1;
       if (((p.x - px) * Math.sin(a) + (p.z - pz) * Math.cos(a)) / l < 0.15) continue;   // it has to face you
       var off = Math.abs(dx * fz - dz * fx);              // how far the aim line passes from the port
-      if ((dx * fx + dz * fz) > 0 && off <= TUNE.portHalf) return i;
+      if ((dx * fx + dz * fz) > 0 && off <= (T(p, 'precision') ? 1.6 : TUNE.portHalf)) return i;
     }
     return -1;
   }
@@ -170,7 +173,7 @@
            { id: 'ebarrier', key: 'RMB', name: 'Energy Barrier', kind: 'aim', range: 0, hold: 'channel', gcd: false, desc: 'Hold to raise a barrier facing where you aim. It blocks enemy hits on you and anyone behind you until its 1,800 health runs out, and what it blocks fills Shield Energy. Regenerates while lowered; breaks for 5s if emptied. No swinging while it\'s up.' },
            { id: 'shove', key: 'L+R', name: 'Shove', kind: 'aim', range: 8, needs: 20, gcd: false, desc: 'Press both mouse buttons (needs 20 Shield Energy). Spends it all: everything in the arc in front of you is thrown back up to 14m, and anything slammed into a wall or another enemy is stunned for 2s and takes 150 more. The Foreman won\'t budge, but a full Shove hits him for 500.' }],
           { aim: true,
-            utils: [A({ id: 'challenge', key: 'Q', name: 'Challenge', kind: 'enemy', range: 30, cd: 8, gcd: false, desc: 'Taunt whatever you aim at (or your target): it attacks you for 3s and you jump to the top of its threat.' }),
+            utils: [A({ id: 'hthrow', key: 'Q', name: 'Hammer Throw', kind: 'enemy', range: 30, cd: 8, gcd: false, desc: 'Hurl the charged hammer head at what you aim at (or your target): 180 and huge threat, then it bounces to the nearest other enemy within 10m for 120 and huge threat. How you pick up drones. No forced taunt: it works on anything.' }),
                     A({ id: 'piston', key: 'E', name: 'Piston Shot', kind: 'aim', range: 22, cd: 4, desc: 'The hammer head fires a compressed-air round where you aim: 120 to the first enemy within 22m and very high threat. For pulling a drone or poking from range.' }),
                     A({ id: 'belt', key: 'F', name: 'Shield Belt', kind: 'self', range: 0, cd: 30, gcd: false, desc: 'Take half damage for 6s. Your big emergency button.' })],
             ult: A({ id: 'aegis', key: 'R', name: 'Aegis Dome', kind: 'self', range: 0, gcd: false, role: 'ult', desc: 'Ultimate. A dome 9m across forms around you: nobody inside takes any damage for 5s. Buy the squad time.' }) }),
@@ -182,7 +185,7 @@
            { id: 'vent', name: 'Vent', kind: 'self', range: 8, needs: 30, gcd: false, desc: 'Needs 30 heat. Dumps it all into a shield of 8 per point (Perfect Vent above 85: half again) and scalds everything within 8m.' }])
       ],
       utils: [
-        A({ id: 'challenge', name: 'Challenge', kind: 'enemy', range: 30, cd: 8, gcd: false, desc: 'Taunt your target: it attacks you for 3s and you jump to the top of its threat.' }),
+        A({ id: 'hthrow', name: 'Hammer Throw', kind: 'enemy', range: 30, cd: 8, gcd: false, desc: 'Hurl a charged hammer head at your target: 180 and huge threat, then it bounces to the nearest other enemy within 10m for 120 and huge threat.' }),
         A({ id: 'belt', name: 'Shield Belt', kind: 'self', range: 0, cd: 30, gcd: false, desc: 'Take half damage for 6s. Your big emergency button.' })
       ],
       ult: A({ id: 'wall', name: 'Riot Wall', kind: 'self', range: 0, gcd: false, role: 'ult', desc: 'Ultimate. For 6s an energy wall faces the Foreman: everyone standing behind you takes nothing from him, and you take half. Raise it before anything big lands.' })
@@ -291,13 +294,13 @@
   var TALENTS = {
     tank: {
       theme: 'Riot enforcer in a walking bulkhead. Plant the shield, swing the hammer, shove the room where you want it.',
-      tiers: ['Charge', 'Shield', 'Shove', 'Challenge'],
+      tiers: ['Charge', 'Shield', 'Shove', 'Throw'],
       boots: [
         t('ram', 'aggressive', 'Battering Ram', 'Through them, not around them.', 'Riot Charge hits everything you plough past for 200 and high threat.'),
         t('twincharge', 'steady', 'Twin Thrusters', 'Always have a way in.', 'Riot Charge holds two charges.'),
         t('intercept', 'squad', 'Intercept', 'Go to whoever needs you.', 'Riot Charge flies 34m instead of 22, and if you reach a squad member it stops and gives them a 250 shield.')
       ],
-      // Rows 2 to 4 never add a button: each changes one you already have (your shield, your spender, your taunt).
+      // Rows 2 to 4 never add a button: each changes one you already have (your shield, your Shove, your Hammer Throw).
       rig: [
         t('spikes', 'aggressive', 'Spiked Barrier', 'Shield: make them pay.', 'Whatever hits your barrier takes 30% of the blocked damage back (the Flak Screen\'s shrapnel doubles).'),
         t('hardened', 'steady', 'Hardened Emitters', 'Shield: hold longer.', 'Your barrier has 2,500 health instead of 1,800 and recovers twice as fast (Flak Screen lasts 1s longer, Vent shields 25% more).'),
@@ -309,9 +312,9 @@
         t('breathing', 'squad', 'Breathing Room', 'Shove: clear space for them.', 'Shove also shields every squad member within 8m of you for 50, up to 200 with a full bar.')
       ],
       util: [
-        t('brand', 'aggressive', 'Brand', 'Challenge: mark it for the squad.', 'Whatever you Challenge takes 15% more damage from everyone for 6s.'),
-        t('daze', 'steady', 'Daze', 'Challenge: ring its bell.', 'Challenge stuns a drone for 2s. The Foreman hits 25% softer for 4s instead.'),
-        t('protector', 'squad', 'Protector', 'Challenge: step in front.', 'Challenge also shields whoever it was attacking for 250.')
+        t('brand', 'aggressive', 'Brand', 'Throw: mark it for the squad.', 'Whatever your Hammer Throw hits takes 15% more damage from everyone for 6s.'),
+        t('daze', 'steady', 'Daze', 'Throw: ring its bell.', 'Hammer Throw stuns a drone for 2s. The Foreman hits 25% softer for 4s instead.'),
+        t('protector', 'squad', 'Protector', 'Throw: step in front.', 'Hammer Throw also shields whoever its targets were attacking for 250.')
       ]
     },
     healer: {
@@ -341,27 +344,29 @@
       ]
     },
     dps: {
-      theme: 'Tournament champion. Showboat for the crowd: dodge, combo, headshot, go on a spree.',
-      tiers: ['Footwork', 'Kit', 'Marksmanship', 'Showmanship'],
+      theme: 'Tournament champion with a Shock Rifle. Precision and highlights: land the port, pop the core, chain the combo.',
+      tiers: ['Footwork', 'Beam', 'Core', 'Overcharge'],
+      // Shift changes on every Striker weapon. Rows 2 to 4 change the Shock Rifle's beam, Shock Core and Overcharged Core;
+      // the other Striker weapons get their own versions when they're converted to aimed weapons.
       boots: [
         t('dodge', 'aggressive', 'Dodge Jump', 'Never stand still.', 'Shift dodges 7m the way you are moving (4s). Your next shot within 2s does 30% more.'),
-        t('mag', 'steady', 'Sniper\'s Perch', 'Find a spot and hold it.', 'Stand still for 2s to Brace: casts 25% faster, 15% less damage taken, and charges can\'t knock you back. Moving breaks it.'),
-        t('cover', 'squad', 'Covering Fire', 'Watch their backs.', 'While you stand still, squad members within 10m of you take 10% less damage.')
+        t('slide', 'steady', 'Kinetic Slide', 'Out of trouble, still shooting.', 'Shift slides 8m the way you are moving (5s), and you take 30% less damage for 2s after.'),
+        t('coverdash', 'squad', 'Covering Dash', 'Get between them and it.', 'Shift dashes 9m the way you are moving (10s), and every squad member within 6m of where you land gets a 120 shield.')
       ],
       rig: [
-        t('pump', 'aggressive', 'Adrenaline Rush', 'Play on the edge.', 'Drop below 30% health and for 6s you deal and heal 40% more and take 25% less. Once a minute.'),
-        t('plate', 'steady', 'Thigh Pads', 'Shrug off the big hit.', 'Ignore the first hit of 100 or more every 20s.'),
-        t('decoy', 'squad', 'Decoy Beacon', 'Draw fire off a friend.', 'When the Foreman drops a squad member below 25%, he turns on you for 3s instead. Every 45s.')
+        t('overload', 'aggressive', 'Overload', 'Beam: stay on it.', 'Every Shock Beam that hits the same enemy as your last one does 6% more, up to 30%. Switch targets, miss or pop a core and it starts again.'),
+        t('precision', 'steady', 'Precision Coils', 'Beam: the perfect shot.', 'Coolant ports take two and a half times a beam instead of double, and they\'re a little easier to hit (1.6m either side instead of 1.2).'),
+        t('spotter', 'squad', 'Spotter', 'Beam: mark it for the squad.', 'Your hits mark the target for 5s: the whole squad deals 6% more damage to it.')
       ],
       implant: [
-        t('pointblank', 'aggressive', 'Point Blank', 'Get in close.', '30% more damage to anything within 10m of you. The cleave and the charge live there too.'),
-        t('marksman', 'steady', 'Marksman', 'Hang back, stay safe.', '30% more damage to anything 18m or more away.'),
-        t('spotter', 'squad', 'Spotter', 'Mark targets for the squad.', 'Your hits mark the target for 5s. The whole squad deals 6% more damage to it.')
+        t('volatile', 'aggressive', 'Volatile Core', 'Core: bigger bang.', 'Shock Combos are 8m across instead of 6 and hit 15% harder, but a core you don\'t pop just fizzles out (no damage when it touches something).'),
+        t('magnet', 'steady', 'Magnetic Core', 'Core: it finds them.', 'Your cores curve gently towards the enemy nearest your crosshair when you fire, so they arrive where you meant them to.'),
+        t('arclink', 'squad', 'Arc Link', 'Core: Charged for everyone.', 'Everything your combos Charge takes 10% more damage from the whole squad, not just your beams.')
       ],
       util: [
-        t('spree', 'aggressive', 'Killing Spree', 'Chain the highlights.', 'Each Combo, proc hit or kill adds a Spree stack: 8% more damage each, up to 5, for 15s.'),
-        t('breaker', 'steady', 'Shield Breaker', 'Call the shield and crack it.', 'Your hits do 40% more to the overcharge shield. When it breaks, your proc lights up.'),
-        t('uplink', 'squad', 'Team Uplink', 'Stay close, crit together.', 'You and every squad member within 12m crit 8% more often.')
+        t('supercharge', 'aggressive', 'Supercharge', 'Overcharge: all in.', 'The Overcharged Core needs 75 Capacitor instead of 50, and its combo hits 30% harder.'),
+        t('discharge', 'steady', 'Discharge Plating', 'Overcharge: armour up.', 'Firing an Overcharged Core shields you for 3 per Capacitor you put in (150 to 300) for 6s.'),
+        t('empburst', 'squad', 'EMP Burst', 'Overcharge: crack it open.', 'Overcharged combos stun drones for 3s instead of 1.5 and hit an overcharge shield for 600 more, like the EMP.')
       ]
     },
     melee: {
@@ -397,7 +402,7 @@
   var BOT_GEAR = {
     tank: { weapon: 'hammer', boots: 'twincharge', rig: 'hardened', implant: 'breathing', util: 'brand' },
     healer: { weapon: 'link', boots: 'medevac', rig: 'chainlink', implant: 'burstshield', util: 'lingering' },
-    dps: { weapon: 'shock', boots: 'dodge', rig: 'pump', implant: 'spotter', util: 'breaker' },
+    dps: { weapon: 'shock', boots: 'dodge', rig: 'spotter', implant: 'magnet', util: 'empburst' },
     melee: { weapon: 'chainsaw', boots: 'escort', rig: 'pump', implant: 'flanker', util: 'breaker' }
   };
   function validGear(role, g) {
@@ -425,9 +430,10 @@
     overEvery: 34, overShield: 10000, overWindow: 14, overDmg: 600, staggerDur: 7, staggerBonus: 1.3,
     // The pulse ramps while the shield holds (one entry per pulse, the last repeats): the longer the DPS take, the harder the healer works.
     pulseEvery: 2.25, pulseRamp: [30, 90, 180, 270, 360, 450], centreSpeed: 10,
-    // Ground Pound: the Foreman slams the floor and a shockwave rolls out to the walls. Jump it (Space). Anything lying
+    // Ground Pound: a boss slams the floor and a shockwave rolls out to the walls. Jump it (Space). Anything lying
     // on the floor (sludge, fallen sections) still gets you in the air; only the moving wave can be jumped.
-    waveEvery: 21, waveFirst: 16, waveWind: 1.5, waveSpeed: 11, waveW: 1.4, waveDmg: 300, jumpAir: 0.6,
+    // Built, but off for the Foreman: he's a classic raid boss. A future boss turns it on.
+    groundPound: false, waveEvery: 21, waveFirst: 16, waveWind: 1.5, waveSpeed: 11, waveW: 1.4, waveDmg: 300, jumpAir: 0.6,
     // The Foreman leaps onto someone (long warning), and in phase three tears up sections of floor.
     leapEvery: 24, leapDelay: 2.6, leapR: 7, leapDmg: 520, p3At: 0.25,
     // Ultimates fill in about a minute. Hero moments call on one class at a time; missing one hurts, it never wipes.
@@ -440,7 +446,7 @@
     chargeEvery: 19, chargeDelay: 1.8, chargeW: 4.5, chargeDmg: 380,
     // Crusher: a telegraphed tank buster on whoever the Foreman is fighting. Mitigate it or eat most of your health.
     // Impact Hammer: combo pacing, Aegis Dome size, Riot Charge recharge, and how the barrier holds and recovers.
-    boltGcd: 0.6, lobTime: 0.6, sbeamGcd: 0.75, swingGcd: 0.6, slamGcd: 0.9, comboReset: 2, aegisR: 9, aegisDur: 5, chargeCd: 10,
+    boltGcd: 0.6, lobTime: 0.6, sbeamGcd: 0.75, throwThreat: 30, swingGcd: 0.6, slamGcd: 0.9, comboReset: 2, aegisR: 9, aegisDur: 5, chargeCd: 10,
     // Shock Rifle. Cores fly along your aim; the beam detonates them (combo grows with distance flown, to +50% at 18m).
     // Coolant ports ring the Foreman: one opens at a time, all of them after his big moves and while he's staggered.
     sbeamDmg: 80, sbeamCap: 5, chargedMult: 1.4, chargedCap: 4, chargedDur: 5,
@@ -665,6 +671,7 @@
       }
     }
     if (tgt.spotted > 0) amt *= 1.06;
+    if (tgt.charged > 0 && tgt.arcOn) amt *= 1.1;   // Arc Link: Charged for the whole squad
     // A Shock Beam on an open coolant port (see portHit): the fireAbility sets weakNow for that one hit.
     var vent = src.kind === 'player' && !!src.weakNow;
     if (tgt.branded > 0) amt *= 1.15;
@@ -697,6 +704,12 @@
     }
     return dealt;
   }
+  /* An EMP hit on an overcharge shield: 600 straight off it. */
+  function empShield(S, by, e) {
+    if (!e.oshield || !(e.oshield.hp > 0)) return;
+    var bonus = Math.min(e.oshield.hp, 600); e.oshield.hp -= bonus; met(S, by.id).shield += bonus;
+    if (e.oshield.hp <= 0) breakShield(S, e, by);
+  }
   /* The squad cracked the overcharge shield: the Foreman staggers and takes extra damage. */
   function breakShield(S, boss, by) {
     if (boss.cast && boss.cast.hero) S.hero = null;   // a hero moment interrupted by the stagger is over
@@ -707,7 +720,7 @@
     emit(S, { type: 'log', text: (by && by.name ? by.name + ' cracks' : 'The squad cracks') + ' the overcharge shield. The Foreman staggers: ' + Math.round((TUNE.staggerBonus - 1) * 100) + '% more damage for ' + TUNE.staggerDur + 's.' });
     players(S, true).forEach(function (q) {
       if (!T(q, 'breaker')) return;
-      if (q.role === 'tank') { q.cds.challenge = 0; q.cds.belt = 0; }
+      if (q.role === 'tank') { q.cds.hthrow = 0; q.cds.belt = 0; }
       else if (q.role === 'melee') q.pips = resOf(q).max;
       else procUp(S, q);
     });
@@ -731,6 +744,7 @@
       if (guard) { var share = amt * 0.2; amt -= share; damagePlayer(S, srcId, guard, share, 'Bodyguard', true); }
     }
     if (p.belt > 0) amt = amt * 0.5;
+    if (p.slideT > 0) amt = amt * 0.7;   // Kinetic Slide
     if (p.pump > 0) amt = amt * 0.75;
     if (braced(p)) amt = amt * 0.85;
     if (srcId !== p.id && S.domes.some(function (d) { return Math.hypot(p.x - d.x, p.z - d.z) <= d.r; })) {
@@ -807,7 +821,7 @@
     }
     if (p.hp > 0 && srcId === S.bossId && label === 'Hit') {
       // Counterstrike: getting hit can light you up.
-      if (T(p, 'counter') && S.rng() < 0.25) { p.counter = 6; p.cds.challenge = 0; proc(S, p, 'counter', 'COUNTERSTRIKE'); }
+      if (T(p, 'counter') && S.rng() < 0.25) { p.counter = 6; p.cds.hthrow = 0; proc(S, p, 'counter', 'COUNTERSTRIKE'); }
     }
     if (p.hp > 0 && p.hp < p.maxHp * 0.25 && srcId === S.bossId) {
       // Striker Decoy Beacon: pull the Foreman off a friend in trouble.
@@ -894,8 +908,8 @@
   function shieldUp(q, src, amt, cap) { q.armor = Math.min(cap, Math.max(q.armor, 0) + amt); q.armorSrc = src.id; }
   function resolveTarget(S, p, ab) {
     if (ab.kind === 'aim') return p;
-    if (ab.id === 'challenge' && aimWeapon(p)) {
-      // Aimed tanks taunt whatever is in front of them, falling back to their target.
+    if (ab.id === 'hthrow' && aimWeapon(p)) {
+      // Aimed tanks throw at whatever is in front of them, falling back to their target.
       var front = inCone(S, p, ab.range, 0.85)[0];
       if (front) return front;
     }
@@ -935,7 +949,7 @@
     if (ab.role === 'proc' && !(p.procT > 0)) out.state = 'locked';
     else if (ab.role === 'ult' && (p.ult || 0) < 100) out.state = 'locked';
     else if (ab.role === 'spend' && (p.pips || 0) < resOf(p).min) out.state = 'locked';
-    else if ((ab.cost && (p.pips || 0) < ab.cost) || (ab.needs && (p.pips || 0) < ab.needs)) out.state = 'locked';
+    else if ((ab.cost && (p.pips || 0) < ab.cost) || (ab.needs && (p.pips || 0) < needsOf(p, ab))) out.state = 'locked';
     else if (p.jam > 0 && (ab.id === 'spin' || ab.id === 'sweep')) out.state = 'locked';
     else if (ab.id === 'ebarrier' && p.barrierBroken > 0) out.state = 'locked';
     else if (ab.id === 'combo' && p.barrierUp) out.state = 'locked';
@@ -945,6 +959,8 @@
     return out;
   }
 
+  /* What an ability needs in the class resource, after talents (Supercharge raises the Overcharged Core's). */
+  function needsOf(p, ab) { return ab.id === 'ocore' && T(p, 'supercharge') ? 75 : ab.needs; }
   function fail(S, p, text) {
     if (p.human && !p.auto) emit(S, { type: 'error', id: p.id, text: text });
     return false;
@@ -958,7 +974,7 @@
     if (ab.role === 'proc' && !(p.procT > 0)) return fail(S, p, ab.name + ' has not procced');
     if (ab.role === 'ult' && (p.ult || 0) < 100) return fail(S, p, ab.name + ' is still charging');
     if (ab.role === 'spend' && (p.pips || 0) < resOf(p).min) return fail(S, p, 'Not enough ' + resOf(p).name);
-    if ((ab.cost && (p.pips || 0) < ab.cost) || (ab.needs && (p.pips || 0) < ab.needs)) return fail(S, p, 'Not enough ' + resOf(p).name);
+    if ((ab.cost && (p.pips || 0) < ab.cost) || (ab.needs && (p.pips || 0) < needsOf(p, ab))) return fail(S, p, 'Not enough ' + resOf(p).name);
     if (p.jam > 0 && (ab.id === 'spin' || ab.id === 'sweep')) return fail(S, p, 'Minigun jammed');
     if (ab.id === 'ebarrier' && p.barrierBroken > 0) return fail(S, p, 'Barrier is broken');
     if (ab.id === 'combo' && p.barrierUp) return fail(S, p, 'Lower the barrier first');
@@ -1076,7 +1092,7 @@
     }
     emit(S, { type: 'fx', fx: 'slammed', src: e.id });
   }
-  /* Challenge talents: Brand marks it, Daze rings its bell, Protector shields whoever it was hitting. */
+  /* Hammer Throw talents: Brand marks it, Daze rings its bell, Protector shields whoever it was hitting. */
   function onTaunt(S, p, list) {
     list.forEach(function (e) {
       if (!e.alive) return;
@@ -1221,14 +1237,17 @@
       case 'sbeam':
         p.gcd = TUNE.sbeamGcd;
         var mine = coreInAim(S, p, ab.range);
-        if (mine) { detonate(S, p, mine); break; }   // your own core near the crosshair: the combo
+        if (mine) { p.olN = 0; detonate(S, p, mine); break; }   // your own core near the crosshair: the combo
         var sbt = softTarget(S, p, SHOCK_AIM);
-        if (!sbt) { emit(S, { type: 'fx', fx: 'boltmiss', src: p.id }); break; }
+        if (!sbt) { p.olN = 0; emit(S, { type: 'fx', fx: 'boltmiss', src: p.id }); break; }
+        // Overload: the same target again, a little harder each time.
+        if (T(p, 'overload')) { p.olN = p.olTo === sbt.id ? Math.min(5, (p.olN || 0) + 1) : 0; p.olTo = sbt.id; if (p.olN === 5) proc(S, p, 'overload', 'OVERLOADED'); }
         emit(S, { type: 'beam', src: p.id, dst: sbt.id, fx: 'shock' });
         var port = sbt.type === 'boss' ? portHit(S, p, sbt) : -1;
         var chg = sbt.charged > 0;
         p.weakNow = port >= 0;
-        damageEnemy(S, p, sbt, TUNE.sbeamDmg * (port >= 0 ? TUNE.portMult : 1) * (chg ? TUNE.chargedMult : 1), 1, port >= 0 ? 'Weak Point!' : 'Shock Beam');
+        var pmult = T(p, 'precision') ? 2.5 : TUNE.portMult, olm = T(p, 'overload') ? 1 + 0.06 * (p.olN || 0) : 1;
+        damageEnemy(S, p, sbt, TUNE.sbeamDmg * (port >= 0 ? pmult : 1) * (chg ? TUNE.chargedMult : 1) * olm, 1, port >= 0 ? 'Weak Point!' : 'Shock Beam');
         p.weakNow = false;
         p.pips = Math.min(resOf(p).max, (p.pips || 0) + TUNE.sbeamCap + (chg ? TUNE.chargedCap : 0) + (port >= 0 ? TUNE.portCap : 0));
         if (port >= 0) { met(S, p.id).ports = (met(S, p.id).ports || 0) + 1; emit(S, { type: 'fx', fx: 'port', src: sbt.id, pw: port }); }
@@ -1238,6 +1257,7 @@
         break;
       case 'ocore':
         var spentC = p.pips || 0; p.pips = 0;
+        if (T(p, 'discharge')) { shieldUp(p, p, spentC * 3, 600); p.kshieldT = Math.max(p.kshieldT || 0, 6); emit(S, { type: 'fx', fx: 'guard', src: p.id }); }
         p.cds.score = TUNE.coreCd;
         launchCore(S, p, p.facing, true, spentC);
         if (spentC >= 99) proc(S, p, 'ocore', 'FULL OVERCHARGE');
@@ -1341,16 +1361,19 @@
         p.pips = perfect ? heatNow / 2 : 0;
         proc(S, p, 'vent', perfect ? 'PERFECT VENT' : 'VENTED');
         break;
-      case 'challenge':
-        emit(S, { type: 'fx', fx: 'challenge', src: p.id });
-        emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'kick' });
-        var top = 0; for (var k in tgt.threat) top = Math.max(top, tgt.threat[k]);
-        tgt.threat[p.id] = Math.max(tgt.threat[p.id] || 0, top * 1.1 + 200);
-        tgt.prevTarget = tgt.target;
-        tgt.fixate = { id: p.id, t: 3 };
-        onTaunt(S, p, [tgt]);
+      case 'hthrow':
+        // A real attack with huge threat rather than a forced taunt, so it means the same thing against a player.
+        var thrown = [tgt];
+        var hop2 = enemies(S).filter(function (e) { return e !== tgt && dist(e, tgt) <= 10 + (e.radius || 0); }).sort(function (a2, c2) { return dist(a2, tgt) - dist(c2, tgt); })[0];
+        if (hop2) thrown.push(hop2);
+        thrown.forEach(function (e) { e.prevTarget = e.target; });
+        emit(S, { type: 'beam', src: p.id, dst: tgt.id, fx: 'hammer' });
+        damageEnemy(S, p, tgt, 180, TUNE.throwThreat, 'Hammer Throw');
+        if (hop2) { emit(S, { type: 'beam', src: tgt.id, dst: hop2.id, fx: 'hammer' }); damageEnemy(S, p, hop2, 120, TUNE.throwThreat, 'Hammer Throw'); }
+        emit(S, { type: 'fx', fx: 'throw', src: tgt.id });
+        onTaunt(S, p, thrown);
         if (T(p, 'guardian')) {
-          var ward = players(S, true).filter(function (q) { return q !== p; }).sort(function (a, c) { return a.hp / a.maxHp - c.hp / c.maxHp; })[0];
+          var ward = players(S, true).filter(function (q) { return q !== p; }).sort(function (a3, c3) { return a3.hp / a3.maxHp - c3.hp / c3.maxHp; })[0];
           if (ward) { shieldUp(ward, p, 200, 450); emit(S, { type: 'fx', fx: 'guard', src: ward.id }); }
         }
         break;
@@ -1727,6 +1750,12 @@
       emit(S, { type: 'blink', id: p.id, fromX: ox, fromZ: oz, fx: fx });
     };
     if (T(p, 'dodge')) { var d1 = dir(); land(p.x + d1[0] * 7, p.z + d1[1] * 7, 4, 2, 'leap'); return; }
+    if (T(p, 'slide')) { var d3 = dir(); land(p.x + d3[0] * 8, p.z + d3[1] * 8, 5, 0, 'leap'); p.slideT = 2; return; }
+    if (T(p, 'coverdash')) {
+      var d4 = dir(); land(p.x + d4[0] * 9, p.z + d4[1] * 9, 10, 0, 'leap');
+      players(S, true).forEach(function (q) { if (q !== p && dist(q, p) <= 6) { shieldUp(q, p, 120, 450); emit(S, { type: 'fx', fx: 'guard', src: q.id }); } });
+      return;
+    }
     if (T(p, 'stim')) { var d2 = dir(); land(p.x + d2[0] * 9, p.z + d2[1] * 9, 8, 3, 'leap'); return; }
     if (T(p, 'skates')) { p.cds.leap = 8; p.skates = 3; emit(S, { type: 'fx', fx: 'boost', src: p.id }); return; }
     if (p.role === 'tank') { riotCharge(S, p, ox, oz); return; }
@@ -1770,7 +1799,7 @@
       p.barrierRestT = (p.barrierRestT || 0) + dt;
       if (!(p.barrierBroken > 0) && p.barrierRestT >= TUNE.barrierRest) p.barrier = Math.min(barrierMax(p), p.barrier + TUNE.barrierRegen * (T(p, 'hardened') ? 2 : 1) * dt);
     }   // "recent" fades over a few seconds
-    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm', 'skates', 'air', 'kshieldT'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
+    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm', 'skates', 'air', 'kshieldT', 'slideT'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
     if (p.hot > 0) {
       var src = ent(S, p.hotSrc), step = Math.min(dt, p.hot);
       p.hot -= dt;
@@ -1976,7 +2005,7 @@
     }
 
     // Ground Pound: he rears up, slams the floor and a shockwave rolls out to the walls. Jump it.
-    if (!boss.cast && !boss.charging && !boss.oshield && !boss.goCentre && !(boss.stagger > 0)) {
+    if (TUNE.groundPound && !boss.cast && !boss.charging && !boss.oshield && !boss.goCentre && !(boss.stagger > 0)) {
       T.wave -= dt;
       if (T.wave <= 0) {
         T.wave = TUNE.waveEvery * (S.phase === 3 ? 0.8 : 1);
@@ -2154,11 +2183,18 @@
     for (var ci = S.cores.length - 1; ci >= 0; ci--) {
       var c = S.cores[ci], cby = ent(S, c.by); c.t += dt;
       var sp = c.nova ? (c.t < 1.5 ? 6 : 0) : c.sp;
+      var hm2 = c.home ? ent(S, c.home) : null;
+      if (hm2 && hm2.alive) {
+        // Magnetic Core: turn towards the target, at most 1.2 radians a second.
+        var want = Math.atan2(hm2.x - c.x, hm2.z - c.z), have = Math.atan2(c.dx, c.dz), dA = want - have;
+        while (dA > Math.PI) dA -= Math.PI * 2; while (dA < -Math.PI) dA += Math.PI * 2;
+        have += Math.max(-1.2 * dt, Math.min(1.2 * dt, dA)); c.dx = Math.sin(have); c.dz = Math.cos(have);
+      }
       c.x += c.dx * sp * dt; c.z += c.dz * sp * dt; c.flown += sp * dt;
       var gone = c.t >= c.life || Math.hypot(c.x, c.z) > ARENA_R - 0.5 || !cby || !cby.alive;
       if (!gone && !c.nova) {
         var touch = enemies(S).filter(function (e) { return Math.hypot(e.x - c.x, e.z - c.z) <= (e.radius || 1) + 0.6; })[0];
-        if (touch) { damageEnemy(S, cby, touch, c.big ? TUNE.ocoreFizzle : TUNE.coreFizzle, 1, c.big ? 'Overcharged Core' : 'Shock Core'); gone = true; }
+        if (touch) { if (!T(cby, 'volatile')) damageEnemy(S, cby, touch, c.big ? TUNE.ocoreFizzle : TUNE.coreFizzle, 1, c.big ? 'Overcharged Core' : 'Shock Core'); gone = true; }
       }
       if (gone) { S.cores.splice(ci, 1); emit(S, { type: 'fx', fx: 'fizzle', x2: Math.round(c.x * 10) / 10, z2: Math.round(c.z * 10) / 10, src: c.by }); }
     }
@@ -2189,7 +2225,7 @@
       if (!bby) continue;
       enemies(S).forEach(function (e) {
         if (Math.hypot(e.x - bl.x, e.z - bl.z) > bl.r + (e.radius || 0)) return;
-        if (e.oshield && e.oshield.hp > 0) { var bonus = Math.min(e.oshield.hp, 600); e.oshield.hp -= bonus; met(S, bby.id).shield += bonus; if (e.oshield.hp <= 0) breakShield(S, e, bby); }
+        empShield(S, bby, e);
         damageEnemy(S, bby, e, 200, 4, 'EMP');
         if (e.alive && e.type !== 'boss') e.stagger = Math.max(e.stagger || 0, 2.5);
       });
@@ -2332,7 +2368,7 @@
     if (inside) {
       b.danger += dt;
       if (b.danger > b.react * slow) {
-        var e = escapeDir(inside, p); inp.mx = e.x; inp.mz = e.z; if (T(p, 'dodge') || T(p, 'stim')) inp.jump = true;
+        var e = escapeDir(inside, p); inp.mx = e.x; inp.mz = e.z; if (T(p, 'dodge') || T(p, 'stim') || T(p, 'slide') || T(p, 'coverdash')) inp.jump = true;
         // About to land and still under it: pop the personal defensive if there is one.
         if (inside.dur - inside.t < 0.7 && ready('cloak')) inp.ability = idx('cloak');
         return inp;
@@ -2414,7 +2450,7 @@
         var looseH = foes.filter(function (f) { return f.target !== p.id && !(f.fixate && f.fixate.id === p.id); })
           .sort(function (a2, c2) { return dist(p, a2) - dist(p, c2); });
         var aimAt = function (f) { inp.aim = Math.atan2(f.x - p.x, f.z - p.z); };
-        if (looseH.length && ready('challenge') && dist(p, looseH[0]) <= 30 + (looseH[0].radius || 0)) { aimAt(looseH[0]); return fire0(idx('challenge'), looseH[0]); }
+        if (looseH.length && ready('hthrow') && dist(p, looseH[0]) <= 30 + (looseH[0].radius || 0)) { aimAt(looseH[0]); return fire0(idx('hthrow'), looseH[0]); }
         if (looseH.length && ready('piston') && dist(p, looseH[0]) > 8 && dist(p, looseH[0]) <= 22 + (looseH[0].radius || 0)) { aimAt(looseH[0]); return fire0(idx('piston'), looseH[0]); }
         if (looseH.length && dist(p, looseH[0]) > 12 && (p.charges || 0) >= 1 && !S.telegraphs.length) { inp.jump = true; aimAt(looseH[0]); return inp; }
         // Shove when the bar is (nearly) full, or a little earlier if there's a drone in the arc to throw.
@@ -2434,7 +2470,7 @@
       // Pick up anything not on me: taunt the closest, or a Shell from range.
       var loose = foes.filter(function (f) { return f.target !== p.id && !(f.fixate && f.fixate.id === p.id); })
         .sort(function (a2, c2) { return dist(p, a2) - dist(p, c2); });
-      if (loose.length && ready('challenge') && dist(p, loose[0]) <= 30 + (loose[0].radius || 0)) return fire0(idx('challenge'), loose[0]);
+      if (loose.length && ready('hthrow') && dist(p, loose[0]) <= 30 + (loose[0].radius || 0)) return fire0(idx('hthrow'), loose[0]);
       if (!canAct) return inp;
       var near = foes.filter(function (f) { return dist(p, f) <= 8 + (f.radius || 0); }).length;
       if (W === 'flak') {
@@ -2573,7 +2609,7 @@
       else if (ready('emp') && (drones.length || (boss.alive && boss.oshield))) {
         var et = drones[0] || boss; m.aim = et.id; inp.ad = Math.max(2, dist(p, et) - (et.type === 'boss' ? et.radius : 0)); inp.ability = idx('emp');
       }
-      else if (!mine.length && ready('score') && cap >= 50 && (cap >= 95 || crowd || hot) && dist(p, tg) <= 26) {
+      else if (!mine.length && ready('score') && cap >= (T(p, 'supercharge') ? 75 : 50) && (cap >= 95 || crowd || hot) && dist(p, tg) <= 26) {
         // Both buttons together: let go of the beam for a beat first, or it reads as a normal core.
         if (p.lHeld || p.rHeld) { m.hold = [false, false]; b.think = 0.05; }
         else { m.hold = [true, true]; m.coreTgt = tg.id; m.popErr = (S.rng() - 0.3) * 2 * slow; }
@@ -2689,7 +2725,7 @@
         if (e.dash) o.ds = 1;
         if (e.lastDeath) o.ld = [e.lastDeath.label, e.lastDeath.t, e.lastDeath.log || []];
         if (e.cast) o.k = [e.cast.ab.id, r2(e.cast.t), r2(e.cast.dur), e.cast.targetId];
-        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'adren'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
+        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'adren'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
         snap.p.push(o);
       } else {
         var q = { i: e.id, ty: e.type, n: e.name, x: r2(e.x), z: r2(e.z), f: r2(e.facing), h: Math.round(e.hp), mh: e.maxHp, a: e.alive ? 1 : 0, tg: e.target, ra: e.radius };
@@ -2736,7 +2772,7 @@
       p.x = o.x; p.z = o.z; p.facing = o.f; p.hp = o.h; p.alive = !!o.a; p.target = o.tg; p.gcd = o.g; p.cds = o.c || {};
       p.moving = !!o.mv; p.auto = !!o.au || !p.human; p.defibUsed = !!o.du;
       p.lastDeath = o.ld ? { label: o.ld[0], t: o.ld[1], log: o.ld[2] || [] } : null;
-      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'adren'].forEach(function (f) { p[f] = o[f] || 0; });
+      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'adren'].forEach(function (f) { p[f] = o[f] || 0; });
       if (o.k) {
         var ab = abilitiesOf(p).filter(function (a) { return a.id === o.k[0]; })[0];
         p.cast = ab ? { ab: ab, t: o.k[1], dur: o.k[2], targetId: o.k[3] } : null;
@@ -2811,6 +2847,9 @@
       ram: function () { tankCharge(); }, twincharge: function () { tankCharge(); }, intercept: function () { tankCharge(); },
       stim: function () { space('Stim Leap', 'Stimmed: next heal instant'); },
       dodge: function () { space('Dodge', 'Dodged: next shot +30%'); },
+      slide: function () { out.push([p.slideT > 0 ? 'Sliding: -30% damage' : 'Slide [Shift] ' + cd('leap'), p.slideT > 0 || ready('leap')]); },
+      coverdash: function () { out.push(['Covering Dash [Shift] ' + cd('leap'), ready('leap')]); },
+      overload: function () { out.push([(p.olN || 0) > 0 ? 'Overload +' + (p.olN * 6) + '%' : 'Overload: stay on one', (p.olN || 0) >= 5]); },
       medevac: function () { out.push(['Medevac [Shift] ' + cd('leap'), ready('leap')]); },
       mag: function () { var n = gearName('boots', 'mag', p.role); out.push([braced(p) ? n + ' set' : p.moving ? n + ': stand still' : n + '...', braced(p)]); },
       cover: function () { out.push([still ? 'Covering squad' : 'Cover: stand still', still]); },
@@ -2859,7 +2898,7 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.26.0';
+  var VERSION = '0.27.0';
 
   var api = {
     VERSION: VERSION,

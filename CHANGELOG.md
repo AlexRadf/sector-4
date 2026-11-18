@@ -4,6 +4,28 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.27.0 (2026-11-18) Striker talents, Hammer Throw, no Ground Pound
+- **Striker talent pass.** A new tree for the Shock Rifle. Like the Medic's, no talent adds a button; each row changes
+  one you already have:
+  - **Footwork (Shift):** Dodge Jump (7m, next shot +30%) / Kinetic Slide (8m, 30% less damage for 2s after) /
+    Covering Dash (9m, a 120 shield on every squad member within 6m of where you land).
+  - **Beam (LMB):** Overload (each beam on the same target +6%, up to 30%) / Precision Coils (coolant ports take 2.5x
+    instead of 2x and are a little easier to hit) / Spotter (your hits mark the target: the squad does 6% more to it).
+  - **Core (RMB):** Volatile Core (combos 8m and 15% harder, but an unpopped core does nothing) / Magnetic Core (cores
+    curve towards the enemy under your crosshair) / Arc Link (Charged targets take 10% more from the whole squad).
+  - **Overcharge (L+R):** Supercharge (needs 75, hits 30% harder) / Discharge Plating (shields you 3 per Capacitor put
+    in) / EMP Burst (drones stunned 3s, and an overcharge shield takes 600 more).
+  - Removed: Sniper's Perch, Covering Fire, Adrenaline Rush, Thigh Pads, Decoy Beacon, Point Blank, Marksman, Killing
+    Spree, Shield Breaker, Team Uplink. Saved builds fall back to the first pick in each row. Rows 2 to 4 only work on
+    the Shock Rifle until the other Striker weapons are converted.
+- **Juggernaut: Challenge is now Hammer Throw (Q).** No forced taunt any more, so it means the same thing against a
+  player: 180 and huge threat to what you aim at, then it bounces to the nearest other enemy within 10m for 120 and
+  huge threat (both drones in one throw). Brand, Daze and Protector now work off the throw. Flak Cannon and Minigun
+  get it too.
+- **No Ground Pound for the Foreman.** He's a classic raid boss. The shockwave is still in the game for a future boss;
+  Space still jumps.
+- Bot Strikers take Dodge Jump, Spotter, Magnetic Core and EMP Burst. An all-bot squad wins about 85% in roughly 4:36.
+
 ## 0.26.0 (2026-11-18) Shock Rifle rework, coolant ports, jumping, a harder overcharge shield
 - **The Shock Rifle plays like UT now.** No more standing still holding a stream. Each button is a skill shot:
   - **RMB Shock Core** (every 4s): a slow glowing ball fired along your aim.

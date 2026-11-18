@@ -1,7 +1,7 @@
 # Sector-4 design pillars
 
 The rules every change is checked against. If a feature breaks one of these, change the feature or
-change this file on purpose, never by drift. Last revised: v0.26.0 (2026-11-18).
+change this file on purpose, never by drift. Last revised: v0.27.0 (2026-11-18).
 
 ## What the game is
 
@@ -42,6 +42,8 @@ people who are out of position alive.
   template: beam (single target), core plus combo (area), ports (aim), Capacitor (rhythm), multi-combo reset (chain).
 - **Ranged roles aren't rewarded for standing behind the boss.** Their precision reward comes from aim (weak points that
   move and open), not from position. Behind-the-boss bonuses belong to melee.
+- **Every ability should mean the same thing against a player.** No forced taunts: tanks hold attention with big-threat
+  attacks (Hammer Throw), which in PvP are simply hits. Keeps the kits ready for a PvP mode later.
 - **Jumping only clears things that move along the floor** (a shockwave). Anything lying on the floor (pools, debuffs,
   fallen sections) still gets you in the air.
 - **No twitch reactions.** Telegraphs are long and readable. Mistakes hurt, a single one never wipes.
@@ -75,7 +77,7 @@ while dodging). Rules for the healer prototype:
 2. Open items: death log, boss targeting the dead, phase 3 floor, keybinds (v0.20.0).
 3. **Aimed healer prototype**: the Link Gun (v0.21.0) and its talent tree (v0.23.0), being played.
 4. One aimed DPS weapon: the Shock Rifle (v0.25.0), reworked around Shock Cores, combos and coolant ports (v0.26.0),
-   with Shift/Space movement, the Ground Pound and the ramping overcharge pulse. To be played. Then a Striker talent pass,
-   and the same single-target / area / mastery pass for the Juggernaut and the Medic.
+   with Shift/Space movement and the ramping overcharge pulse, and its talent tree (v0.27.0). To be played. The Ground
+   Pound is built but off for the Foreman. Next: the same single-target / area / mastery pass for the Juggernaut and Medic.
 5. Only then convert the remaining weapons (Flak Cannon, Minigun, other Medic and Striker weapons),
    or cut weapons if one good one per role is enough.
