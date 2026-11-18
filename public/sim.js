@@ -70,17 +70,78 @@
     clampArena(spot, 2);
     return spot;
   }
-  /* The Shock Combo: a detonation on one enemy that splashes everything near it. */
-  function shockBlast(S, p, t, main, splash, r, stun, label) {
-    emit(S, { type: 'fx', fx: 'scombo', src: t.id, pw: r });
-    damageEnemy(S, p, t, main, 1.5, label);
+  /* A shock detonation at a point: everything inside takes amt and is Charged (Shock Beams on it hit harder).
+     Returns how many enemies it caught. Used by Shock Combos and the Shock Nova. */
+  function shockBlast(S, p, at, amt, r, stun, label) {
+    emit(S, { type: 'fx', fx: 'scombo', x2: Math.round(at.x * 10) / 10, z2: Math.round(at.z * 10) / 10, pw: r, src: p.id });
+    var n = 0;
     enemies(S).forEach(function (e) {
-      if (e === t || !e.alive || dist(e, t) > r + (e.radius || 0)) return;
-      damageEnemy(S, p, e, splash, 1.5, label);
-      if (stun && e.alive && e.type !== 'boss') e.stagger = Math.max(e.stagger || 0, stun);
+      if (!e.alive || Math.hypot(e.x - at.x, e.z - at.z) > r + (e.radius || 0)) return;
+      n++;
+      damageEnemy(S, p, e, amt, 1.5, label);
+      if (!e.alive) return;
+      e.charged = TUNE.chargedDur; e.chargedBy = p.id;
+      if (stun && e.type !== 'boss') e.stagger = Math.max(e.stagger || 0, stun);
     });
-    if (stun && t.alive && t.type !== 'boss') t.stagger = Math.max(t.stagger || 0, stun);
+    return n;
   }
+  /* Shock Cores in flight: S.cores, each { id, by, x, z, dx, dz, sp, t, life, big, spent, flown }. */
+  function launchCore(S, p, dir, big, spent, life) {
+    var c = { id: S.nextId++, by: p.id, x: p.x + Math.sin(dir) * 1.2, z: p.z + Math.cos(dir) * 1.2, dx: Math.sin(dir), dz: Math.cos(dir),
+      sp: big ? TUNE.ocoreSpeed : TUNE.coreSpeed, t: 0, life: life || (big ? TUNE.ocoreLife : TUNE.coreLife), big: big ? 1 : 0, spent: spent || 0, flown: 0 };
+    S.cores.push(c);
+    emit(S, { type: 'fx', fx: big ? 'ocore' : 'core', src: p.id });
+    return c;
+  }
+  /* Your own core nearest the crosshair, inside a generous cone: the beam snaps onto it. */
+  function coreInAim(S, p, range) {
+    var fx = Math.sin(p.facing), fz = Math.cos(p.facing), best = null, bs = -2;
+    S.cores.forEach(function (c) {
+      if (c.by !== p.id) return;
+      var dx = c.x - p.x, dz = c.z - p.z, l = Math.sqrt(dx * dx + dz * dz);
+      if (l > range || l < 0.3) return;
+      var r = c.big ? 2.6 : 2.0;
+      var ang = Math.max(0, Math.acos(Math.max(-1, Math.min(1, (dx * fx + dz * fz) / l))) - Math.atan2(r, Math.max(l, 0.5)));
+      var eff = Math.cos(ang);
+      if (eff < 0.96) return;
+      if (eff - l * 0.001 > bs) { bs = eff - l * 0.001; best = c; }
+    });
+    return best;
+  }
+  /* The combo: a core blown up by its owner's beam. Bigger the further it has flown; two or more caught refunds the core. */
+  function detonate(S, p, c) {
+    S.cores.splice(S.cores.indexOf(c), 1);
+    var travel = 1 + TUNE.comboTravelMult * Math.min(1, c.flown / TUNE.comboTravel);
+    var base = c.big ? TUNE.ocoreBase + TUNE.ocorePer * Math.max(0, c.spent - 50) : c.nova ? 420 : TUNE.comboDmg;
+    var r = c.big ? TUNE.ocoreR : TUNE.coreR;
+    emit(S, { type: 'beam', src: p.id, x2: Math.round(c.x * 10) / 10, z2: Math.round(c.z * 10) / 10, fx: 'shock' });
+    var n = shockBlast(S, p, c, base * travel, r, c.big ? 1.5 : 0, c.big ? 'Overcharged Combo!' : 'Shock Combo!');
+    if (n >= 2 && !c.nova) { p.cds.score = 0; proc(S, p, 'reset', 'MULTI-COMBO'); }
+    return n;
+  }
+  /* Coolant ports on the Foreman: three glowing panels round his body that drift slowly round him. One is open at a time;
+     all of them blow open for a few seconds after a big move (Crusher, charge, leap, ground pound) and while he's staggered.
+     Hit an open one with the Shock Beam, with real aim (no snapping), for a crit and Capacitor. */
+  function portAngle(boss, i) { return boss.facing + Math.PI + (boss.portRot || 0) + i * Math.PI * 2 / 3; }
+  function portOpen(S, boss, i) {
+    if (boss.stagger > 0 || boss.portBurst > 0) return true;
+    var cyc = TUNE.portOpen + TUNE.portGap, k = Math.floor(S.t / cyc) % 3, into = S.t % cyc;
+    return k === i && into < TUNE.portOpen;
+  }
+  function portHit(S, p, boss) {
+    if (!boss || !boss.alive || boss.type !== 'boss') return -1;
+    var fx = Math.sin(p.facing), fz = Math.cos(p.facing);
+    for (var i = 0; i < 3; i++) {
+      if (!portOpen(S, boss, i)) continue;
+      var a = portAngle(boss, i), px = boss.x + Math.sin(a) * boss.radius, pz = boss.z + Math.cos(a) * boss.radius;
+      var dx = px - p.x, dz = pz - p.z, l = Math.sqrt(dx * dx + dz * dz) || 1;
+      if (((p.x - px) * Math.sin(a) + (p.z - pz) * Math.cos(a)) / l < 0.15) continue;   // it has to face you
+      var off = Math.abs(dx * fz - dz * fx);              // how far the aim line passes from the port
+      if ((dx * fx + dz * fz) > 0 && off <= TUNE.portHalf) return i;
+    }
+    return -1;
+  }
+  function burstPorts(S, boss) { if (boss && boss.alive) { boss.portBurst = TUNE.portBurst; emit(S, { type: 'fx', fx: 'ports', src: boss.id }); } }
   var SHOCK_AIM = { range: 35, dot: 0.95, enemy: true };
   var BOLT_AIM = { range: 35, dot: 0.9, ally: true, enemy: true, hurt: true };
   function aimWeapon(p) { var w = p.kit && p.kit.weapons[p.weapon]; return !!(w && w.aim); }
@@ -164,17 +225,17 @@
         how: 'Capacitor. Recharges on its own. Key 1 is free, key 2 drains 50. Fire as it fills, or pool to 100 and dump two in a row. Crits give 10 back.' },
       blurb: 'Ranged damage from a safe distance.',
       weapons: [
-        TW('shock', 'Shock Rifle', 'Aimed precision. A quick beam, a stream that builds while you hold it on one target, and the Shock Combo on both buttons: a core that detonates on whatever you are pointing at. Hit the Foreman\'s back vent for 30% more.',
-          { id: 'cap', name: 'Capacitor', max: 100, start: 60, regen: 8, build: 0,
-            how: 'Capacitor. Recharges on its own, 8 a second. The Shock Beam is free; the stream drains 12 a second and the Shock Combo costs 50. Crits give 10 back.' },
-          [{ id: 'sbeam', key: 'LMB', name: 'Shock Beam', kind: 'aim', range: 35, hold: 'repeat', desc: 'Hold or tap. An instant beam at the enemy nearest your crosshair (a tighter snap than the Medic\'s: aim matters): 80.' },
-           { id: 'stream', key: 'RMB', name: 'Shock Stream', kind: 'aim', range: 30, hold: 'channel', gcd: false, desc: 'Hold on one enemy: a continuous stream that builds from 60 to 220 a second over 3s, draining 12 Capacitor a second. Lose them from your crosshair and it starts again. No beams while it\'s on.' },
-           { id: 'scombo', key: 'L+R', name: 'Shock Combo', kind: 'aim', range: 35, needs: 50, gcd: false, desc: 'Press both mouse buttons (50 Capacitor). A core detonates on the enemy nearest your crosshair: 420 to it and 240 to everything within 6m of it.' }],
+        TW('shock', 'Shock Rifle', 'Aimed precision with a UT heart. The beam is your single-target damage and it detonates your own Shock Cores in mid-air: the Shock Combo, your area damage. Hit the glowing coolant ports on the Foreman to crit and fill the Capacitor, then spend it all on an Overcharged Core.',
+          { id: 'cap', name: 'Capacitor', max: 100, start: 30, regen: 0, build: 0,
+            how: 'Capacitor. It doesn\'t recharge on its own: every Shock Beam that hits gives 5, a beam on a Charged target 4 more, a coolant port 15 and a crit 10. Both buttons spend all of it (50 or more) on an Overcharged Core.' },
+          [{ id: 'sbeam', key: 'LMB', name: 'Shock Beam', kind: 'aim', range: 35, hold: 'repeat', desc: 'Hold or tap. An instant beam: 80 to the enemy nearest your crosshair, and it snaps onto your own Shock Core near the crosshair to set off the combo. An open coolant port under your crosshair (no snapping for those) takes double and gives 15 Capacitor. Charged targets take 40% more.' },
+           { id: 'score', key: 'RMB', name: 'Shock Core', kind: 'aim', range: 30, cd: 4, gcd: false, desc: 'Fire a slow glowing core along your aim (every 4s). Beam it to detonate a Shock Combo: 6m, 250 to everything in it, up to 50% more the further it has flown. Everything caught is Charged for 5s. Catch two or more enemies and the core is ready again at once. Left alone, it fizzles on the first enemy it touches for 120.' },
+           { id: 'ocore', key: 'L+R', name: 'Overcharged Core', kind: 'aim', range: 30, needs: 50, gcd: false, shareCd: 'score', desc: 'Press both buttons together (50 Capacitor or more, all of it spent; shares the Shock Core\'s 4s). A big, very slow core. Its combo is 8m, stuns drones for 1.5s and grows with what you put in: 340 at 50, 590 at 100, plus the distance bonus.' }],
           { aim: true,
             utils: [A({ id: 'emp', key: 'Q', name: 'EMP Grenade', kind: 'aim', range: 25, cd: 15, lob: true, lobR: 6, desc: 'Hold to aim, let go to throw (look further up the room to throw further). 6m blast: 200 damage, drones stunned for 2.5s, and an overcharge shield takes 600 more.' }),
-                    A({ id: 'adren', key: 'E', name: 'Adrenaline', kind: 'self', range: 0, cd: 30, gcd: false, desc: '40% more damage for 6s. Save it for the vent, the shield or the stagger.' }),
+                    A({ id: 'adren', key: 'E', name: 'Adrenaline', kind: 'self', range: 0, cd: 30, gcd: false, desc: '40% more damage for 6s. Save it for open ports, the shield or the stagger.' }),
                     A({ id: 'kshield', key: 'F', name: 'Kinetic Shield', kind: 'self', range: 0, cd: 25, gcd: false, desc: 'A 350 shield on yourself for 4s.' })],
-            ult: A({ id: 'nova', key: 'R', name: 'Shock Nova', kind: 'aim', range: 40, gcd: false, role: 'ult', desc: 'Ultimate. The biggest combo there is, on the enemy nearest your crosshair: 900 to it, 450 to everything within 10m, and drones stunned for 3s.' }) }),
+            ult: A({ id: 'nova', key: 'R', name: 'Shock Nova', kind: 'aim', range: 40, gcd: false, role: 'ult', desc: 'Ultimate. A Shock Nova goes off on the enemy nearest your crosshair (600 to it, 300 within 8m, drones stunned 3s, all Charged), and five Shock Cores fan out from you for 8s. Beam them one by one.' }) }),
         W('rockets', 'Rocket Launcher', 'Lock-on. Each Rocket on a target adds a rocket to your next Volley, up to five in the salvo. All instant.',
           { id: 'rocket', name: 'Rocket', kind: 'enemy', range: 30, procChance: 0.2, desc: 'Free. 85, splashing 55 within 4m. Adds a Lock-on.' },
           { id: 'volley', name: 'Rocket Volley', kind: 'enemy', range: 30, desc: '50 Capacitor. Two rockets of 110 plus one for each Lock-on (up to 3), each splashing 45.' },
@@ -256,12 +317,12 @@
     healer: {
       theme: 'Field surgeon on a nanite link. Reach the squad wherever they stand: link them, burst them, drop a field under them.',
       tiers: ['Footwork', 'Link', 'Burst', 'Field'],
-      // Space changes on every Medic weapon. Rows 2 to 4 change the Link Gun's beam, Nanite Burst and Nano Field; the Bio Rifle
+      // Shift changes on every Medic weapon. Rows 2 to 4 change the Link Gun's beam, Nanite Burst and Nano Field; the Bio Rifle
       // and Shield Gun get their own versions when they're converted to aimed weapons.
       boots: [
-        t('stim', 'aggressive', 'Stim Leap', 'Leap in, heal hot.', 'Space leaps 9m the way you are moving (8s). For 3s after you land, your heals are 30% stronger.'),
-        t('skates', 'steady', 'Nanite Skates', 'Always in reach.', 'Space gives you 50% more speed for 3s (8s), and you can keep beaming and shooting the whole time.'),
-        t('medevac', 'squad', 'Medevac', 'Go to them.', 'Space leaps to the ally nearest your crosshair (or the most hurt) within 25m and gives them a 150 shield (12s).')
+        t('stim', 'aggressive', 'Stim Leap', 'Leap in, heal hot.', 'Shift leaps 9m the way you are moving (8s). For 3s after you land, your heals are 30% stronger.'),
+        t('skates', 'steady', 'Nanite Skates', 'Always in reach.', 'Shift gives you 50% more speed for 3s (8s), and you can keep beaming and shooting the whole time.'),
+        t('medevac', 'squad', 'Medevac', 'Go to them.', 'Shift leaps to the ally nearest your crosshair (or the most hurt) within 25m and gives them a 150 shield (12s).')
       ],
       rig: [
         t('siphon', 'aggressive', 'Siphon Link', 'Beam: heal one, hurt another.', 'Your beam also arcs from your ally to the nearest enemy within 10m of them for 70 a second. Heal and hurt at once.'),
@@ -283,7 +344,7 @@
       theme: 'Tournament champion. Showboat for the crowd: dodge, combo, headshot, go on a spree.',
       tiers: ['Footwork', 'Kit', 'Marksmanship', 'Showmanship'],
       boots: [
-        t('dodge', 'aggressive', 'Dodge Jump', 'Never stand still.', 'Space dodges 7m the way you are moving (4s). Your next shot within 2s does 30% more.'),
+        t('dodge', 'aggressive', 'Dodge Jump', 'Never stand still.', 'Shift dodges 7m the way you are moving (4s). Your next shot within 2s does 30% more.'),
         t('mag', 'steady', 'Sniper\'s Perch', 'Find a spot and hold it.', 'Stand still for 2s to Brace: casts 25% faster, 15% less damage taken, and charges can\'t knock you back. Moving breaks it.'),
         t('cover', 'squad', 'Covering Fire', 'Watch their backs.', 'While you stand still, squad members within 10m of you take 10% less damage.')
       ],
@@ -362,7 +423,11 @@
     // Overcharge shield: break it inside the window or the whole room takes the pulse. Breaking it staggers him.
     // Overcharge: energy fills over overEvery seconds, then he walks to the middle, channels a shield and pulses the room.
     overEvery: 34, overShield: 10000, overWindow: 14, overDmg: 600, staggerDur: 7, staggerBonus: 1.3,
-    pulseEvery: 2, pulseDmg: 80, centreSpeed: 10,
+    // The pulse ramps while the shield holds (one entry per pulse, the last repeats): the longer the DPS take, the harder the healer works.
+    pulseEvery: 2.25, pulseRamp: [30, 90, 180, 270, 360, 450], centreSpeed: 10,
+    // Ground Pound: the Foreman slams the floor and a shockwave rolls out to the walls. Jump it (Space). Anything lying
+    // on the floor (sludge, fallen sections) still gets you in the air; only the moving wave can be jumped.
+    waveEvery: 21, waveFirst: 16, waveWind: 1.5, waveSpeed: 11, waveW: 1.4, waveDmg: 300, jumpAir: 0.6,
     // The Foreman leaps onto someone (long warning), and in phase three tears up sections of floor.
     leapEvery: 24, leapDelay: 2.6, leapR: 7, leapDmg: 520, p3At: 0.25,
     // Ultimates fill in about a minute. Hero moments call on one class at a time; missing one hurts, it never wipes.
@@ -375,7 +440,13 @@
     chargeEvery: 19, chargeDelay: 1.8, chargeW: 4.5, chargeDmg: 380,
     // Crusher: a telegraphed tank buster on whoever the Foreman is fighting. Mitigate it or eat most of your health.
     // Impact Hammer: combo pacing, Aegis Dome size, Riot Charge recharge, and how the barrier holds and recovers.
-    boltGcd: 0.6, lobTime: 0.6, ventMult: 1.3, sbeamGcd: 0.6, swingGcd: 0.6, slamGcd: 0.9, comboReset: 2, aegisR: 9, aegisDur: 5, chargeCd: 10,
+    boltGcd: 0.6, lobTime: 0.6, sbeamGcd: 0.75, swingGcd: 0.6, slamGcd: 0.9, comboReset: 2, aegisR: 9, aegisDur: 5, chargeCd: 10,
+    // Shock Rifle. Cores fly along your aim; the beam detonates them (combo grows with distance flown, to +50% at 18m).
+    // Coolant ports ring the Foreman: one opens at a time, all of them after his big moves and while he's staggered.
+    sbeamDmg: 80, sbeamCap: 5, chargedMult: 1.4, chargedCap: 4, chargedDur: 5,
+    coreCd: 4, coreSpeed: 12, coreLife: 2.6, coreR: 6, comboDmg: 250, coreFizzle: 120,
+    ocoreSpeed: 7, ocoreLife: 4.5, ocoreR: 8, ocoreBase: 340, ocorePer: 5, ocoreFizzle: 220, comboTravel: 18, comboTravelMult: 0.5,
+    portMult: 2, portCap: 15, portHalf: 1.2, portSpin: 0.22, portOpen: 2.5, portGap: 2.5, portBurst: 3,
     barrierHp: 1800, barrierRegen: 180, barrierRest: 1.5, barrierBreak: 5,
     busterEvery: 15, busterCast: 2.5, busterDmg: 1860,
     droneEvery: 32, droneHp: 1600, droneMelee: 90, droneSwing: 1.5,
@@ -497,10 +568,10 @@
     var humans = opts.humans || (opts.humanRole ? [{ role: opts.humanRole, gear: opts.gear, name: 'YOU' }] : []);
     var S = {
       t: 0, phase: 1, result: null, enraged: false, countdown: 4,
-      ents: [], telegraphs: [], events: [], revives: [], domes: [], fields: [], blasts: [], nextId: 1,
+      ents: [], telegraphs: [], events: [], revives: [], domes: [], fields: [], blasts: [], cores: [], waves: [], nextId: 1,
       m: { p: {}, taken: {}, killers: {}, shields: { raised: 0, broken: 0 }, heroes: { tank: [0, 0], healer: [0, 0], dps: [0, 0], melee: [0, 0] } },
       rng: makeRng(opts.seed || 12345),
-      timers: { buster: 11, barrage: 8, over: 22, drone: 4, sludge: 7, charge: 13, leap: 30, collapse: 6, hero: 0 },
+      timers: { buster: 11, barrage: 8, over: 22, drone: 4, sludge: 7, charge: 13, leap: 30, collapse: 6, hero: 0, wave: TUNE.waveFirst },
       hero: null, heroIdx: 0, missile: null,
       humanId: null
     };
@@ -594,9 +665,8 @@
       }
     }
     if (tgt.spotted > 0) amt *= 1.06;
-    // The Foreman's back vent: aimed weapons hitting him from behind hit the glowing vent. The tank turns him; the DPS cash in.
-    var vent = tgt.type === 'boss' && src.kind === 'player' && aimWeapon(src) && src.role !== 'tank' && behind(src, tgt);
-    if (vent) amt *= TUNE.ventMult;
+    // A Shock Beam on an open coolant port (see portHit): the fireAbility sets weakNow for that one hit.
+    var vent = src.kind === 'player' && !!src.weakNow;
     if (tgt.branded > 0) amt *= 1.15;
     if (tgt.stagger > 0) amt *= TUNE.staggerBonus;
     amt = Math.round(amt);
@@ -775,7 +845,7 @@
   /* For the death log: what kind of hit was it? avoid = step out of it, buster = the tank's big hit to mitigate,
      aoe = hits the whole squad (heal through it), debuff = on you until it's purged, squad = the shield wasn't broken,
      tank = the boss's fists on the tank (the job), aggro = the boss's fists on someone else, add = a drone on you. */
-  var AVOID = { Charge: 1, Collapse: 1, Leap: 1, Rocket: 1, 'Heavy Rocket': 1, 'Demolition Blast': 1, Haymaker: 1 };
+  var AVOID = { Shockwave: 1, Charge: 1, Collapse: 1, Leap: 1, Rocket: 1, 'Heavy Rocket': 1, 'Demolition Blast': 1, Haymaker: 1 };
   function hitKind(p, label, src) {
     if (AVOID[label]) return 'avoid';
     if (label === 'Cleave') return p.role === 'tank' ? 'tank' : 'avoid';
@@ -870,7 +940,7 @@
     else if (ab.id === 'ebarrier' && p.barrierBroken > 0) out.state = 'locked';
     else if (ab.id === 'combo' && p.barrierUp) out.state = 'locked';
     else if (ab.kind !== 'self' && ab.kind !== 'aim' && dist(p, tgt) > reach(p, ab) + (tgt.radius || 0)) out.state = 'range';
-    else if ((p.cds[ab.id] || 0) > 0) out.state = 'cd';
+    else if ((p.cds[ab.id] || 0) > 0 || (ab.shareCd && (p.cds[ab.shareCd] || 0) > 0)) out.state = 'cd';
     else out.state = 'ok';
     return out;
   }
@@ -884,7 +954,7 @@
     var ab = abilitiesOf(p)[idx];
     if (!ab || !p.alive) return false;
     if (p.cast) return false;
-    if ((p.cds[ab.id] || 0) > 0) return fail(S, p, ab.name + ' is not ready');
+    if ((p.cds[ab.id] || 0) > 0 || (ab.shareCd && (p.cds[ab.shareCd] || 0) > 0)) return fail(S, p, ab.name + ' is not ready');
     if (ab.role === 'proc' && !(p.procT > 0)) return fail(S, p, ab.name + ' has not procced');
     if (ab.role === 'ult' && (p.ult || 0) < 100) return fail(S, p, ab.name + ' is still charging');
     if (ab.role === 'spend' && (p.pips || 0) < resOf(p).min) return fail(S, p, 'Not enough ' + resOf(p).name);
@@ -1149,22 +1219,28 @@
         break;
       /* ---- Striker, aimed Shock Rifle ---- */
       case 'sbeam':
-        var sbt = softTarget(S, p, SHOCK_AIM);
         p.gcd = TUNE.sbeamGcd;
+        var mine = coreInAim(S, p, ab.range);
+        if (mine) { detonate(S, p, mine); break; }   // your own core near the crosshair: the combo
+        var sbt = softTarget(S, p, SHOCK_AIM);
         if (!sbt) { emit(S, { type: 'fx', fx: 'boltmiss', src: p.id }); break; }
         emit(S, { type: 'beam', src: p.id, dst: sbt.id, fx: 'shock' });
-        damageEnemy(S, p, sbt, 80, 1, 'Shock Beam');
-        if (p.critThis) p.pips = Math.min(resOf(p).max, (p.pips || 0) + 10);
+        var port = sbt.type === 'boss' ? portHit(S, p, sbt) : -1;
+        var chg = sbt.charged > 0;
+        p.weakNow = port >= 0;
+        damageEnemy(S, p, sbt, TUNE.sbeamDmg * (port >= 0 ? TUNE.portMult : 1) * (chg ? TUNE.chargedMult : 1), 1, port >= 0 ? 'Weak Point!' : 'Shock Beam');
+        p.weakNow = false;
+        p.pips = Math.min(resOf(p).max, (p.pips || 0) + TUNE.sbeamCap + (chg ? TUNE.chargedCap : 0) + (port >= 0 ? TUNE.portCap : 0));
+        if (port >= 0) { met(S, p.id).ports = (met(S, p.id).ports || 0) + 1; emit(S, { type: 'fx', fx: 'port', src: sbt.id, pw: port }); }
         break;
-      case 'stream':
-        p.streamHoldT = 1.2;
+      case 'score':
+        launchCore(S, p, p.facing, false);
         break;
-      case 'scombo':
-        var sct = softTarget(S, p, { range: ab.range, dot: 0.9, enemy: true });
-        if (!sct) { p.gcd = 0.3; return fail(S, p, 'Nothing to detonate on'); }
-        p.pips = Math.max(0, (p.pips || 0) - 50);
-        shockBlast(S, p, sct, 420, 240, 6, 0, 'Shock Combo!');
-        p.gcd = TUNE.sbeamGcd;
+      case 'ocore':
+        var spentC = p.pips || 0; p.pips = 0;
+        p.cds.score = TUNE.coreCd;
+        launchCore(S, p, p.facing, true, spentC);
+        if (spentC >= 99) proc(S, p, 'ocore', 'FULL OVERCHARGE');
         break;
       case 'emp':
         var es = lobSpot(S, p, false);
@@ -1175,8 +1251,15 @@
         shieldUp(p, p, 350, 700); p.kshieldT = 4; emit(S, { type: 'fx', fx: 'guard', src: p.id });
         break;
       case 'nova':
+        // The instant payoff, then the sustained one: five cores fan out for you to pop.
         var nt = softTarget(S, p, { range: ab.range, dot: 0.85, enemy: true }) || ent(S, S.bossId);
-        if (nt && nt.alive) shockBlast(S, p, nt, 900, 450, 10, 3, 'Shock Nova!');
+        if (nt && nt.alive) {
+          emit(S, { type: 'beam', src: p.id, dst: nt.id, fx: 'core' });
+          damageEnemy(S, p, nt, 300, 1.5, 'Shock Nova!');
+          shockBlast(S, p, nt, 300, 8, 3, 'Shock Nova!');
+        }
+        // Nova cores drift out for a second and a half, then hang in the air (they don't fizzle on contact).
+        for (var nc = -2; nc <= 2; nc++) launchCore(S, p, p.facing + nc * 0.3, false, 0, 8).nova = 1;
         proc(S, p, 'nova', 'SHOCK NOVA', 'all');
         break;
 
@@ -1482,7 +1565,8 @@
       var hw0 = p.kit.weapons[p.weapon].id;
       if (hw0 === 'link') medicHold(S, p, inp.hold || [], dt); else if (hw0 === 'shock') shockHold(S, p, inp.hold || [], dt); else hammerHold(S, p, inp.hold || [], dt);
     }
-    if (inp.jump && (p.role === 'tank' || (p.cds.leap || 0) <= 0)) spaceTalent(S, p);
+    if (inp.jump && (p.role === 'tank' || (p.cds.leap || 0) <= 0)) spaceTalent(S, p);   // Shift: the class's movement ability
+    if (inp.hop && !(p.air > 0) && !p.dash) { p.air = TUNE.jumpAir; emit(S, { type: 'fx', fx: 'jump', src: p.id }); }   // Space: a plain jump
     if (inp.ability != null && inp.ability >= 0) p.queued = { idx: inp.ability, t: 0.45 };
     if (p.queued) {
       if (tryUse(S, p, p.queued.idx)) p.queued = null;
@@ -1529,25 +1613,22 @@
     if (both || wantBeam) return;
     if (hold[0] && p.gcd <= 0 && !p.cast) tryUse(S, p, 0);
   }
-  /* Aimed Shock Rifle held inputs: hold[0] keeps beams going, hold[1] streams on whatever you hold it on, both = Shock Combo. */
+  /* Aimed Shock Rifle held inputs. hold[0] keeps the beam firing. A right-click press fires a Shock Core a tenth of a
+     second later, unless the left button goes down in that time: both pressed together (within 0.12s) is the
+     Overcharged Core. Holding the beam and tapping right fires a normal core. */
   function shockHold(S, p, hold, dt) {
-    var both = !!hold[0] && !!hold[1];
-    if (both && !p.bothHeld) { var ci = abilitiesOf(p).map(function (a) { return a.id; }).indexOf('scombo'); if (ci >= 0) tryUse(S, p, ci); }
-    p.bothHeld = both;
-    var want = (!!hold[1] || p.streamHoldT > 0) && !both && !p.cast;
-    if (want && (p.pips || 0) > 0.5) {
-      var st = softTarget(S, p, { range: 30, dot: 0.93, enemy: true });
-      if (!st) { p.streamTo = 0; p.streamRamp = 0; return; }
-      if (st.id !== p.streamTo) { p.streamTo = st.id; p.streamRamp = 0; p.streamAcc = 0; }   // new target: start again
-      p.streamRamp = Math.min(3, (p.streamRamp || 0) + dt);
-      p.pips = Math.max(0, (p.pips || 0) - 12 * dt);
-      p.streamAcc = (p.streamAcc || 0) + (60 + 160 * p.streamRamp / 3) * dt;
-      if (p.streamAcc >= 30) { damageEnemy(S, p, st, p.streamAcc, 1, 'Shock Stream'); p.streamAcc = 0; }
-      return;
+    var L = !!hold[0], R = !!hold[1];
+    var at = function (id) { var l = abilitiesOf(p); for (var i = 0; i < l.length; i++) if (l[i].id === id) return i; return -1; };
+    if (L && !p.lHeld) p.lDownT = S.t;
+    if (R && !p.rHeld) { p.rDownT = S.t; p.rPend = 0.1; }
+    if (L && R && !p.chord && Math.abs((p.lDownT == null ? -9 : p.lDownT) - (p.rDownT == null ? -9 : p.rDownT)) <= 0.12) {
+      p.chord = true; p.rPend = 0;
+      tryUse(S, p, at('ocore'));
     }
-    p.streamTo = 0; p.streamRamp = 0;
-    if (both || want) return;
-    if (hold[0] && p.gcd <= 0 && !p.cast) tryUse(S, p, 0);
+    if (!L || !R) p.chord = false;
+    p.lHeld = L; p.rHeld = R;
+    if (p.rPend > 0) { p.rPend -= dt; if (p.rPend <= 0) { p.rPend = 0; if (!p.chord) tryUse(S, p, at('score')); } }
+    if (L && !p.chord && p.gcd <= 0 && !p.cast) tryUse(S, p, 0);
   }
   /* Impact Hammer held inputs: hold[0] keeps the combo swinging, hold[1] keeps the barrier up. */
   function hammerHold(S, p, hold, dt) {
@@ -1588,7 +1669,7 @@
         }
       }
     }
-    return { mx: h.mx, mz: h.mz, ability: raw.ability, target: raw.target, jump: raw.jump, aim: raw.aim, hold: raw.hold, ad: raw.ad };
+    return { mx: h.mx, mz: h.mz, ability: raw.ability, target: raw.target, jump: raw.jump, hop: raw.hop, aim: raw.aim, hold: raw.hold, ad: raw.ad };
   }
   /* Movement measures, kept the same way for people and bots so the two can be compared and the hands fitted. */
   function trackMove(S, p, dt) {
@@ -1603,8 +1684,8 @@
     if (red) tr.red += dt;
     else if (tr.red > 0) { q.redSum += tr.red; q.redN++; tr.red = 0; }
   }
-  /* Space does whatever this class's tier 1 talent says: Riot Charge, Stim Leap, Medevac or Dodge Jump. */
-  /* Riot Charge: every Juggernaut's gap closer on Space. Tier 1 talents change it (Ram, Twin Thrusters, Intercept).
+  /* Shift (the movement key, inp.jump in the sim for history's sake) does whatever this class's tier 1 talent says: Riot Charge, Stim Leap, Medevac or Dodge Jump. */
+  /* Riot Charge: every Juggernaut's gap closer on Shift. Tier 1 talents change it (Ram, Twin Thrusters, Intercept).
      Aimed weapons charge at whatever is in front of you; others at your target, or the Foreman. */
   function riotCharge(S, p, ox, oz) {
     if ((p.charges || 0) < 1 || p.dash || p.barrierUp) return;
@@ -1689,7 +1770,7 @@
       p.barrierRestT = (p.barrierRestT || 0) + dt;
       if (!(p.barrierBroken > 0) && p.barrierRestT >= TUNE.barrierRest) p.barrier = Math.min(barrierMax(p), p.barrier + TUNE.barrierRegen * (T(p, 'hardened') ? 2 : 1) * dt);
     }   // "recent" fades over a few seconds
-    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm', 'skates', 'streamHoldT', 'kshieldT'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
+    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm', 'skates', 'air', 'kshieldT'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
     if (p.hot > 0) {
       var src = ent(S, p.hotSrc), step = Math.min(dt, p.hot);
       p.hot -= dt;
@@ -1751,6 +1832,8 @@
       if (e.bleedAcc >= 28 || e.bleed <= 0) { var bsrc = ent(S, e.bleedBy); if (bsrc) damageEnemy(S, bsrc, e, e.bleedAcc, 1, 'Bleed'); e.bleedAcc = 0; }
       if (!e.alive) return;
     }
+    if (e.charged > 0) e.charged = Math.max(0, e.charged - dt);
+    if (e.type === 'boss') { e.portRot = (e.portRot || 0) + TUNE.portSpin * dt; if (e.portBurst > 0) e.portBurst -= dt; }
     if (e.stagger > 0) { e.stagger -= dt; return; }   // staggered: no moving, no swinging
     if (e.goCentre) {
       var cl = Math.hypot(e.x, e.z), cs = Math.min(TUNE.centreSpeed * dt, cl);
@@ -1866,6 +1949,7 @@
           if (!v || !v.alive || !boss.alive) return;
           emit(S, { type: 'fx', fx: 'cleave', src: boss.id });
           damagePlayer(S, boss.id, v, TUNE.busterDmg * (boss.weak > 0 ? 0.75 : 1), 'Crusher');
+          burstPorts(S, boss);
         } };
         emit(S, { type: 'announce', src: victim.id, text: 'CRUSHER ON ' + victim.name, you: 'CRUSHER: MITIGATE', tone: 'bad', quick: true });
         emit(S, { type: 'log', id: victim.id, text: 'The Foreman winds up a Crusher on ' + victim.name + '.', you: 'The Foreman winds up a Crusher on you. Mitigate it.' });
@@ -1888,6 +1972,22 @@
         boss.facing = Math.atan2(spot.x - boss.x, spot.z - boss.z);
         emit(S, { type: 'log', text: 'The Foreman crouches to leap' + (mark ? ' at ' + mark.name : '') + '. Get out from under him.' });
         emit(S, { type: 'fx', fx: 'barrage', src: boss.id });
+      }
+    }
+
+    // Ground Pound: he rears up, slams the floor and a shockwave rolls out to the walls. Jump it.
+    if (!boss.cast && !boss.charging && !boss.oshield && !boss.goCentre && !(boss.stagger > 0)) {
+      T.wave -= dt;
+      if (T.wave <= 0) {
+        T.wave = TUNE.waveEvery * (S.phase === 3 ? 0.8 : 1);
+        boss.cast = { name: 'Ground Pound', t: 0, dur: TUNE.waveWind, done: function () {
+          if (!boss.alive) return;
+          S.waves.push({ id: S.nextId++, x: boss.x, z: boss.z, r: boss.radius, hit: {} });
+          emit(S, { type: 'fx', fx: 'pound', src: boss.id });
+          burstPorts(S, boss);
+        } };
+        emit(S, { type: 'fx', fx: 'poundup', src: boss.id });
+        emit(S, { type: 'log', text: 'The Foreman rears up for a Ground Pound. Jump the shockwave (Space).' });
       }
     }
 
@@ -1921,8 +2021,10 @@
       T.pulse -= dt;
       if (T.pulse <= 0) {
         T.pulse = TUNE.pulseEvery;
-        emit(S, { type: 'fx', fx: 'pulse', src: boss.id });
-        players(S, true).forEach(function (p) { damagePlayer(S, boss.id, p, TUNE.pulseDmg, 'Overcharge Pulse'); });
+        var pr = TUNE.pulseRamp, pn = boss.oshield.pulses = (boss.oshield.pulses || 0) + 1;
+        var pd = pr[Math.min(pn, pr.length) - 1];
+        emit(S, { type: 'fx', fx: 'pulse', src: boss.id, pw: pd });
+        players(S, true).forEach(function (p) { damagePlayer(S, boss.id, p, pd, 'Overcharge Pulse'); });
       }
       if (boss.oshield && boss.oshield.t >= boss.oshield.dur) {
         boss.oshield = null;
@@ -2035,6 +2137,31 @@
   }
 
   function tickWorld(S, dt) {
+    // Ground Pound shockwaves: a ring rolling out from the slam. Anyone on the floor when it passes is hit; in the air, it goes under you.
+    for (var wi = S.waves.length - 1; wi >= 0; wi--) {
+      var wv = S.waves[wi], r0 = wv.r; wv.r += TUNE.waveSpeed * dt;
+      players(S, true).forEach(function (q) {
+        if (wv.hit[q.id]) return;
+        var d = Math.hypot(q.x - wv.x, q.z - wv.z);
+        if (d + TUNE.waveW / 2 < r0 || d - TUNE.waveW / 2 > wv.r) return;   // the wave hasn't reached them or is past them
+        wv.hit[q.id] = 1;
+        if (q.air > 0) { q.jumped = (q.jumped || 0) + 1; met(S, q.id).jumped = (met(S, q.id).jumped || 0) + 1; return; }
+        damagePlayer(S, S.bossId, q, TUNE.waveDmg, 'Shockwave');
+      });
+      if (wv.r > ARENA_R + 2) S.waves.splice(wi, 1);
+    }
+    // Shock Cores: fly along their line; a normal one fizzles on the first enemy it touches, a Nova core hangs in the air.
+    for (var ci = S.cores.length - 1; ci >= 0; ci--) {
+      var c = S.cores[ci], cby = ent(S, c.by); c.t += dt;
+      var sp = c.nova ? (c.t < 1.5 ? 6 : 0) : c.sp;
+      c.x += c.dx * sp * dt; c.z += c.dz * sp * dt; c.flown += sp * dt;
+      var gone = c.t >= c.life || Math.hypot(c.x, c.z) > ARENA_R - 0.5 || !cby || !cby.alive;
+      if (!gone && !c.nova) {
+        var touch = enemies(S).filter(function (e) { return Math.hypot(e.x - c.x, e.z - c.z) <= (e.radius || 1) + 0.6; })[0];
+        if (touch) { damageEnemy(S, cby, touch, c.big ? TUNE.ocoreFizzle : TUNE.coreFizzle, 1, c.big ? 'Overcharged Core' : 'Shock Core'); gone = true; }
+      }
+      if (gone) { S.cores.splice(ci, 1); emit(S, { type: 'fx', fx: 'fizzle', x2: Math.round(c.x * 10) / 10, z2: Math.round(c.z * 10) / 10, src: c.by }); }
+    }
     for (var di = S.domes.length - 1; di >= 0; di--) { S.domes[di].t -= dt; if (S.domes[di].t <= 0) S.domes.splice(di, 1); }
     for (var fi = S.fields.length - 1; fi >= 0; fi--) {
       // Nano Field: heals anyone standing in it, half a second at a time.
@@ -2135,7 +2262,7 @@
         if (!boss.alive) continue;
         boss.cast = null;
         boss.charging = { x1: boss.x, z1: boss.z, x2: g.x2, z2: g.z2, t: 0, dur: 0.45 };
-        emit(S, { type: 'fx', fx: 'charge', src: boss.id });
+        emit(S, { type: 'fx', fx: 'charge', src: boss.id }); burstPorts(S, boss);
         players(S, true).forEach(function (p) {
           if (!inTele(g, p)) return;
           damagePlayer(S, boss.id, p, g.dmg, 'Charge');
@@ -2148,7 +2275,7 @@
         boss.cast = null;
         boss.charging = { x1: boss.x, z1: boss.z, x2: g.x, z2: g.z, t: 0, dur: 0.5 };
         emit(S, { type: 'boom', x: g.x, z: g.z, r: g.r });
-        emit(S, { type: 'fx', fx: 'leap', src: boss.id });
+        emit(S, { type: 'fx', fx: 'leap', src: boss.id }); burstPorts(S, boss);
         players(S, true).forEach(function (p) {
           if (!inTele(g, p)) return;
           damagePlayer(S, boss.id, p, g.dmg, 'Leap');
@@ -2191,6 +2318,14 @@
       return false;
     };
 
+    // Jump the Ground Pound shockwave: each bot picks its moment per wave, sometimes badly.
+    S.waves.forEach(function (wv) {
+      var gap = Math.hypot(p.x - wv.x, p.z - wv.z) - wv.r;
+      if (gap < -1) return;
+      b.hop = b.hop || {};
+      if (b.hop[wv.id] == null) b.hop[wv.id] = S.rng() < 0.08 * slow ? 6.5 : 0.3 + S.rng() * 3.6 * slow;
+      if (gap <= b.hop[wv.id] && !(p.air > 0)) inp.hop = true;
+    });
     // Step out of telegraphs after a short reaction delay.
     var inside = null;
     S.telegraphs.forEach(function (g) { if (!g.down && inTele(g, p, 1.2)) inside = g; });   // fallen floor: see avoidFallen
@@ -2414,32 +2549,66 @@
     return inp;
   }
 
-  /* The aimed Striker bot: stands behind the Foreman for the vent, beams, streams, and spends the Capacitor on
-     Shock Combos when it's full or there's a window. Throws the EMP at drones and at the overcharge shield. */
+  /* The aimed Striker bot. Stands off to the Foreman's side (out of the cleave, ports in view), fires a Shock Core at the
+     target, stops beaming while it flies and pops it as it gets there; beams in between, aiming for an open coolant port
+     with a person's wobble. Spends the Capacitor on an Overcharged Core when it's full or there's a crowd or a window. */
   function strikerBot(S, p, inp, b, tg, boss, foes, canAct, idx, ready, slow) {
-    var m = b.str || (b.str = { hold: [true, false], aim: null });
-    if (tg.type === 'boss' && !tg.oshield && !tg.goCentre) {
-      var spot = { x: tg.x - Math.sin(tg.facing) * 14, z: tg.z - Math.cos(tg.facing) * 14 }; clampArena(spot, 2);
-      if (Math.hypot(spot.x - p.x, spot.z - p.z) > 2.5) moveTo(spot.x, spot.z);
-    } else if (dist(p, tg) > 24) moveTo(tg.x, tg.z);
+    var m = b.str || (b.str = { hold: [false, false], aim: null, port: -1, err: 0, popErr: 0, coreTgt: null });
     function moveTo(x, z) { inp.mx = x - p.x; inp.mz = z - p.z; }
+    if (tg.type === 'boss' && !tg.oshield && !tg.goCentre) {
+      var side = (p.id % 2 ? 1 : -1) * 1.9;
+      var spot = { x: tg.x + Math.sin(tg.facing + side) * 16, z: tg.z + Math.cos(tg.facing + side) * 16 }; clampArena(spot, 2);
+      if (Math.hypot(spot.x - p.x, spot.z - p.z) > 2.5) moveTo(spot.x, spot.z);
+    } else if (dist(p, tg) > 22) moveTo(tg.x, tg.z);
+    var cap = p.pips || 0, drones = foes.filter(function (f) { return f.type === 'drone' && dist(p, f) <= 25; });
+    var mine = S.cores.filter(function (c) { return c.by === p.id; });
     if (canAct) {
       b.think = 0.25 + S.rng() * 0.35;
-      var cap = p.pips || 0, drones = foes.filter(function (f) { return f.type === 'drone' && dist(p, f) <= 25; });
-      m.aim = tg.id; m.hold = [true, false];
-      // Let the tank build threat before opening up; back off the stream if the Foreman turns round.
+      m.aim = tg.id; m.hold = [true, false]; m.port = -1;
       var wait = S.t < 4 || (boss.alive && boss.target === p.id);
+      var crowd = drones.length >= 2 || (drones.length && boss.alive && dist(drones[0], boss) < 8);
+      var hot = boss.alive && (boss.oshield || boss.stagger > 0);
       if (p.hp < p.maxHp * 0.45 && ready('kshield')) inp.ability = idx('kshield');
       else if (wait) m.hold = S.t < 1.5 ? [false, false] : [true, false];
       else if (ready('emp') && (drones.length || (boss.alive && boss.oshield))) {
         var et = drones[0] || boss; m.aim = et.id; inp.ad = Math.max(2, dist(p, et) - (et.type === 'boss' ? et.radius : 0)); inp.ability = idx('emp');
       }
-      else if (cap >= 50 && (cap >= 90 || drones.length >= 2 || (boss.alive && (boss.oshield || boss.stagger > 0)))) m.hold = [true, true];
-      else if (cap >= 25) m.hold = [false, true];
+      else if (!mine.length && ready('score') && cap >= 50 && (cap >= 95 || crowd || hot) && dist(p, tg) <= 26) {
+        // Both buttons together: let go of the beam for a beat first, or it reads as a normal core.
+        if (p.lHeld || p.rHeld) { m.hold = [false, false]; b.think = 0.05; }
+        else { m.hold = [true, true]; m.coreTgt = tg.id; m.popErr = (S.rng() - 0.3) * 2 * slow; }
+      }
+      else if (!mine.length && ready('score') && dist(p, tg) <= 26) { m.hold = [false, true]; m.coreTgt = tg.id; m.popErr = (S.rng() - 0.3) * 2 * slow; }
+      if (m.hold[0] && !m.hold[1] && m.aim === tg.id && tg.type === 'boss') {
+        // Go for an open port that faces me, with a wobble.
+        for (var i = 0; i < 3; i++) {
+          var pa = portAngle(tg, i), px = tg.x + Math.sin(pa) * tg.radius, pz = tg.z + Math.cos(pa) * tg.radius;
+          if (portOpen(S, tg, i) && ((p.x - px) * Math.sin(pa) + (p.z - pz) * Math.cos(pa)) > 0.3 * Math.hypot(p.x - px, p.z - pz)) { m.port = i; m.err = (S.rng() - 0.5) * 0.36 * slow; break; }
+        }
+      }
+    }
+    // Cores in flight: hold fire while one travels, then pop it as it arrives (Nova cores once they've settled).
+    var popNow = null;
+    if (mine.length) {
+      var ct = m.coreTgt != null ? ent(S, m.coreTgt) : null;
+      mine.forEach(function (c) {
+        if (popNow) return;
+        var reach = ct && ct.alive ? Math.hypot(c.x - ct.x, c.z - ct.z) - (ct.radius || 1) : 99;
+        if (c.nova ? c.t > 1.6 + Math.abs(m.popErr) * 0.3 : (reach <= (c.big ? 3.5 : 2.5) + m.popErr || c.t > c.life - 0.35)) popNow = c;
+      });
+      if (!popNow && !(m.hold[0] && m.hold[1])) m.hold = [false, m.hold[1]];
+    }
+    if (popNow) {
+      inp.aim = Math.atan2(popNow.x - p.x, popNow.z - p.z); inp.hold = [true, false]; inp.target = tg.id;
+      return inp;
     }
     var at = m.aim != null ? ent(S, m.aim) : null;
     if (!at || !at.alive) at = tg;
     inp.aim = Math.atan2(at.x - p.x, at.z - p.z); inp.target = at.id;
+    if (m.port >= 0 && at.type === 'boss' && portOpen(S, at, m.port)) {
+      var pa2 = portAngle(at, m.port);
+      inp.aim = Math.atan2(at.x + Math.sin(pa2) * at.radius - p.x, at.z + Math.cos(pa2) * at.radius - p.z) + m.err;
+    }
     inp.hold = m.hold.slice();
     return inp;
   }
@@ -2450,7 +2619,7 @@
   function step(S, dt, inputs) {
     if (S.result) return;
     inputs = inputs || {};
-    if ('mx' in inputs || 'ability' in inputs || 'target' in inputs || 'jump' in inputs || 'hold' in inputs || 'aim' in inputs) { var one = {}; one[S.humanId] = inputs; inputs = one; }
+    if ('mx' in inputs || 'ability' in inputs || 'target' in inputs || 'jump' in inputs || 'hop' in inputs || 'hold' in inputs || 'aim' in inputs) { var one = {}; one[S.humanId] = inputs; inputs = one; }
     if (S.countdown > 0) {
       var before = Math.ceil(S.countdown);
       S.countdown -= dt;
@@ -2508,6 +2677,8 @@
     if (S.hero) snap.hr = S.hero.role;
     if (S.domes.length) snap.dm = S.domes.map(function (d) { return [r1(d.x), r1(d.z), d.r, r1(d.t)]; });
     if (S.fields.length) snap.fl = S.fields.map(function (d) { return [r1(d.x), r1(d.z), d.r, r1(d.t)]; });
+    if (S.cores.length) snap.co = S.cores.map(function (c) { return [c.id, c.by, r1(c.x), r1(c.z), c.big ? 1 : 0]; });
+    if (S.waves.length) snap.wv = S.waves.map(function (w) { return [w.id, r1(w.x), r1(w.z), r1(w.r)]; });
     S.ents.forEach(function (e) {
       if (e.kind === 'player') {
         var cds = {}; for (var k in e.cds) if (e.cds[k] > 0) cds[k] = r1(e.cds[k]);
@@ -2518,7 +2689,7 @@
         if (e.dash) o.ds = 1;
         if (e.lastDeath) o.ld = [e.lastDeath.label, e.lastDeath.t, e.lastDeath.log || []];
         if (e.cast) o.k = [e.cast.ab.id, r2(e.cast.t), r2(e.cast.dur), e.cast.targetId];
-        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'streamTo', 'streamRamp', 'adren'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
+        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'adren'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
         snap.p.push(o);
       } else {
         var q = { i: e.id, ty: e.type, n: e.name, x: r2(e.x), z: r2(e.z), f: r2(e.facing), h: Math.round(e.hp), mh: e.maxHp, a: e.alive ? 1 : 0, tg: e.target, ra: e.radius };
@@ -2530,6 +2701,8 @@
         if (e.weak > 0) q.wk = 1;
         if (e.branded > 0) q.br = 1;
         if (e.slowed > 0) q.sw = 1;
+        if (e.charged > 0) q.ch = 1;
+        if (e.type === 'boss') { q.pr = r2(e.portRot || 0); if (e.portBurst > 0) q.pb = r1(e.portBurst); }
         snap.e.push(q);
       }
     });
@@ -2556,12 +2729,14 @@
     M.hero = snap.hr ? { role: snap.hr } : null;
     M.domes = (snap.dm || []).map(function (d) { return { x: d[0], z: d[1], r: d[2], t: d[3] }; });
     M.fields = (snap.fl || []).map(function (d) { return { x: d[0], z: d[1], r: d[2], t: d[3] }; });
+    M.cores = (snap.co || []).map(function (c) { return { id: c[0], by: c[1], x: c[2], z: c[3], big: c[4] }; });
+    M.waves = (snap.wv || []).map(function (w) { return { id: w[0], x: w[1], z: w[2], r: w[3], hit: {} }; });
     snap.p.forEach(function (o) {
       var p = ent(M, o.i); if (!p) return;
       p.x = o.x; p.z = o.z; p.facing = o.f; p.hp = o.h; p.alive = !!o.a; p.target = o.tg; p.gcd = o.g; p.cds = o.c || {};
       p.moving = !!o.mv; p.auto = !!o.au || !p.human; p.defibUsed = !!o.du;
       p.lastDeath = o.ld ? { label: o.ld[0], t: o.ld[1], log: o.ld[2] || [] } : null;
-      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'streamTo', 'streamRamp', 'adren'].forEach(function (f) { p[f] = o[f] || 0; });
+      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'adren'].forEach(function (f) { p[f] = o[f] || 0; });
       if (o.k) {
         var ab = abilitiesOf(p).filter(function (a) { return a.id === o.k[0]; })[0];
         p.cast = ab ? { ab: ab, t: o.k[1], dur: o.k[2], targetId: o.k[3] } : null;
@@ -2577,6 +2752,7 @@
       e.oshield = q.os ? { hp: q.os[0], max: q.os[1], t: q.os[2], dur: q.os[3] } : null;
       e.stagger = q.st || 0; e.energy = q.eg || 0; e.goCentre = !!q.gc;
       e.weak = q.wk ? 1 : 0; e.slowed = q.sw ? 1 : 0; e.branded = q.br ? 1 : 0;
+      e.charged = q.ch ? 1 : 0; if (q.pr != null) { e.portRot = q.pr; e.portBurst = q.pb || 0; }
     });
     M.ents = M.ents.filter(function (e) { return e.kind === 'player' || seen[e.id]; });
     M.telegraphs = snap.g.map(function (g) {
@@ -2623,19 +2799,19 @@
     var g = p.gear || {}, cds = p.cds || {}, out = [];
     var cd = function (k) { var c = cds[k] || 0; return c > 0 ? Math.ceil(c) + 's' : 'ready'; };
     var ready = function (k) { return !(cds[k] > 0); };
-    var space = function (name, boosted) { out.push([p.momentum > 0 ? boosted : name + ' [Space] ' + cd('leap'), p.momentum > 0 || ready('leap')]); };
+    var space = function (name, boosted) { out.push([p.momentum > 0 ? boosted : name + ' [Shift] ' + cd('leap'), p.momentum > 0 || ready('leap')]); };
     var timed = function (v, on, off) { out.push([v > 0 ? on + ' ' + Math.ceil(v) + 's' : off, v > 0]); };
     var named = function (slot) { out.push([gearName(slot, g[slot], p.role), true]); };
     var still = (p.still || 0) >= 1;
     var tankCharge = function () {
       var n = p.charges || 0;
-      out.push([p.momentum > 0 ? 'Charged: next hit +30%' : 'Riot Charge [Space] ' + (n > 0 ? 'x' + n : Math.ceil(TUNE.chargeCd - (p.chargeT || 0)) + 's'), n > 0 || p.momentum > 0]);
+      out.push([p.momentum > 0 ? 'Charged: next hit +30%' : 'Riot Charge [Shift] ' + (n > 0 ? 'x' + n : Math.ceil(TUNE.chargeCd - (p.chargeT || 0)) + 's'), n > 0 || p.momentum > 0]);
     };
     var CHIP = {
       ram: function () { tankCharge(); }, twincharge: function () { tankCharge(); }, intercept: function () { tankCharge(); },
       stim: function () { space('Stim Leap', 'Stimmed: next heal instant'); },
       dodge: function () { space('Dodge', 'Dodged: next shot +30%'); },
-      medevac: function () { out.push(['Medevac [Space] ' + cd('leap'), ready('leap')]); },
+      medevac: function () { out.push(['Medevac [Shift] ' + cd('leap'), ready('leap')]); },
       mag: function () { var n = gearName('boots', 'mag', p.role); out.push([braced(p) ? n + ' set' : p.moving ? n + ': stand still' : n + '...', braced(p)]); },
       cover: function () { out.push([still ? 'Covering squad' : 'Cover: stand still', still]); },
       clamps: function () { out.push(['Mag-Clamps: no knockback', true]); },
@@ -2683,14 +2859,14 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.25.0';
+  var VERSION = '0.26.0';
 
   var api = {
     VERSION: VERSION,
     summary: summary,
     snapshot: snapshot, applySnapshot: applySnapshot, predictMove: predictMove,
     create: create, step: step, usable: usable, GEAR: GEAR, TALENTS: TALENTS, SLOTS: SLOTS, talentList: talentList, talentChips: talentChips, STYLES: STYLES, braced: braced, hasTalent: T, BOT_GEAR: BOT_GEAR, validGear: validGear, gearName: gearName, abilitiesOf: abilitiesOf, behind: behind, inTele: inTele,
-    damageEnemy: damageEnemy, damagePlayer: damagePlayer, resOf: resOf, aimWeapon: aimWeapon, barrierMax: barrierMax, inCone: inCone, barrierFor: barrierFor, softTarget: softTarget, BOLT_AIM: BOLT_AIM, SHOCK_AIM: SHOCK_AIM, fieldSpot: fieldSpot, lobSpot: lobSpot,
+    damageEnemy: damageEnemy, damagePlayer: damagePlayer, resOf: resOf, aimWeapon: aimWeapon, barrierMax: barrierMax, inCone: inCone, barrierFor: barrierFor, softTarget: softTarget, coreInAim: coreInAim, portAngle: portAngle, portOpen: portOpen, portHit: portHit, BOLT_AIM: BOLT_AIM, SHOCK_AIM: SHOCK_AIM, fieldSpot: fieldSpot, lobSpot: lobSpot,
     ent: ent, players: players, enemies: enemies, KITS: KITS, TUNE: TUNE, PIP_MAX: PIP_MAX, PROC_WINDOW: PROC_WINDOW,
     ARENA_R: ARENA_R, GCD: GCD, dist: dist
   };

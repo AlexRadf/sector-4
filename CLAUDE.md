@@ -32,5 +32,7 @@ client, a Node relay server, deployed on Render.
   and controller map by key. Both mouse buttons together is the weapon's chord.
 - Soft targeting: `softTarget(S, p, opt)` picks whatever is nearest the crosshair in a cone.
 - Held inputs: `hammerHold`, `medicHold` and friends in `applyInput`. Bots set `inp.aim`, `inp.hold`, `inp.ad`.
+- Movement: `inp.jump` is the movement ability (Shift; the name is historical) and `inp.hop` is a plain jump (Space).
+  Only moving floor attacks (the Ground Pound shockwave) can be jumped.
 - Thrown things (`lob: true` on the ability) are held to aim with a preview arc; distance comes from camera pitch (`inp.ad`).
 - Converted so far: Impact Hammer (tank), Link Gun (medic), Shock Rifle (striker). Everything else is still tab-target.

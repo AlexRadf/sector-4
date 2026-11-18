@@ -44,6 +44,10 @@
       shock: function () { tone(1400, 0.12, 'sawtooth', 0.07, 300); },
       core: function () { tone(900, 0.25, 'sawtooth', 0.09, 120); noise(0.15, 0.07, 3000); },
       combo: function () { noise(0.4, 0.3, 900); tone(220, 0.4, 'square', 0.1, 50); },
+      orb: function () { tone(260, 0.35, 'sine', 0.08, 520); tone(780, 0.2, 'triangle', 0.04, 1200, 0.05); },
+      fizzle: function () { noise(0.12, 0.06, 2200); },
+      port: function () { tone(2400, 0.07, 'square', 0.07, 3200); tone(1600, 0.1, 'triangle', 0.06, null, 0.04); },
+      jump: function () { tone(240, 0.1, 'sine', 0.05, 420); },
       link: function () { tone(520, 0.18, 'sine', 0.12, 880); },
       surge: function () { tone(440, 0.3, 'sine', 0.12, 1320); tone(660, 0.3, 'sine', 0.06, 1760, 0.05); },
       purge: function () { tone(1200, 0.15, 'triangle', 0.1, 1800); },
@@ -280,7 +284,7 @@
   var views = {};            // entity id -> view
   var teleViews = {};        // telegraph id -> mesh group
   var fx = [];               // transient effects
-  var input = { ability: -1, target: undefined, jump: false };
+  var input = { ability: -1, target: undefined, jump: false, hop: false };   // jump: Shift, the movement ability; hop: Space, a jump
   var keys = {};
   var stats = {};
   var acc = 0, last = 0, toastT = 0;
@@ -293,13 +297,19 @@
   function makeView(e) {
     var g = new THREE.Group(), holder = new THREE.Group();
     g.add(holder); buildModel(modelKey(e), holder);
-    var vent = null;
+    var ports = null;
     if (e.type === 'boss') {
-      // The weak point: a glowing vent on the Foreman's back. Aimed weapons hitting it from behind do 30% more.
-      vent = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.3, 0.35), new THREE.MeshBasicMaterial({ color: 0xff9a30, transparent: true, opacity: 0.85 }));
-      vent.position.set(0, 3.9, -(e.radius || 3) * 0.62); holder.add(vent);
-      var grille = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.12, 0.4), new THREE.MeshBasicMaterial({ color: 0x1a1008 }));
-      for (var gy = -1; gy <= 1; gy++) { var gm = grille.clone(); gm.position.set(0, 3.9 + gy * 0.35, -(e.radius || 3) * 0.62 - 0.03); holder.add(gm); }
+      // Coolant ports: three glowing grilles round the Foreman's body that drift round him. Lit = open: a Shock Beam
+      // that lands on one (real aim, no snapping) does double. See Sim.portAngle / portOpen.
+      ports = [];
+      for (var pi0 = 0; pi0 < 3; pi0++) {
+        var pg = new THREE.Group();
+        var pm = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.3, 0.35), new THREE.MeshBasicMaterial({ color: 0xff9a30, transparent: true, opacity: 0.85 }));
+        pm.position.set(0, 3.6, 0); pg.add(pm);
+        var grille = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.12, 0.4), new THREE.MeshBasicMaterial({ color: 0x1a1008 }));
+        for (var gy = -1; gy <= 1; gy++) { var gm = grille.clone(); gm.position.set(0, 3.6 + gy * 0.35, 0.03); pg.add(gm); }
+        holder.add(pg); ports.push({ g: pg, m: pm, hit: 0 });
+      }
     }
     var rad = e.kind === 'player' ? 0.9 : (e.radius || 1) + 0.4;
     var shadow = new THREE.Mesh(new THREE.CircleGeometry(rad, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false }));
@@ -312,7 +322,7 @@
     var plate = el('div', 'plate ' + (e.kind === 'player' ? 'friend' : e.type));
     var nm = el('div', null, e.name), bar = el('div', 'bar'), fill = el('i'); bar.appendChild(fill); plate.appendChild(nm); plate.appendChild(bar);
     $('#plates').appendChild(plate);
-    return { g: g, holder: holder, ring: ring, aura: aura, plate: plate, fill: fill, key: modelKey(e), kind: e.kind, dead: false, vent: vent, ventHit: 0 };
+    return { g: g, holder: holder, ring: ring, aura: aura, plate: plate, fill: fill, key: modelKey(e), kind: e.kind, dead: false, ports: ports };
   }
   function dropView(id) {
     var v = views[id]; if (!v) return;
@@ -341,7 +351,7 @@
     human = watching ? (Sim.players(S).filter(function (p) { return p.human; })[0] || Sim.players(S)[2]) : myKey ? Sim.players(S).filter(function (p) { return p.key === myKey; })[0] : Sim.ent(S, S.humanId);
     if (myKey) role = human.role;
     stats = {}; Sim.players(S).forEach(function (p) { stats[p.id] = { dmg: 0, heal: 0, taken: 0 }; });
-    input.ability = -1; input.jump = false; input.target = (role === 'healer') ? undefined : S.bossId; keys = {};
+    input.ability = -1; input.jump = false; input.hop = false; input.target = (role === 'healer') ? undefined : S.bossId; keys = {};
     cam.yaw = Math.PI; cam.pitch = 0.6; cam.dist = 18;
     buildHud();
     ['#menu', '#end', '#armory', '#lobby'].forEach(function (q) { $(q).classList.remove('on'); }); $('#hud').classList.add('on'); showPlates(true);
@@ -350,7 +360,7 @@
     $('#hud').classList.toggle('spectate', watching); updateSpec();
     running = true; acc = 0; lastSim = performance.now(); Net.evMark = 0;
     logLine(watching ? 'Shift started. You are watching from the gantry.' : 'Shift started. ' + human.kit.title + ' on the floor.');
-    if (!watching && Sim.aimWeapon(human) && human.kit.weapons[human.weapon].id === 'shock') logLine('Click the arena to aim with the mouse. Left click beams, hold right click to stream (it builds on one target), both together Shock Combo on whatever you point at. Hit the glowing vent on the Foreman\'s back for 30% more. Esc releases it.');
+    if (!watching && Sim.aimWeapon(human) && human.kit.weapons[human.weapon].id === 'shock') logLine('Click the arena to aim with the mouse. Right click fires a Shock Core; left click beams, and beaming your own core sets off the Shock Combo. Lit ports on the Foreman take double from a beam (real aim, no snapping). Both buttons together: an Overcharged Core. Esc releases it.');
     else if (!watching && Sim.aimWeapon(human)) logLine(human.kit.weapons[human.weapon].id === 'link'
       ? 'Click the arena to aim with the mouse. Left click fires at whatever is nearest your crosshair (green ring: heal, red: damage), right click holds the beam on an ally, both together Nanite Burst. Esc releases it.'
       : 'Click the arena to aim with the mouse: left click swings, right click holds the barrier, both together Shove. Esc releases it.');
@@ -715,6 +725,20 @@
     m.position.copy(p1).lerp(p2, 0.5); m.lookAt(p2); m.rotateX(Math.PI / 2);
     addFx(m, 0.28, function (f, k) { f.m.material.opacity = 1 - k; });
   }
+  function beamPt(a, x2, z2, kind) {
+    var va = views[a]; if (!va) return;
+    var p1 = new THREE.Vector3(va.g.position.x, 1.3, va.g.position.z), p2 = new THREE.Vector3(x2, 1.5, z2);
+    var len = p1.distanceTo(p2), w = FX_WIDTH[kind] || 0.1; if (len < 0.1) return;
+    var m = new THREE.Mesh(new THREE.CylinderGeometry(w, w, len, 6, 1, true), new THREE.MeshBasicMaterial({ color: FX_COLOR[kind] || 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    m.position.copy(p1).lerp(p2, 0.5); m.lookAt(p2); m.rotateX(Math.PI / 2);
+    addFx(m, 0.28, function (f, k) { f.m.material.opacity = 1 - k; });
+  }
+  /* A Shock Combo going off in the air: a purple ball that blooms and fades. */
+  function flashFx(x, z, r) {
+    var m = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), new THREE.MeshBasicMaterial({ color: 0xc9a6ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    m.position.set(x, 1.5, z);
+    addFx(m, 0.45, function (f, k) { var s2 = 0.6 + (r * 0.8) * Math.sqrt(k); f.m.scale.set(s2, s2 * 0.7, s2); f.m.material.opacity = 0.7 * (1 - k); });
+  }
   function ringFx(x, z, r0, r1, color, life) {
     var m = new THREE.Mesh(new THREE.RingGeometry(0.82, 1, 48), new THREE.MeshBasicMaterial({ color: color, transparent: true, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
     m.rotation.x = -Math.PI / 2; m.position.set(x, 0.12, z);
@@ -761,11 +785,10 @@
       switch (ev.type) {
         case 'dmg':
           var dst = Sim.ent(S, ev.dst);
-          if (ev.vent && views[ev.dst]) views[ev.dst].ventHit = 1;
           if (stats[ev.src] && (!dst || dst.kind === 'enemy')) stats[ev.src].dmg += ev.amt;
           if (stats[ev.dst]) stats[ev.dst].taken += ev.amt;
           if (ev.src === human.id) {
-            floatText(ev.dst, String(ev.amt) + (ev.crit || /!$/.test(ev.label) ? '!' : '') + (ev.vent ? ' VENT' : ''), 'out' + (ev.crit ? ' crit' : '') + (ev.sh ? ' sh' : '') + (ev.vent ? ' vent' : ''));
+            floatText(ev.dst, String(ev.amt) + (ev.crit || /!$/.test(ev.label) ? '!' : '') + (ev.vent ? ' PORT' : ''), 'out' + (ev.crit ? ' crit' : '') + (ev.sh ? ' sh' : '') + (ev.vent ? ' vent' : ''));
             if (ev.crit) Snd.play('crit');
           }
           else if (ev.dst === human.id) {
@@ -777,9 +800,16 @@
           if (stats[ev.src]) stats[ev.src].heal += ev.amt;
           if (ev.amt > 0 && (ev.src === human.id || ev.dst === human.id)) floatText(ev.dst, '+' + ev.amt + (ev.crit ? '!' : ''), 'heal' + (ev.crit ? ' crit' : ''));
           break;
-        case 'beam': beamFx(ev.src, ev.dst, ev.fx); if (ev.src === human.id) Snd.play(FX_SOUND[ev.fx]); break;
+        case 'beam': if (ev.dst == null && ev.x2 != null) beamPt(ev.src, ev.x2, ev.z2, ev.fx); else beamFx(ev.src, ev.dst, ev.fx); if (ev.src === human.id) Snd.play(FX_SOUND[ev.fx]); break;
         case 'fx':
-          v = views[ev.src]; if (!v) break;
+          v = views[ev.src];
+          if (ev.x2 != null && /^(scombo|fizzle)$/.test(ev.fx)) {
+            // Things that go off at a point in the air rather than on someone.
+            if (ev.fx === 'scombo') { ringFx(ev.x2, ev.z2, 0.5, ev.pw || 6, 0xb98cff, 0.55); ringFx(ev.x2, ev.z2, 0.3, (ev.pw || 6) * 0.6, 0xffffff, 0.35); flashFx(ev.x2, ev.z2, ev.pw || 6); Snd.play('combo'); }
+            else { ringFx(ev.x2, ev.z2, 0.2, 1.4, 0xb98cff, 0.25); if (ev.src === human.id) Snd.play('fizzle'); }
+            break;
+          }
+          if (!v) break;
           var x = v.g.position.x, z = v.g.position.z;
           if (ev.src === human.id && /^(flak|challenge|belt|keg)$/.test(ev.fx)) Snd.play(ev.fx);
           if (ev.fx === 'charge') { Snd.play('charge'); ringFx(x, z, 2, 8, 0xff4a36, 0.5); }
@@ -816,13 +846,18 @@
           }
           else if (ev.fx === 'field') { ringFx(ev.x2, ev.z2, 0.5, 6, 0x4fd88f, 0.5); if (ev.src === human.id) Snd.play('belt'); }
           else if (ev.fx === 'emp') { ringFx(ev.x2, ev.z2, 0.5, 6, 0x7fb8ff, 0.5); ringFx(ev.x2, ev.z2, 6, 5, 0xffffff, 0.3); Snd.play('boom'); }
-          else if (ev.fx === 'scombo') { ringFx(x, z, 0.5, ev.pw || 6, 0xb98cff, 0.55); ringFx(x, z, 0.3, (ev.pw || 6) * 0.6, 0xffffff, 0.35); Snd.play('boom'); }
+          else if (ev.fx === 'core' || ev.fx === 'ocore') { if (ev.src === human.id || watching) Snd.play('orb'); }
+          else if (ev.fx === 'port') { if (v.ports && v.ports[ev.pw]) v.ports[ev.pw].hit = 1; Snd.play('port'); }
+          else if (ev.fx === 'ports') { ringFx(x, z, 3, 6, 0xff9a30, 0.4); }
+          else if (ev.fx === 'jump') { if (ev.src === human.id) Snd.play('jump'); }
+          else if (ev.fx === 'poundup') { Snd.play('alarm'); ringFx(x, z, 8, 3.5, 0xff4a36, 1.4); }
+          else if (ev.fx === 'pound') { Snd.play('boom'); hitFlash(); }
           else if (ev.fx === 'storm') { ringFx(x, z, 1, 25, 0x9dffc8, 0.9); ringFx(x, z, 0.5, 12, 0xffffff, 0.5); Snd.play('ult'); if (!watching) hitFlash(); }
           else if (ev.fx === 'beamon') { if (ev.src === human.id) Snd.play('belt'); }
           else if (ev.fx === 'slammed') { ringFx(x, z, 0.5, 4, 0xffffff, 0.45); Snd.play('hammer'); }
           else if (ev.fx === 'piston') { if (ev.src === human.id) Snd.play('charge'); }
           else if (ev.fx === 'boost') { ringFx(x, z, 0.3, 3, 0xffb000, 0.35); Snd.play('charge'); }
-          else if (ev.fx === 'pulse') { ringFx(x, z, 3, 34, 0x7fd0ff, 0.6); }
+          else if (ev.fx === 'pulse') { ringFx(x, z, 3, 34, (ev.pw || 0) >= 270 ? 0xffffff : 0x7fd0ff, 0.6); if ((ev.pw || 0) >= 180) ringFx(x, z, 2, 30, 0x7fd0ff, 0.8); }
           else if (ev.fx === 'aegis') { ringFx(x, z, 0.5, Sim.TUNE.aegisR, 0xffd36b, 0.8); Snd.play('ult'); }
           else if (ev.fx === 'charge' && Sim.ent(S, ev.src) && Sim.ent(S, ev.src).kind === 'player') { ringFx(x, z, 0.5, 4, 0xffb000, 0.4); }
           else if (ev.fx === 'barrierup') { if (ev.src === human.id) Snd.play('belt'); }
@@ -880,10 +915,21 @@
       if (e.type === 'drone') v.holder.position.y = 0.5 + Math.sin(S.t * 3 + e.id) * 0.2;
       v.ring.visible = human.target === e.id && e.alive;
       if (v.ring.visible) v.ring.material.color.setHex(e.kind === 'player' ? 0x4fd88f : 0xff4a36);
-      v.aura.visible = e.kind === 'player' && e.alive && (e.belt > 0 || e.sludge > 0 || e.dome > 0 || e.rad > 0);
-      if (v.aura.visible) v.aura.material.color.setHex(e.dome > 0 ? 0x4fd88f : e.rad > 0 ? 0xd4ff3a : e.belt > 0 ? 0xffb000 : 0xb46bff);   // sludge: purple, the cleanse colour
+      v.aura.visible = e.alive && (e.kind === 'player' ? (e.belt > 0 || e.sludge > 0 || e.dome > 0 || e.rad > 0) : e.charged > 0);
+      if (v.aura.visible && e.kind === 'enemy') { var ar = (e.radius || 1) * 0.9 + 0.4; v.aura.scale.set(ar, ar * (e.type === 'boss' ? 1.5 : 1), ar); v.aura.position.y = e.type === 'boss' ? 3 : 1; v.aura.material.color.setHex(0xb98cff); v.aura.material.opacity = (e.type === 'boss' ? 0.07 : 0.16) + 0.06 * Math.sin(performance.now() / 70); }
+      else if (v.aura.visible) v.aura.material.color.setHex(e.dome > 0 ? 0x4fd88f : e.rad > 0 ? 0xd4ff3a : e.belt > 0 ? 0xffb000 : 0xb46bff);   // sludge: purple, the cleanse colour
       if (e.type === 'boss') v.holder.rotation.z = e.stagger > 0 ? 0.22 * Math.sin(S.t * 9) : 0;
-      if (v.vent) { v.ventHit = Math.max(0, v.ventHit - dt * 3); v.vent.material.opacity = 0.55 + 0.25 * Math.sin(performance.now() / 250) + 0.4 * v.ventHit; v.vent.material.color.setHex(v.ventHit > 0.2 ? 0xffe0a0 : 0xff9a30); }
+      if (v.ports) v.ports.forEach(function (pt0, i) {
+        var la = Math.PI + (e.portRot || 0) + i * Math.PI * 2 / 3, rr = (e.radius || 3) * 0.66, open = Sim.portOpen(S, e, i);
+        pt0.g.position.set(Math.sin(la) * rr, 0, Math.cos(la) * rr); pt0.g.rotation.y = la;
+        pt0.hit = Math.max(0, pt0.hit - dt * 3);
+        pt0.m.material.color.setHex(pt0.hit > 0.2 ? 0xffffff : open ? 0xff9a30 : 0x2a3440);
+        pt0.m.material.opacity = open ? 0.65 + 0.3 * Math.sin(performance.now() / 120) + 0.3 * pt0.hit : 0.6;
+      });
+      if (e.kind === 'player') {
+        // A jump: up and down over TUNE.jumpAir seconds.
+        if (e.alive) { var ka = e.air > 0 ? 1 - e.air / Sim.TUNE.jumpAir : 0; v.holder.position.y = e.air > 0 ? 5.2 * ka * (1 - ka) : 0; }
+      }
       var pt = project(v.g.position.x, entHeight(e) + 0.5, v.g.position.z);
       if (pt) { v.plate.style.display = ''; v.plate.style.left = pt.x + 'px'; v.plate.style.top = pt.y + 'px'; setBar(v.fill, e.hp / e.maxHp); }
       if (e.kind === 'player') {
@@ -1025,6 +1071,7 @@
 
   function setMute(m) { $('#mute').textContent = m ? 'Sound off' : 'Sound on'; $('#mute').setAttribute('aria-pressed', m ? 'false' : 'true'); }
 
+  function wpnId0() { return human && human.kit ? human.kit.weapons[human.weapon].id : ''; }
   /* Things that aren't entities: the overcharge bubble, Riot Walls and their shelter, the Heavy Rocket. */
   var special = { walls: {} };
   function syncSpecials() {
@@ -1125,11 +1172,43 @@
       }
       if (p.storm > 0) Sim.players(S).forEach(function (q) { if (q !== p && q.alive && Math.hypot(q.x - p.x, q.z - p.z) <= 25) linkLine('s' + p.id + '-' + q.id, p, q, 0x9dffc8, 0.6); });
     });
-    Sim.players(S).forEach(function (p) {
-      var stt = p.alive && p.streamTo ? Sim.ent(S, p.streamTo) : null;
-      if (stt && stt.alive) linkLine('st' + p.id, p, stt, (p.streamRamp || 0) >= 2.9 ? 0xffffff : 0xb98cff, 0.6 + 0.13 * (p.streamRamp || 0));   // the Shock Stream, whiter as it builds
-    });
     for (var lk in special.links) if (!seenL[lk]) { fxRoot.remove(special.links[lk]); special.links[lk].geometry.dispose(); delete special.links[lk]; }
+    // Shock Cores in flight: glowing purple balls (Overcharged ones bigger and whiter). Yours brightens when your beam would pop it.
+    special.cores = special.cores || {};
+    var seenC = {}, aimCore = running && !watching && human && human.alive && wpnId0() === 'shock' ? Sim.coreInAim(S, human, 35) : null;
+    (S.cores || []).forEach(function (c) {
+      seenC[c.id] = 1;
+      var cm = special.cores[c.id];
+      if (!cm) {
+        cm = new THREE.Group();
+        var inner = new THREE.Mesh(new THREE.SphereGeometry(c.big ? 0.75 : 0.45, 16, 12), new THREE.MeshBasicMaterial({ color: c.big ? 0xf0e6ff : 0xd9b8ff }));
+        var halo = new THREE.Mesh(new THREE.SphereGeometry(c.big ? 1.5 : 0.95, 16, 12), new THREE.MeshBasicMaterial({ color: 0xb98cff, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+        cm.add(inner); cm.add(halo); cm.halo = halo; cm.position.set(c.x, 1.5, c.z);
+        fxRoot.add(cm); special.cores[c.id] = cm;
+      }
+      cm.position.x += (c.x - cm.position.x) * 0.5; cm.position.z += (c.z - cm.position.z) * 0.5;
+      cm.position.y = 1.5 + Math.sin(performance.now() / 90 + c.id) * 0.08;
+      var lit = aimCore && aimCore.id === c.id;
+      cm.halo.material.opacity = lit ? 0.75 : 0.3 + 0.1 * Math.sin(performance.now() / 60);
+      var hs = lit ? 1.35 : 1; cm.halo.scale.set(hs, hs, hs);
+    });
+    for (var ck in special.cores) if (!seenC[ck]) { fxRoot.remove(special.cores[ck]); delete special.cores[ck]; }
+    // Ground Pound shockwaves: a red band rolling out across the floor. Jump it.
+    special.waves = special.waves || {};
+    var seenWv = {};
+    (S.waves || []).forEach(function (w) {
+      seenWv[w.id] = 1;
+      var wm = special.waves[w.id];
+      if (!wm) {
+        wm = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 96), new THREE.MeshBasicMaterial({ color: 0xff6a3a, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+        wm.rotation.x = -Math.PI / 2; wm.position.set(w.x, 0.25, w.z); fxRoot.add(wm); special.waves[w.id] = wm;
+      }
+      // A squad client gets the wave ten times a second: carry it on between snapshots so the jump timing reads true.
+      var ahead = (Net.mode === 'client' || Net.mode === 'spy') ? Math.min(0.2, (performance.now() - Net.lastSnap) / 1000) * Sim.TUNE.waveSpeed : 0;
+      var rr2 = Math.max(0.5, w.r + ahead), th = Sim.TUNE.waveW;
+      wm.geometry.dispose(); wm.geometry = new THREE.RingGeometry(Math.max(0.1, rr2 - th / 2), rr2 + th / 2, 96);
+    });
+    for (var wk in special.waves) if (!seenWv[wk]) { fxRoot.remove(special.waves[wk]); special.waves[wk].geometry.dispose(); delete special.waves[wk]; }
     // Anyone in trouble glows red at their feet, so a healer reads the fight from the floor, not the party frames.
     special.lows = special.lows || {};
     var seenLow = {};
@@ -1182,12 +1261,26 @@
     if (retOn) {
       var hpR = views[human.id] ? views[human.id].g.position : human, lockT = null, reach = 6, ry = 1.0;
       if (wpnId === 'link') { lockT = human.beamTo ? Sim.ent(S, human.beamTo) : Sim.softTarget(S, human, Sim.BOLT_AIM); reach = 20; }
-      else if (wpnId === 'shock') { lockT = human.streamTo ? Sim.ent(S, human.streamTo) : Sim.softTarget(S, human, Sim.SHOCK_AIM); reach = 22; }
+      else if (wpnId === 'shock') {
+        // The Shock Rifle's reticle doesn't snap: ports need real aim. It sits on your aim line at the distance of
+        // whatever the beam would hit, and turns gold over an open port and white over your own core.
+        var sc = Sim.coreInAim(S, human, 35), sl = sc ? null : Sim.softTarget(S, human, Sim.SHOCK_AIM);
+        var sd = sc ? Math.hypot(sc.x - human.x, sc.z - human.z) : sl ? Math.max(2, Math.hypot(sl.x - human.x, sl.z - human.z) - (sl.radius || 0)) : 22;
+        var wpS = project(hpR.x + Math.sin(aimAngle()) * sd, sc ? 1.5 : sl ? entHeight(sl) * 0.6 : 1.0, hpR.z + Math.cos(aimAngle()) * sd);
+        if (wpS) {
+          var onPort = sl && sl.type === 'boss' && Sim.portHit(S, human, sl) >= 0;
+          ret.hidden = false; ret.style.left = wpS.x + 'px'; ret.style.top = wpS.y + 'px';
+          ret.className = sc ? 'lock core' : onPort ? 'lock port' : sl ? 'lock enemy' : '';
+        } else ret.hidden = true;
+        lockT = 'done';
+      }
       else if (wpnId === 'hammer') { lockT = human.barrierUp ? null : Sim.softTarget(S, human, { range: 6.5, dot: 0.5, enemy: true }); reach = 6; }
       var wp;
-      if (lockT) { var lv = views[lockT.id] ? views[lockT.id].g.position : lockT; wp = project(lv.x, entHeight(lockT) * 0.6, lv.z); }
+      if (lockT === 'done') wp = null;
+      else if (lockT) { var lv = views[lockT.id] ? views[lockT.id].g.position : lockT; wp = project(lv.x, entHeight(lockT) * 0.6, lv.z); }
       else wp = project(hpR.x + Math.sin(aimAngle()) * reach, ry, hpR.z + Math.cos(aimAngle()) * reach);
-      if (wp) {
+      if (lockT === 'done') { /* placed above */ }
+      else if (wp) {
         ret.hidden = false; ret.style.left = wp.x + 'px'; ret.style.top = wp.y + 'px';
         ret.className = lockT ? 'lock ' + (lockT.kind === 'player' ? (lockT.sludge > 0 ? 'cleanse' : 'ally') : 'enemy') : '';
       } else ret.hidden = true;
@@ -1217,7 +1310,7 @@
   /* Keybinds. Each action has a default key; a rebind maps the new key onto the default, so the rest of the
      input code only ever sees the defaults. A default key that's been moved somewhere else does nothing. */
   var BIND_DEF = [['KeyW', 'Move forward'], ['KeyS', 'Move back'], ['KeyA', 'Move left'], ['KeyD', 'Move right'],
-    ['Space', 'Riot Charge / leap'], ['KeyQ', 'Q ability'], ['KeyE', 'E ability'], ['KeyF', 'F ability'], ['KeyR', 'Ultimate']];
+    ['ShiftLeft', 'Movement ability (Riot Charge, leap, dodge)'], ['Space', 'Jump'], ['KeyQ', 'Q ability'], ['KeyE', 'E ability'], ['KeyF', 'F ability'], ['KeyR', 'Ultimate']];
   var binds = {};
   try { binds = JSON.parse(localStorage.getItem('s4-binds') || '{}') || {}; } catch (e) { binds = {}; }
   function remap(code) {
@@ -1262,9 +1355,9 @@
     }
     if (c === 'Tab') { ev.preventDefault(); cycleEnemy(ev.shiftKey ? -1 : 1); return; }
     if (/^F[1-4]$/.test(c)) { ev.preventDefault(); var p = Sim.players(S)[+c[1] - 1]; if (p) input.target = p.id; return; }
-    if (/^Digit[1-4]$/.test(c) && ev.shiftKey) { var q = Sim.players(S)[+c[5] - 1]; if (q) input.target = q.id; return; }
     if (c === 'KeyM') { setMute(Snd.toggle()); return; }
-    if (c === 'Space') { ev.preventDefault(); input.jump = true; return; }
+    if (c === 'Space') { ev.preventDefault(); if (!ev.repeat) input.hop = true; return; }
+    if (c === 'ShiftLeft' || c === 'ShiftRight') { if (!ev.repeat) input.jump = true; return; }
     // Aimed weapons (the Impact Hammer): mouse buttons are the weapon, then Q, E, F and R. No number keys.
     if (Sim.aimWeapon(human)) {
       var slot = /^Key[QEFR]$/.test(c) ? aimSlot(c[3]) : undefined;
@@ -1634,6 +1727,7 @@
     if (typeof d.a === 'number' && d.a >= 0 && d.a <= 4) a.ability = d.a | 0;
     if (d.tg === null || typeof d.tg === 'number') a.target = d.tg;
     if (d.j) a.jump = true;
+    if (d.hp) a.hop = true;
   }
   function netHostInputs(ins) {
     var ps = squadPeers(), now = performance.now();
@@ -1658,7 +1752,7 @@
         mx: +inn.mx || 0, mz: +inn.mz || 0,
         aim: typeof inn.am === 'number' ? inn.am : undefined, ad: typeof inn.ad === 'number' ? inn.ad : undefined, hold: [!!((inn.h | 0) & 1), !!((inn.h | 0) & 2)],
         target: a.target !== undefined ? a.target : (inn.tg === null || typeof inn.tg === 'number' ? inn.tg : undefined),
-        ability: a.ability != null ? a.ability : -1, jump: !!a.jump
+        ability: a.ability != null ? a.ability : -1, jump: !!a.jump, hop: !!a.hop
       };
       Net.acts[p.id] = {};
     });
@@ -1687,10 +1781,10 @@
     }
     var key = JSON.stringify(inn);
     if (key !== Net.lastIn) { Net.lastIn = key; netSetPresence({ in: inn }); }
-    if (input.ability >= 0 || input.jump || input.target !== undefined) {
-      Net.squad && Net.squad.emit('act', { a: input.ability, tg: tg == null ? null : tg, j: input.jump ? 1 : 0 }).catch(function () {});
+    if (input.ability >= 0 || input.jump || input.hop || input.target !== undefined) {
+      Net.squad && Net.squad.emit('act', { a: input.ability, tg: tg == null ? null : tg, j: input.jump ? 1 : 0, hp: input.hop ? 1 : 0 }).catch(function () {});
     }
-    input.ability = -1; input.target = undefined; input.jump = false;
+    input.ability = -1; input.target = undefined; input.jump = false; input.hop = false;
     var lag = performance.now() - Net.lastSnap, up = !Net.squad || !Net.squad.connected || Net.squad.connected();
     var restarting = window.S4Transport && window.S4Transport.isRestarting && window.S4Transport.isRestarting();
     $('#netBadge').textContent = 'SQUAD ' + Net.code.toUpperCase() + (!up ? (restarting ? '  /  SERVER UPDATING, RECONNECTING' : '  /  RECONNECTING') : lag > 1500 ? '  /  WAITING FOR HOST' : '');
@@ -1707,10 +1801,10 @@
     acc += dt;
     while (acc >= STEP) {
       var mv = document.hidden ? { mx: 0, mz: 0 } : readMove(), ins = {};
-      ins[human.id] = { mx: mv.mx, mz: mv.mz, ability: input.ability, target: input.target, jump: input.jump, aim: aimAngle(), hold: document.hidden ? [] : readHold(), ad: throwDist() };
+      ins[human.id] = { mx: mv.mx, mz: mv.mz, ability: input.ability, target: input.target, jump: input.jump, hop: input.hop, aim: aimAngle(), hold: document.hidden ? [] : readHold(), ad: throwDist() };
       if (Net.mode === 'host') netHostInputs(ins);
       Sim.step(S, STEP, ins);
-      input.ability = -1; input.target = undefined; input.jump = false; acc -= STEP;
+      input.ability = -1; input.target = undefined; input.jump = false; input.hop = false; acc -= STEP;
       if (S.result) break;
     }
     if (Net.mode === 'host') {
@@ -1726,7 +1820,7 @@
   }, 50);
   /* Controller (any standard gamepad). Left stick moves, right stick turns the camera.
      RT and LT are weapon buttons 1 and 2 (held for aimed weapons), X = 3, RB = 4, B = 5, Y = ultimate,
-     A = Space, LB = next enemy. Keyboard Q and E turn the camera too, for aiming without the mouse. */
+     A = jump, LB (aimed) or L3 = the movement ability, LB (tab-target) = next enemy. Keyboard Q and E turn the camera too, for aiming without the mouse. */
   var pad = { f: 0, r: 0, hold: [false, false], prev: [] };
   function pollPad(dt) {
     if (running && !watching && human && Sim.aimWeapon(human)) cam.yaw += ((keys.ArrowLeft ? 1 : 0) - (keys.ArrowRight ? 1 : 0)) * 2.2 * dt;
@@ -1749,6 +1843,7 @@
         if (down(5)) input.ability = aimSlot('E');
         if (down(1)) input.ability = aimSlot('F');
         if (down(3)) input.ability = aimSlot('R');
+        if (down(4)) input.jump = true;
       } else {
         if (down(7)) input.ability = 0;
         if (down(6)) input.ability = 1;
@@ -1758,7 +1853,8 @@
         if (down(3)) input.ability = 5;
         if (down(4)) cycleEnemy(1);
       }
-      if (down(0)) input.jump = true;
+      if (down(0)) input.hop = true;
+      if (down(10)) input.jump = true;
     }
     pad.prev = gp.buttons.map(function (b) { return b.pressed || b.value > 0.5; });
   }

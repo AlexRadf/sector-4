@@ -1,7 +1,7 @@
 # Sector-4 design pillars
 
 The rules every change is checked against. If a feature breaks one of these, change the feature or
-change this file on purpose, never by drift. Last revised: v0.25.0 (2026-11-17).
+change this file on purpose, never by drift. Last revised: v0.26.0 (2026-11-18).
 
 ## What the game is
 
@@ -13,7 +13,8 @@ action-game controls. No stat or gear progression: mechanics, positioning and ma
 
 ### 1. Everything is aimed
 No tab-targeting for any role. You act on what is in front of you: the mouse (or right stick) aims,
-the mouse buttons are your weapon, Q / E / F are abilities, R is your ultimate, Space is movement.
+the mouse buttons are your weapon, Q / E / F are abilities, R is your ultimate, Shift is your movement ability
+and Space jumps.
 - It must work on a controller. Aimed help (soft lock-on to whatever is near your crosshair) is
   allowed and expected, especially for anything aimed at allies.
 - Few buttons, each with one job. Talents never add a button; they change one you already have.
@@ -35,6 +36,14 @@ Roles should depend on each other: the tank creates openings, DPS cash them in, 
 people who are out of position alive.
 
 ## Supporting rules
+- **Every role has a single-target tool and an area tool, easy to learn and hard to master.** The floor is pressing
+  the buttons at the right thing; the ceiling is aim, timing and cashing in. Borrow from esports shooters: skill shots,
+  resources you earn by playing well, and rewards that chain (a good play readies the next one). The Shock Rifle is the
+  template: beam (single target), core plus combo (area), ports (aim), Capacitor (rhythm), multi-combo reset (chain).
+- **Ranged roles aren't rewarded for standing behind the boss.** Their precision reward comes from aim (weak points that
+  move and open), not from position. Behind-the-boss bonuses belong to melee.
+- **Jumping only clears things that move along the floor** (a shockwave). Anything lying on the floor (pools, debuffs,
+  fallen sections) still gets you in the air.
 - **No twitch reactions.** Telegraphs are long and readable. Mistakes hurt, a single one never wipes.
 - **Bosses are built for verbs, not damage.** Every mechanic should ask some role to do its job:
   hits from a direction to block, enemies that need to be somewhere else, things only precision answers.
@@ -65,6 +74,8 @@ while dodging). Rules for the healer prototype:
 1. Impact Hammer tuned (done, v0.19.0) and played by Alex and Katie.
 2. Open items: death log, boss targeting the dead, phase 3 floor, keybinds (v0.20.0).
 3. **Aimed healer prototype**: the Link Gun (v0.21.0) and its talent tree (v0.23.0), being played.
-4. One aimed DPS weapon: the Shock Rifle and the Foreman's back vent (v0.25.0), to be played. Then a Striker talent pass.
+4. One aimed DPS weapon: the Shock Rifle (v0.25.0), reworked around Shock Cores, combos and coolant ports (v0.26.0),
+   with Shift/Space movement, the Ground Pound and the ramping overcharge pulse. To be played. Then a Striker talent pass,
+   and the same single-target / area / mastery pass for the Juggernaut and the Medic.
 5. Only then convert the remaining weapons (Flak Cannon, Minigun, other Medic and Striker weapons),
    or cut weapons if one good one per role is enough.

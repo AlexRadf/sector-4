@@ -4,6 +4,37 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.26.0 (2026-11-18) Shock Rifle rework, coolant ports, jumping, a harder overcharge shield
+- **The Shock Rifle plays like UT now.** No more standing still holding a stream. Each button is a skill shot:
+  - **RMB Shock Core** (every 4s): a slow glowing ball fired along your aim.
+  - **LMB Shock Beam**: an instant 80 to whatever is near your crosshair. It snaps onto your own core in the air, and
+    beaming a core sets off the **Shock Combo**: 250 to everything within 6m, up to 50% more the further the core flew.
+    Everything caught is **Charged** for 5s (purple glow), and your beams on a Charged target do 40% more.
+    Catch two or more enemies and the core is ready again at once (MULTI-COMBO).
+  - **Both buttons together, Overcharged Core**: spends all your Capacitor (50 or more). A big, very slow core whose combo
+    is 8m and 340 to 590 depending on what you put in, plus the distance bonus. Shares the core's 4s.
+  - **R Shock Nova**: an instant blast on the enemy you point at (600 to it, 300 within 8m, drones stunned), then five
+    cores fan out and hang in the air for 8s for you to pop.
+  - **Capacitor** no longer recharges on its own. Beam hits fill it: 5 a hit, 4 more on a Charged target, 15 for a
+    coolant port, 10 for a crit.
+- **Coolant ports replace the back vent.** Three glowing grilles drift slowly round the Foreman. One is lit at a time,
+  and all three blow open for 3s after a Crusher, a charge, a leap or a Ground Pound, and while he's staggered.
+  A Shock Beam on a lit port that faces you does double and fills the Capacitor. The Striker's reticle no longer snaps:
+  it shows where you really aim, gold over a port and white over your own core. The Striker no longer gets a bonus
+  for standing behind him.
+- **Shift is the movement ability** (Riot Charge, Dodge Jump, Stim Leap, Nanite Skates, Medevac). **Space jumps.**
+  On a controller, A jumps and LB (aimed weapons) or clicking the left stick is the movement ability.
+  Shift+1 to 4 no longer targets the squad (F1 to F4 still do).
+- **New: Ground Pound.** Every 21s (a bit more often in phase three) the Foreman rears up and slams the floor, and a
+  shockwave rolls out to the walls: 300 if it catches you on the ground. Jump it. Only the moving wave can be jumped:
+  sludge, fallen floor and rocket blasts still get you in the air.
+- **The overcharge shield ramps.** Its pulses now hit for 30, 90, 180, 270, 360 and 450 (every 2.25s, was a flat 80
+  every 2s), so a slow break puts real pressure on the Medic.
+- Bots: Strikers stand off to the Foreman's side, fire a core, hold fire while it flies and pop it as it arrives,
+  aim for lit ports with a person's wobble, and save the Overcharged Core for crowds and windows. Every bot jumps the
+  shockwave, with its own timing (and sometimes gets it wrong).
+- An all-bot squad wins about 90% in roughly 4:40 (the Striker bot does about 255 damage a second, was 240).
+
 ## 0.25.0 (2026-11-18) The aimed Striker: Shock Rifle, and the Foreman's back vent
 - The Shock Rifle is now an aimed weapon, the DPS prototype for the design pillars:
   - **LMB Shock Beam**: an instant 80 at the enemy nearest your crosshair. It snaps tighter than the Medic's bolt: aim matters.

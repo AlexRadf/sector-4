@@ -153,7 +153,7 @@ test('Wrecker Revs: key 1 builds, key 2 cashes them all in, and is refused with 
   assert.strictEqual(p.pips, 0);
 });
 
-test('Striker Capacitor: recharges by itself, the heavy shot drains 50', () => {
+test('Striker Capacitor (tab-target Rockets): recharges by itself, the heavy shot drains 50', () => {
   const { S, p, boss } = arena('dps', { weapon: 'rockets' });
   p.x = boss.x; p.z = boss.z - 15; p.pips = 100;
   S.events.length = 0; press(S, 1, { target: boss.id });
@@ -736,48 +736,97 @@ test('Purge is smart: a sludged ally roughly in front first, then yourself, with
   assert.ok(!(a.p.sludge > 0), 'then yourself, no aiming away needed');
 });
 
-/* The aimed Shock Rifle: a Striker with everyone else frozen, the Foreman 20m ahead facing away (his back to us). */
+/* The aimed Shock Rifle: a Striker with everyone else frozen, the Foreman 20m ahead facing away (an open coolant port facing us). */
 function striker() {
   const a = arena('dps', { weapon: 'shock' });
   Sim.players(a.S).forEach((q) => { if (q !== a.p) { q.human = true; q.auto = false; q.x = 30; q.z = -20; } });
-  a.p.x = 0; a.p.z = 0; a.boss.x = 0; a.boss.z = 20; a.boss.facing = 0; a.p.pips = 100;
+  a.p.x = 0; a.p.z = 0; a.boss.x = 0; a.boss.z = 20; a.boss.facing = 0; a.boss.speed = 0; a.p.pips = 100;
   a.S.rng = () => 0.5;
   return a;
 }
 const drone = (id, x, z) => ({ id, kind: 'enemy', type: 'drone', name: 'SECURITY DRONE', x, z, facing: 0, speed: 0, radius: 1, hp: 1600, maxHp: 1600, alive: true, threat: {}, target: null, fixate: null, swing: 9, melee: 0, swingInt: 9, cast: null });
 
-test('Shock Rifle: the beam snaps tighter than the Medic, and the vent on his back takes 30% more', () => {
-  const a = striker();
-  press(a.S, 0, { aim: 0.12 });
-  const hit = a.S.events.find((e) => e.type === 'dmg' && e.src === a.p.id && e.label === 'Shock Beam');
-  assert.ok(hit && hit.vent === 1, 'hit the vent from behind');
-  a.p.gcd = 0; a.S.events.length = 0;
-  press(a.S, 0, { aim: 0.6 });
-  assert.ok(!a.S.events.some((e) => e.type === 'dmg' && e.label === 'Shock Beam'), 'too far off: no snap');
-  const b = striker(); b.boss.facing = Math.PI;   // facing us: no vent
-  press(b.S, 0, { aim: 0 });
-  const front = b.S.events.find((e) => e.type === 'dmg' && e.label === 'Shock Beam');
-  assert.ok(front && !front.vent && hit.amt > front.amt * 1.2, hit.amt + ' vs ' + front.amt);
+const hold = (a, h, aim, n) => { for (let i = 0; i < (n || 1); i++) Sim.step(a.S, 1 / 30, { aim: aim || 0, hold: h }); };
+
+test('Shock Beam: snaps onto the enemy near the crosshair, but a coolant port needs real aim, doubles and fills the Capacitor', () => {
+  const a = striker(); a.p.pips = 0;
+  hold(a, [true, false], 0);   // straight at the open port on his back
+  const port = a.S.events.find((e) => e.type === 'dmg' && e.src === a.p.id);
+  assert.ok(port && port.label === 'Weak Point!' && port.vent === 1, JSON.stringify(port));
+  assert.ok(a.p.pips >= Sim.TUNE.sbeamCap + Sim.TUNE.portCap, 'the port fills the Capacitor');
+  const b = striker(); hold(b, [true, false], 0.12);   // still on him (the snap), but off the port
+  const body = b.S.events.find((e) => e.type === 'dmg' && e.src === b.p.id);
+  assert.ok(body && body.label === 'Shock Beam' && port.amt > body.amt * 1.8, port.amt + ' vs ' + (body && body.amt));
+  const c = striker(); hold(c, [true, false], 0.6);
+  assert.ok(!c.S.events.some((e) => e.type === 'dmg' && e.src === c.p.id), 'too far off: no snap');
+  const d = striker(); d.S.t = 3;   // between ports: nothing open
+  hold(d, [true, false], 0);
+  assert.strictEqual(d.S.events.find((e) => e.type === 'dmg' && e.src === d.p.id).label, 'Shock Beam');
 });
 
-test('Shock Rifle: the stream builds while you stay on one target and starts again when you switch', () => {
+test('Shock Core: right click fires a slow core on a 4s timer, the beam detonates it, and the combo Charges what it catches', () => {
   const a = striker();
-  a.S.ents.push(drone(960, 14, 6));
-  for (let i = 0; i < 90; i++) Sim.step(a.S, 1 / 30, { aim: 0, hold: [false, true] });
-  assert.ok(a.p.streamRamp > 2.9 && a.p.streamTo === a.boss.id);
-  assert.ok(a.p.pips < 100 - 3 * 12 + 3 * 8 + 1);
-  Sim.step(a.S, 1 / 30, { aim: Math.atan2(14, 6), hold: [false, true] });
-  assert.strictEqual(a.p.streamTo, 960); assert.ok(a.p.streamRamp < 0.1, 'new target: built from zero');
+  hold(a, [false, true]); hold(a, [false, false], 0, 4);
+  assert.strictEqual(a.S.cores.length, 1, 'a core is in the air');
+  assert.ok(a.p.cds.score > 3.5, 'on its timer');
+  hold(a, [false, true]); hold(a, [false, false], 0, 4);
+  assert.strictEqual(a.S.cores.length, 1, 'no spamming it');
+  hold(a, [false, false], 0, 26);   // let it fly about 12m
+  a.S.events.length = 0; hold(a, [true, false]);
+  const combo = a.S.events.find((e) => e.type === 'dmg' && e.label === 'Shock Combo!' && e.dst === a.boss.id);
+  assert.ok(combo && combo.amt > Sim.TUNE.comboDmg * 1.25, 'flown far, hits harder: ' + (combo && combo.amt));
+  assert.strictEqual(a.S.cores.length, 0); assert.ok(a.boss.charged > 0, 'Charged');
+  a.p.gcd = 0; a.S.events.length = 0; hold(a, [false, false], 0.12); hold(a, [true, false], 0.12);
+  const beam = a.S.events.find((e) => e.type === 'dmg' && e.label === 'Shock Beam');
+  assert.ok(beam.amt >= Sim.TUNE.sbeamDmg * 1.35, 'beams on a Charged target hit harder: ' + beam.amt);
+  const b = striker();   // left alone, it fizzles on the first enemy it touches
+  hold(b, [false, true]); hold(b, [false, false], 0, 60);
+  assert.ok(b.S.events.some((e) => e.type === 'dmg' && e.label === 'Shock Core' && e.dst === b.boss.id) && b.S.cores.length === 0);
 });
 
-test('Shock Rifle: both buttons detonate a Shock Combo on what you point at, splashing everything near it', () => {
+test('Shock Combo on two or more enemies readies the core again; both buttons together is the Overcharged Core', () => {
   const a = striker();
-  const d1 = drone(961, 2, 18), d2 = drone(962, 0, 30);
-  a.S.ents.push(d1, d2); a.S.events.length = 0;
-  Sim.step(a.S, 1 / 30, { aim: 0, hold: [true, true] });
-  const combo = a.S.events.filter((e) => e.type === 'dmg' && e.label === 'Shock Combo!');
-  assert.ok(combo.some((e) => e.dst === a.boss.id) && combo.some((e) => e.dst === 961) && !combo.some((e) => e.dst === 962), combo.map((e) => e.dst).join(','));
-  assert.ok(Math.abs(a.p.pips - 50) < 1);
+  a.S.ents.push(drone(961, 1, 9), drone(962, -1.5, 10));
+  hold(a, [false, true]); hold(a, [false, false], 0, 18);
+  a.S.events.length = 0; hold(a, [true, false]);
+  const hit = new Set(a.S.events.filter((e) => e.type === 'dmg' && e.label === 'Shock Combo!').map((e) => e.dst));
+  assert.ok(hit.has(961) && hit.has(962), [...hit].join(','));
+  assert.strictEqual(a.p.cds.score, 0, 'multi-combo: core ready again');
+  const b = striker(); b.p.pips = 80;
+  hold(b, [true, true]); hold(b, [false, false]);
+  assert.ok(b.S.cores.length === 1 && b.S.cores[0].big === 1 && b.S.cores[0].spent === 80, 'an Overcharged Core with all 80');
+  assert.ok(b.p.pips === 0 && b.p.cds.score > 3.5, 'spends it all, shares the timer');
+  const c = striker(); c.p.pips = 80;   // beaming, then tapping right: a normal core, not the chord
+  hold(c, [true, false], 0.6, 10); hold(c, [true, true], 0.6, 6);
+  assert.ok(c.S.cores.length === 1 && !c.S.cores[0].big && c.p.pips >= 80, 'a normal core');
+  const d = striker(); d.p.pips = 30;
+  hold(d, [true, true]);
+  assert.ok(!d.S.cores.length, 'needs 50');
+});
+
+test('Overcharge pulses ramp up the longer the shield holds', () => {
+  const a = striker();
+  const med = Sim.players(a.S).find((q) => q.role === 'healer');
+  a.boss.oshield = { hp: 99999, max: 99999, t: 0, dur: 14 }; a.S.timers.pulse = Sim.TUNE.pulseEvery;
+  const hits = [];
+  for (let i = 0; i < 30 * 8; i++) { Sim.step(a.S, 1 / 30, {}); a.S.events.forEach((e) => { if (e.type === 'dmg' && e.dst === med.id && e.label === 'Overcharge Pulse') hits.push(e.amt); }); a.S.events.length = 0; med.hp = med.maxHp; }
+  assert.ok(hits.length >= 3 && hits[0] <= 35 && hits[1] > hits[0] * 2 && hits[2] > hits[1] * 1.5, hits.join(','));
+});
+
+test('Space jumps the Ground Pound shockwave; Shift is still the movement ability', () => {
+  const run2 = (jumpAt) => {
+    const a = striker();   // the wave reaches us about 1.45s after it starts
+    a.S.waves.push({ id: 990, x: 0, z: 20, r: 3.5, hit: {} });
+    const hp = a.p.hp;
+    for (let i = 0; i < 60; i++) Sim.step(a.S, 1 / 30, i === jumpAt ? { hop: true } : {});
+    return { hit: a.p.hp < hp, a };
+  };
+  assert.ok(run2(-1).hit, 'standing still: the wave hits');
+  assert.ok(!run2(34).hit, 'jumped as it arrived: it goes under you');
+  assert.ok(run2(0).hit, 'jumped far too early: landed before it got there');
+  const b = arena('dps', { weapon: 'shock', boots: 'dodge' });
+  const x0 = b.p.x; Sim.step(b.S, 1 / 30, { jump: true, aim: Math.PI / 2, mx: 1, mz: 0 });
+  assert.ok(b.p.x - x0 > 6, 'Dodge Jump on the movement key');
 });
 
 test('EMP Grenade: thrown where you aim, stuns drones and hits an overcharge shield hard', () => {
