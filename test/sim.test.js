@@ -778,7 +778,9 @@ test('Shock Core: right click fires a slow core on a 4s timer, the beam detonate
   assert.ok(beam.amt >= Sim.TUNE.sbeamDmg * 1.35, 'beams on a Charged target hit harder: ' + beam.amt);
   const b = striker();   // left alone, it fizzles on the first enemy it touches
   hold(b, [false, true]); hold(b, [false, false], 0, 60);
-  assert.ok(b.S.events.some((e) => e.type === 'dmg' && e.label === 'Shock Core' && e.dst === b.boss.id) && b.S.cores.length === 0);
+  const direct = b.S.events.find((e) => e.type === 'dmg' && e.label === 'Shock Core' && e.dst === b.boss.id);
+  assert.ok(direct && direct.amt >= Sim.TUNE.coreHit * 0.9 && b.S.cores.length === 0, 'left alone it still lands as a real single-target hit');
+  assert.ok(!(b.boss.charged > 0), 'but only the combo Charges');
 });
 
 test('Shock Combo on two or more enemies readies the core again; both buttons together is the Overcharged Core', () => {
@@ -857,6 +859,9 @@ test('Striker beam talents: Overload builds on one target, Precision Coils make 
   const first = beamAt(ol, 0.12).amt; let last = first;
   for (let i = 0; i < 6; i++) last = beamAt(ol, 0.12).amt;
   assert.ok(last >= first * 1.28 && last <= first * 1.32, first + ' -> ' + last);
+  assert.strictEqual(ol.S.events.filter((e) => e.type === 'proc' && e.talent === 'overload').length, 0, 'the call-out fires once, when it fills, not every beam');
+  hold(ol, [false, false], 0.12); hold(ol, [false, true], 0.12); hold(ol, [false, false], 0.12, 12); ol.p.gcd = 0; hold(ol, [true, false], 0.12);   // pop a core
+  assert.strictEqual(ol.p.olN, 5, 'popping a core keeps the stacks');
   const base = strikerWith({ rig: 'spotter' }), pr = strikerWith({ rig: 'precision' });
   assert.strictEqual(beamAt(base, 0.085).label, 'Shock Beam', 'just off the port normally');
   const hit = beamAt(pr, 0.085);
@@ -871,7 +876,9 @@ test('Striker core talents: Volatile is bigger and fizzles harmlessly, Magnetic 
   fire(vo, 0, 18); vo.S.events.length = 0; hold(vo, [true, false]);
   assert.ok(vo.S.events.some((e) => e.dst === 971 && e.label === 'Shock Combo!'), '8m reaches a drone 7m off the line');
   const vf = strikerWith({ implant: 'volatile' }); fire(vf, 0, 60);
-  assert.ok(!vf.S.events.some((e) => e.label === 'Shock Core'), 'no fizzle damage');
+  const plainHit = strikerWith({ implant: 'magnet' }); fire(plainHit, 0, 60);
+  const vh = vf.S.events.find((e) => e.label === 'Shock Core'), ph = plainHit.S.events.find((e) => e.label === 'Shock Core');
+  assert.ok(vh && ph && vh.amt < ph.amt * 0.6, 'an unpopped Volatile core lands for half');
   const mg = strikerWith({ implant: 'magnet' }); mg.boss.x = 6;   // the boss 6m off to the side, crosshair on him, core fired straight
   fire(mg, Math.atan2(6, 20) - 0.25, 50);
   assert.ok(mg.S.events.some((e) => e.label === 'Shock Core' && e.dst === mg.boss.id), 'curved onto him');

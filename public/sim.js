@@ -232,8 +232,8 @@
           { id: 'cap', name: 'Capacitor', max: 100, start: 30, regen: 0, build: 0,
             how: 'Capacitor. It doesn\'t recharge on its own: every Shock Beam that hits gives 5, a beam on a Charged target 4 more, a coolant port 15 and a crit 10. Both buttons spend all of it (50 or more) on an Overcharged Core.' },
           [{ id: 'sbeam', key: 'LMB', name: 'Shock Beam', kind: 'aim', range: 35, hold: 'repeat', desc: 'Hold or tap. An instant beam: 80 to the enemy nearest your crosshair, and it snaps onto your own Shock Core near the crosshair to set off the combo. An open coolant port under your crosshair (no snapping for those) takes double and gives 15 Capacitor. Charged targets take 40% more.' },
-           { id: 'score', key: 'RMB', name: 'Shock Core', kind: 'aim', range: 30, cd: 4, gcd: false, desc: 'Fire a slow glowing core along your aim (every 4s). Beam it to detonate a Shock Combo: 6m, 250 to everything in it, up to 50% more the further it has flown. Everything caught is Charged for 5s. Catch two or more enemies and the core is ready again at once. Left alone, it fizzles on the first enemy it touches for 120.' },
-           { id: 'ocore', key: 'L+R', name: 'Overcharged Core', kind: 'aim', range: 30, needs: 50, gcd: false, shareCd: 'score', desc: 'Press both buttons together (50 Capacitor or more, all of it spent; shares the Shock Core\'s 4s). A big, very slow core. Its combo is 8m, stuns drones for 1.5s and grows with what you put in: 340 at 50, 590 at 100, plus the distance bonus.' }],
+           { id: 'score', key: 'RMB', name: 'Shock Core', kind: 'aim', range: 30, cd: 4, gcd: false, desc: 'Fire a slow glowing core along your aim (every 4s). Beam it to detonate a Shock Combo: 6m, 250 to everything in it, up to 50% more the further it has flown. Everything caught is Charged for 5s. Catch two or more enemies and the core is ready again at once. Left alone, it hits the first enemy it touches for 220 (one target, no Charge).' },
+           { id: 'ocore', key: 'L+R', name: 'Overcharged Core', kind: 'aim', range: 30, needs: 50, gcd: false, shareCd: 'score', desc: 'Press both buttons together (50 Capacitor or more, all of it spent; shares the Shock Core\'s 4s). A big, very slow core. Its combo is 8m, stuns drones for 1.5s and grows with what you put in: 340 at 50, 590 at 100, plus the distance bonus. Left alone, it hits the first enemy it touches for 60% of that.' }],
           { aim: true,
             utils: [A({ id: 'emp', key: 'Q', name: 'EMP Grenade', kind: 'aim', range: 25, cd: 15, lob: true, lobR: 6, desc: 'Hold to aim, let go to throw (look further up the room to throw further). 6m blast: 200 damage, drones stunned for 2.5s, and an overcharge shield takes 600 more.' }),
                     A({ id: 'adren', key: 'E', name: 'Adrenaline', kind: 'self', range: 0, cd: 30, gcd: false, desc: '40% more damage for 6s. Save it for open ports, the shield or the stagger.' }),
@@ -354,12 +354,12 @@
         t('coverdash', 'squad', 'Covering Dash', 'Get between them and it.', 'Shift dashes 9m the way you are moving (10s), and every squad member within 6m of where you land gets a 120 shield.')
       ],
       rig: [
-        t('overload', 'aggressive', 'Overload', 'Beam: stay on it.', 'Every Shock Beam that hits the same enemy as your last one does 6% more, up to 30%. Switch targets, miss or pop a core and it starts again.'),
+        t('overload', 'aggressive', 'Overload', 'Beam: stay on it.', 'Every Shock Beam that hits the same enemy as your last one does 6% more, up to 30%. Popping a core keeps it; switching targets or missing starts it again.'),
         t('precision', 'steady', 'Precision Coils', 'Beam: the perfect shot.', 'Coolant ports take two and a half times a beam instead of double, and they\'re a little easier to hit (1.6m either side instead of 1.2).'),
         t('spotter', 'squad', 'Spotter', 'Beam: mark it for the squad.', 'Your hits mark the target for 5s: the whole squad deals 6% more damage to it.')
       ],
       implant: [
-        t('volatile', 'aggressive', 'Volatile Core', 'Core: bigger bang.', 'Shock Combos are 8m across instead of 6 and hit 15% harder, but a core you don\'t pop just fizzles out (no damage when it touches something).'),
+        t('volatile', 'aggressive', 'Volatile Core', 'Core: bigger bang.', 'Shock Combos are 8m across instead of 6 and hit 15% harder, but a core you don\'t pop only does half damage when it hits.'),
         t('magnet', 'steady', 'Magnetic Core', 'Core: it finds them.', 'Your cores curve gently towards the enemy nearest your crosshair when you fire, so they arrive where you meant them to.'),
         t('arclink', 'squad', 'Arc Link', 'Core: Charged for everyone.', 'Everything your combos Charge takes 10% more damage from the whole squad, not just your beams.')
       ],
@@ -450,8 +450,8 @@
     // Shock Rifle. Cores fly along your aim; the beam detonates them (combo grows with distance flown, to +50% at 18m).
     // Coolant ports ring the Foreman: one opens at a time, all of them after his big moves and while he's staggered.
     sbeamDmg: 80, sbeamCap: 5, chargedMult: 1.4, chargedCap: 4, chargedDur: 5,
-    coreCd: 4, coreSpeed: 12, coreLife: 2.6, coreR: 6, comboDmg: 250, coreFizzle: 120,
-    ocoreSpeed: 7, ocoreLife: 4.5, ocoreR: 8, ocoreBase: 340, ocorePer: 5, ocoreFizzle: 220, comboTravel: 18, comboTravelMult: 0.5,
+    coreCd: 4, coreSpeed: 12, coreLife: 2.6, coreR: 6, comboDmg: 250, coreHit: 220,
+    ocoreSpeed: 7, ocoreLife: 4.5, ocoreR: 8, ocoreBase: 340, ocorePer: 5, ocoreHit: 0.6, comboTravel: 18, comboTravelMult: 0.5,
     portMult: 2, portCap: 15, portHalf: 1.2, portSpin: 0.22, portOpen: 2.5, portGap: 2.5, portBurst: 3,
     barrierHp: 1800, barrierRegen: 180, barrierRest: 1.5, barrierBreak: 5,
     busterEvery: 15, busterCast: 2.5, busterDmg: 1860,
@@ -1237,11 +1237,11 @@
       case 'sbeam':
         p.gcd = TUNE.sbeamGcd;
         var mine = coreInAim(S, p, ab.range);
-        if (mine) { p.olN = 0; detonate(S, p, mine); break; }   // your own core near the crosshair: the combo
+        if (mine) { detonate(S, p, mine); break; }   // your own core near the crosshair: the combo (Overload stacks survive it)
         var sbt = softTarget(S, p, SHOCK_AIM);
         if (!sbt) { p.olN = 0; emit(S, { type: 'fx', fx: 'boltmiss', src: p.id }); break; }
         // Overload: the same target again, a little harder each time.
-        if (T(p, 'overload')) { p.olN = p.olTo === sbt.id ? Math.min(5, (p.olN || 0) + 1) : 0; p.olTo = sbt.id; if (p.olN === 5) proc(S, p, 'overload', 'OVERLOADED'); }
+        if (T(p, 'overload')) { var olWas = p.olN || 0; p.olN = p.olTo === sbt.id ? Math.min(5, olWas + 1) : 0; p.olTo = sbt.id; if (p.olN === 5 && olWas < 5) proc(S, p, 'overload', 'OVERLOADED'); }
         emit(S, { type: 'beam', src: p.id, dst: sbt.id, fx: 'shock' });
         var port = sbt.type === 'boss' ? portHit(S, p, sbt) : -1;
         var chg = sbt.charged > 0;
@@ -2194,7 +2194,13 @@
       var gone = c.t >= c.life || Math.hypot(c.x, c.z) > ARENA_R - 0.5 || !cby || !cby.alive;
       if (!gone && !c.nova) {
         var touch = enemies(S).filter(function (e) { return Math.hypot(e.x - c.x, e.z - c.z) <= (e.radius || 1) + 0.6; })[0];
-        if (touch) { if (!T(cby, 'volatile')) damageEnemy(S, cby, touch, c.big ? TUNE.ocoreFizzle : TUNE.coreFizzle, 1, c.big ? 'Overcharged Core' : 'Shock Core'); gone = true; }
+        if (touch) {
+          // Not popped: it still lands as a single-target hit (no splash, no Charge). Volatile Core halves it.
+          var hitAmt = c.big ? (TUNE.ocoreBase + TUNE.ocorePer * Math.max(0, c.spent - 50)) * TUNE.ocoreHit : TUNE.coreHit;
+          damageEnemy(S, cby, touch, hitAmt * (T(cby, 'volatile') ? 0.5 : 1), 1, c.big ? 'Overcharged Core' : 'Shock Core');
+          emit(S, { type: 'fx', fx: 'corehit', src: touch.id });
+          gone = true;
+        }
       }
       if (gone) { S.cores.splice(ci, 1); emit(S, { type: 'fx', fx: 'fizzle', x2: Math.round(c.x * 10) / 10, z2: Math.round(c.z * 10) / 10, src: c.by }); }
     }
@@ -2898,7 +2904,7 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.27.0';
+  var VERSION = '0.27.1';
 
   var api = {
     VERSION: VERSION,

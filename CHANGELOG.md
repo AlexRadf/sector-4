@@ -4,6 +4,14 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.27.1 (2026-11-19) Striker fixes from playtest
+- **Overload** keeps its stacks when you pop a core (only switching targets or missing resets it), and OVERLOADED is
+  called out once when it fills instead of on every beam.
+- **A Shock Core you don't pop still lands.** It hits the first enemy it touches for 220 (one target, no splash, no
+  Charge), so firing a core and letting it fly is a real single-target play; the combo is the area option. An
+  Overcharged Core that isn't popped hits for 60% of its combo. Volatile Core halves the unpopped hit instead of
+  removing it.
+
 ## 0.27.0 (2026-11-18) Striker talents, Hammer Throw, no Ground Pound
 - **Striker talent pass.** A new tree for the Shock Rifle. Like the Medic's, no talent adds a button; each row changes
   one you already have:

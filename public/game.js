@@ -847,6 +847,7 @@
           else if (ev.fx === 'field') { ringFx(ev.x2, ev.z2, 0.5, 6, 0x4fd88f, 0.5); if (ev.src === human.id) Snd.play('belt'); }
           else if (ev.fx === 'emp') { ringFx(ev.x2, ev.z2, 0.5, 6, 0x7fb8ff, 0.5); ringFx(ev.x2, ev.z2, 6, 5, 0xffffff, 0.3); Snd.play('boom'); }
           else if (ev.fx === 'core' || ev.fx === 'ocore') { if (ev.src === human.id || watching) Snd.play('orb'); }
+          else if (ev.fx === 'corehit') { ringFx(x, z, 0.5, 2.5, 0xd9b8ff, 0.3); }
           else if (ev.fx === 'port') { if (v.ports && v.ports[ev.pw]) v.ports[ev.pw].hit = 1; Snd.play('port'); }
           else if (ev.fx === 'ports') { ringFx(x, z, 3, 6, 0xff9a30, 0.4); }
           else if (ev.fx === 'jump') { if (ev.src === human.id) Snd.play('jump'); }
