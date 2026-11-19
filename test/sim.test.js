@@ -745,23 +745,22 @@ const drone = (id, x, z) => ({ id, kind: 'enemy', type: 'drone', name: 'SECURITY
 
 const hold = (a, h, aim, n) => { for (let i = 0; i < (n || 1); i++) Sim.step(a.S, 1 / 30, { aim: aim || 0, hold: h }); };
 
-test('Shock Beam: snaps onto the enemy near the crosshair, but a coolant port needs real aim, doubles and fills the Capacitor', () => {
-  const a = striker(); a.p.pips = 0;
+test('Shock Beam: snaps onto the enemy near the crosshair, but a coolant port needs real aim, doubles and gives two Shock Charges', () => {
+  const a = striker(); a.p.shockCh = 0;
   hold(a, [true, false], 0);   // straight at the open port on his back
   const port = a.S.events.find((e) => e.type === 'dmg' && e.src === a.p.id);
   assert.ok(port && port.label === 'Weak Point!' && port.vent === 1, JSON.stringify(port));
-  assert.ok(a.p.pips >= Sim.TUNE.sbeamCap + Sim.TUNE.portCap, 'the port fills the Capacitor');
+  assert.strictEqual(a.p.shockCh, 2, 'a port is worth two charges');
   const b = striker(); hold(b, [true, false], 0.12);   // still on him (the snap), but off the port
   const body = b.S.events.find((e) => e.type === 'dmg' && e.src === b.p.id);
-  assert.ok(body && body.label === 'Shock Beam' && port.amt > body.amt * 1.8, port.amt + ' vs ' + (body && body.amt));
+  assert.ok(body && body.label === 'Shock Beam' && port.amt > body.amt * 1.8 && b.p.shockCh === 1, port.amt + ' vs ' + (body && body.amt));
   const c = striker(); hold(c, [true, false], 0.6);
   assert.ok(!c.S.events.some((e) => e.type === 'dmg' && e.src === c.p.id), 'too far off: no snap');
   const d = striker(); d.S.t = 3;   // between ports: nothing open
   hold(d, [true, false], 0);
   assert.strictEqual(d.S.events.find((e) => e.type === 'dmg' && e.src === d.p.id).label, 'Shock Beam');
 });
-
-test('Shock Core: right click fires a slow core on a 4s timer, the beam detonates it, and the combo Charges what it catches', () => {
+test('Shock Core: right click fires a slow core on a 4s timer; a click pops it as a combo, left alone it hits and Charges', () => {
   const a = striker();
   hold(a, [false, true]); hold(a, [false, false], 0, 4);
   assert.strictEqual(a.S.cores.length, 1, 'a core is in the air');
@@ -773,17 +772,22 @@ test('Shock Core: right click fires a slow core on a 4s timer, the beam detonate
   const combo = a.S.events.find((e) => e.type === 'dmg' && e.label === 'Shock Combo!' && e.dst === a.boss.id);
   assert.ok(combo && combo.amt > Sim.TUNE.comboDmg * 1.25, 'flown far, hits harder: ' + (combo && combo.amt));
   assert.strictEqual(a.S.cores.length, 0); assert.ok(a.boss.charged > 0, 'Charged');
+  const before = Sim.TUNE.sbeamDmg * (1 + Sim.TUNE.chargeStep * (a.p.shockCh || 0));
   a.p.gcd = 0; a.S.events.length = 0; hold(a, [false, false], 0.12); hold(a, [true, false], 0.12);
   const beam = a.S.events.find((e) => e.type === 'dmg' && e.label === 'Shock Beam');
-  assert.ok(beam.amt >= Sim.TUNE.sbeamDmg * 1.35, 'beams on a Charged target hit harder: ' + beam.amt);
-  const b = striker();   // left alone, it fizzles on the first enemy it touches
+  assert.ok(beam.amt >= before * 1.35, 'beams on a Charged target hit harder: ' + beam.amt);
+  const b = striker();   // left alone, it lands as a single-target hit and Charges
   hold(b, [false, true]); hold(b, [false, false], 0, 60);
   const direct = b.S.events.find((e) => e.type === 'dmg' && e.label === 'Shock Core' && e.dst === b.boss.id);
-  assert.ok(direct && direct.amt >= Sim.TUNE.coreHit * 0.9 && b.S.cores.length === 0, 'left alone it still lands as a real single-target hit');
-  assert.ok(!(b.boss.charged > 0), 'but only the combo Charges');
+  assert.ok(direct && direct.amt >= Sim.TUNE.coreHit * 0.9 && b.S.cores.length === 0, 'it still lands');
+  assert.ok(b.boss.charged > 0, 'and Charges what it hits');
+  const c = striker();   // holding the beam fires past your own core; only a fresh click pops it
+  hold(c, [true, false], 0.12, 10); hold(c, [true, true], 0.12, 2); c.S.events.length = 0; hold(c, [true, false], 0.12, 40);   // beaming, tap right, keep holding
+  assert.ok(c.S.cores.length === 1 || c.S.events.some((e) => e.label === 'Shock Core'), 'a core went out');
+  assert.ok(!c.S.events.some((e) => e.label === 'Shock Combo!'), 'held: no pop');
+  assert.ok(c.S.events.filter((e) => e.label === 'Shock Beam').length >= 1, 'the beam kept firing');
 });
-
-test('Shock Combo on two or more enemies readies the core again; both buttons together is the Overcharged Core', () => {
+test('Shock Combo on two or more enemies readies the core again; both buttons spend the Shock Charges on an Overcharged Core', () => {
   const a = striker();
   a.S.ents.push(drone(961, 1, 9), drone(962, -1.5, 10));
   hold(a, [false, true]); hold(a, [false, false], 0, 18);
@@ -791,18 +795,35 @@ test('Shock Combo on two or more enemies readies the core again; both buttons to
   const hit = new Set(a.S.events.filter((e) => e.type === 'dmg' && e.label === 'Shock Combo!').map((e) => e.dst));
   assert.ok(hit.has(961) && hit.has(962), [...hit].join(','));
   assert.strictEqual(a.p.cds.score, 0, 'multi-combo: core ready again');
-  const b = striker(); b.p.pips = 80;
+  const b = striker(); b.p.shockCh = 3; b.p.pips = 20;
   hold(b, [true, true]); hold(b, [false, false]);
-  assert.ok(b.S.cores.length === 1 && b.S.cores[0].big === 1 && b.S.cores[0].spent === 80, 'an Overcharged Core with all 80');
-  assert.ok(b.p.pips === 0 && b.p.cds.score > 3.5, 'spends it all, shares the timer');
-  const c = striker(); c.p.pips = 80;   // beaming, then tapping right: a normal core, not the chord
+  assert.ok(b.S.cores.length === 1 && b.S.cores[0].big === 1 && b.S.cores[0].spent === 3, 'an Overcharged Core with three charges');
+  assert.ok(b.p.shockCh === 0 && b.p.pips >= 20 + 3 * Sim.TUNE.chargeRefund - 1 && b.p.cds.score > 3.5, 'spends them, refunds Capacitor, shares the timer');
+  const c = striker(); c.p.shockCh = 2;   // beaming, then tapping right: a normal core, not the chord
   hold(c, [true, false], 0.6, 10); hold(c, [true, true], 0.6, 6);
-  assert.ok(c.S.cores.length === 1 && !c.S.cores[0].big && c.p.pips >= 80, 'a normal core');
-  const d = striker(); d.p.pips = 30;
+  assert.ok(c.S.cores.length === 1 && !c.S.cores[0].big, 'a normal core');
+  const d = striker(); d.p.shockCh = 0;
   hold(d, [true, true]);
-  assert.ok(!d.S.cores.length, 'needs 50');
+  assert.ok(!d.S.cores.length, 'needs a charge');
 });
 
+test('Arcane loop: charges make beams stronger and costlier, you run dry at four, Surge and Overclock', () => {
+  const a = striker(); a.p.shockCh = 0; a.p.pips = 100;
+  const hits = [];
+  for (let i = 0; i < 6; i++) { a.p.gcd = 0; const pre = a.p.pips; a.S.events.length = 0; hold(a, [true, false], 0.12); hits.push([a.S.events.find((e) => e.label === 'Shock Beam').amt, Math.round(pre - a.p.pips)]); }
+  assert.ok(hits[4][0] > hits[0][0] * 1.7, 'four charges: +80% (' + hits.map((h) => h[0]).join(',') + ')');
+  assert.ok(hits[0][1] <= 3 && hits[4][1] >= 14, 'and five times the cost (' + hits.map((h) => h[1]).join(',') + ')');
+  a.p.pips = 5; a.p.gcd = 0; a.S.events.length = 0; hold(a, [true, false], 0.12);
+  assert.ok(!a.S.events.some((e) => e.label === 'Shock Beam') && a.S.events.some((e) => e.type === 'error'), 'dry: spend your charges');
+  const s2 = striker(); s2.p.shockCh = 0; s2.boss.stagger = 5;   // staggered: he holds still and every port is open
+  hold(s2, [true, false], 0); s2.p.gcd = 0; s2.p.cds.score = 3; hold(s2, [false, false], 0); hold(s2, [true, false], 0);
+  assert.ok(s2.p.surge > 0 && s2.p.cds.score === 0, 'two port hits in a row: Surge, core ready');
+  hold(s2, [false, true]); hold(s2, [false, false], 0, 4);
+  assert.ok(s2.S.cores[0].surge === 1 && !(s2.p.surge > 0), 'the next core is a Surge core');
+  const o = striker(); o.p.pips = 10; o.p.shockCh = 0;
+  Sim.step(o.S, 1 / 30, { ability: Sim.abilitiesOf(o.p).findIndex((ab) => ab.id === 'overclock') });
+  assert.ok(o.p.pips >= 99 && o.p.shockCh === 4 && o.p.overclock > 7);
+});
 test('Overcharge pulses ramp up the longer the shield holds', () => {
   const a = striker();
   const med = Sim.players(a.S).find((q) => q.role === 'healer');
@@ -856,20 +877,19 @@ const beamAt = (a, aim) => { a.p.gcd = 0; a.S.events.length = 0; hold(a, [true, 
 
 test('Striker beam talents: Overload builds on one target, Precision Coils make ports bigger and harder-hitting', () => {
   const ol = strikerWith({ rig: 'overload' });
-  const first = beamAt(ol, 0.12).amt; let last = first;
-  for (let i = 0; i < 6; i++) last = beamAt(ol, 0.12).amt;
+  const shot = () => { ol.p.shockCh = 0; return beamAt(ol, 0.12).amt; };   // hold Shock Charges still so only Overload moves
+  const first = shot(); let last = first;
+  for (let i = 0; i < 6; i++) last = shot();
   assert.ok(last >= first * 1.28 && last <= first * 1.32, first + ' -> ' + last);
   assert.strictEqual(ol.S.events.filter((e) => e.type === 'proc' && e.talent === 'overload').length, 0, 'the call-out fires once, when it fills, not every beam');
   hold(ol, [false, false], 0.12); hold(ol, [false, true], 0.12); hold(ol, [false, false], 0.12, 12); ol.p.gcd = 0; hold(ol, [true, false], 0.12);   // pop a core
   assert.strictEqual(ol.p.olN, 5, 'popping a core keeps the stacks');
   const base = strikerWith({ rig: 'spotter' }), pr = strikerWith({ rig: 'precision' });
   assert.strictEqual(beamAt(base, 0.085).label, 'Shock Beam', 'just off the port normally');
-  const hit = beamAt(pr, 0.085);
-  assert.strictEqual(hit.label, 'Weak Point!', 'inside the wider port');
+  assert.strictEqual(beamAt(pr, 0.085).label, 'Weak Point!', 'inside the wider port');
   const plain = beamAt(strikerWith({ rig: 'overload' }), 0);   // a first Overload hit adds nothing; Spotter's mark would
   assert.ok(beamAt(strikerWith({ rig: 'precision' }), 0).amt > plain.amt * 1.2, 'two and a half times, not double');
 });
-
 test('Striker core talents: Volatile is bigger and fizzles harmlessly, Magnetic curves in, Arc Link Charges for the squad', () => {
   const fire = (a, aim, frames) => { hold(a, [false, true], aim); hold(a, [false, false], aim, frames); };
   const vo = strikerWith({ implant: 'volatile' }); vo.S.ents.push(drone(971, 7, 9));
@@ -889,17 +909,16 @@ test('Striker core talents: Volatile is bigger and fizzles harmlessly, Magnetic 
   assert.ok(n(ar) > n(pl) * 1.08, 'the tank hits a Charged target harder with Arc Link');
 });
 
-test('Striker Overcharge talents: Supercharge needs 75 and hits harder, Discharge shields you, EMP Burst cracks the shield', () => {
-  const sc = strikerWith({ util: 'supercharge' }); sc.p.pips = 60;
-  hold(sc, [true, true]); assert.ok(!sc.S.cores.length, 'needs 75');
-  sc.p.pips = 80; sc.p.cds.score = 0; hold(sc, [false, false]); hold(sc, [true, true]); assert.ok(sc.S.cores.length && sc.S.cores[0].big);
-  const ds = strikerWith({ util: 'discharge' }); ds.p.armor = 0; ds.p.pips = 100;
+test('Striker Overcharge talents: Supercharge needs all four charges and hits harder, Discharge shields you, EMP Burst cracks the shield', () => {
+  const sc = strikerWith({ util: 'supercharge' }); sc.p.shockCh = 3;
+  hold(sc, [true, true]); assert.ok(!sc.S.cores.length, 'needs four');
+  sc.p.shockCh = 4; sc.p.cds.score = 0; hold(sc, [false, false]); hold(sc, [true, true]); assert.ok(sc.S.cores.length && sc.S.cores[0].big);
+  const ds = strikerWith({ util: 'discharge' }); ds.p.armor = 0; ds.p.shockCh = 4;
   hold(ds, [true, true]); assert.ok(ds.p.armor >= 290, String(ds.p.armor));
-  const em = strikerWith({ util: 'empburst' }); em.boss.oshield = { hp: 5000, max: 10000, t: 0, dur: 14 }; em.p.pips = 50;
+  const em = strikerWith({ util: 'empburst' }); em.boss.oshield = { hp: 5000, max: 10000, t: 0, dur: 14 }; em.p.shockCh = 1;
   hold(em, [true, true]); hold(em, [false, false], 0, 40); em.S.events.length = 0; hold(em, [true, false]);
   assert.ok(em.boss.oshield && em.boss.oshield.hp <= 5000 - 600, String(em.boss.oshield && em.boss.oshield.hp));
 });
-
 test('Striker footwork: Kinetic Slide softens hits after, Covering Dash shields allies where you land', () => {
   const sl = strikerWith({ boots: 'slide' });
   Sim.step(sl.S, 1 / 30, { jump: true, mx: 1, mz: 0 });

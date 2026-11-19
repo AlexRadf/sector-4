@@ -360,7 +360,7 @@
     $('#hud').classList.toggle('spectate', watching); updateSpec();
     running = true; acc = 0; lastSim = performance.now(); Net.evMark = 0;
     logLine(watching ? 'Shift started. You are watching from the gantry.' : 'Shift started. ' + human.kit.title + ' on the floor.');
-    if (!watching && Sim.aimWeapon(human) && human.kit.weapons[human.weapon].id === 'shock') logLine('Click the arena to aim with the mouse. Right click fires a Shock Core; left click beams, and beaming your own core sets off the Shock Combo. Lit ports on the Foreman take double from a beam (real aim, no snapping). Both buttons together: an Overcharged Core. Esc releases it.');
+    if (!watching && Sim.aimWeapon(human) && human.kit.weapons[human.weapon].id === 'shock') logLine('Click the arena to aim with the mouse. Left click beams: each hit adds a Shock Charge (the sparks round you), and charges make beams stronger and costlier. Right click fires a Shock Core: let it hit to Charge the target, or click your beam on it to pop a Shock Combo. Both buttons spend your charges on an Overcharged Core and refill the Capacitor. E Overclocks. Lit ports take double; two in a row Surge your next core. Esc releases it.');
     else if (!watching && Sim.aimWeapon(human)) logLine(human.kit.weapons[human.weapon].id === 'link'
       ? 'Click the arena to aim with the mouse. Left click fires at whatever is nearest your crosshair (green ring: heal, red: damage), right click holds the beam on an ally, both together Nanite Burst. Esc releases it.'
       : 'Click the arena to aim with the mouse: left click swings, right click holds the barrier, both together Shove. Esc releases it.');
@@ -678,6 +678,9 @@
       else if (h.a.id === 'combo') { label = human.barrierUp ? 'BARRIER UP' : ['SWING', 'SWING', 'SLAM'][human.comboStep || 0]; if ((human.comboStep || 0) === 2 && !human.barrierUp) glow = 'proc'; }
       else if (h.a.id === 'ebarrier') { label = human.barrierBroken > 0 ? 'BROKEN ' + Math.ceil(human.barrierBroken) + 's' : (human.barrierUp ? 'UP ' : 'HOLD ') + Math.round((human.barrier == null ? Sim.barrierMax(human) : human.barrier) / Sim.barrierMax(human) * 100) + '%'; if (human.barrierUp) glow = 'ultready'; }
       else if (h.a.id === 'vent' && (human.pips || 0) >= 85) { label = 'PERFECT'; glow = 'proc'; }
+      else if (h.a.id === 'score' && human.surge > 0) { label = 'SURGE'; glow = 'proc'; }
+      else if (h.a.id === 'ocore' && u.state !== 'cd') { label = (human.shockCh || 0) + ' CHARGES'; if ((human.shockCh || 0) >= 4) glow = 'proc'; }
+      else if (h.a.id === 'sbeam') { label = 'COSTS ' + (3 + 3 * (human.shockCh || 0)); }
       else if (h.a.id === 'screen' && human.screen > 0) label = 'UP ' + Math.ceil(human.screen) + 's';
       else if ((h.a.id === 'spin' || h.a.id === 'sweep') && human.jam > 0) label = 'JAMMED';
       else if (h.a.cost && u.state !== 'range') label = 'COSTS ' + h.a.cost;
@@ -848,6 +851,7 @@
           else if (ev.fx === 'emp') { ringFx(ev.x2, ev.z2, 0.5, 6, 0x7fb8ff, 0.5); ringFx(ev.x2, ev.z2, 6, 5, 0xffffff, 0.3); Snd.play('boom'); }
           else if (ev.fx === 'core' || ev.fx === 'ocore') { if (ev.src === human.id || watching) Snd.play('orb'); }
           else if (ev.fx === 'corehit') { ringFx(x, z, 0.5, 2.5, 0xd9b8ff, 0.3); }
+          else if (ev.fx === 'charges4') { ringFx(x, z, 0.3, 2.2, 0xd9b8ff, 0.3); if (ev.src === human.id) Snd.play('proc'); }
           else if (ev.fx === 'port') { if (v.ports && v.ports[ev.pw]) v.ports[ev.pw].hit = 1; Snd.play('port'); }
           else if (ev.fx === 'ports') { ringFx(x, z, 3, 6, 0xff9a30, 0.4); }
           else if (ev.fx === 'jump') { if (ev.src === human.id) Snd.play('jump'); }
@@ -1195,6 +1199,24 @@
       var hs = lit ? 1.35 : 1; cm.halo.scale.set(hs, hs, hs);
     });
     for (var ck in special.cores) if (!seenC[ck]) { fxRoot.remove(special.cores[ck]); delete special.cores[ck]; }
+    // Shock Charges: up to four sparks orbiting each Shock Rifle Striker, so you read the build-up on the body, not the bar.
+    special.sparks = special.sparks || {};
+    Sim.players(S).forEach(function (p) {
+      var n = p.alive ? (p.shockCh || 0) : 0, sk = special.sparks[p.id];
+      if (!sk) {
+        sk = []; for (var si = 0; si < 4; si++) { var sm = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: 0xe6d4ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); sm.visible = false; fxRoot.add(sm); sk.push(sm); }
+        special.sparks[p.id] = sk;
+      }
+      var pp = views[p.id] ? views[p.id].g.position : p, t0 = performance.now() / 1000, hot = n >= 4;
+      sk.forEach(function (sm, i) {
+        sm.visible = i < n;
+        if (!sm.visible) return;
+        var ang = t0 * (hot ? 5 : 3) + i * Math.PI / 2;
+        sm.position.set(pp.x + Math.sin(ang) * 0.9, 1.3 + 0.15 * Math.sin(t0 * 4 + i), pp.z + Math.cos(ang) * 0.9);
+        var sc2 = hot ? 1.3 + 0.2 * Math.sin(t0 * 12) : 1; sm.scale.set(sc2, sc2, sc2);
+        sm.material.color.setHex(p.surge > 0 ? 0xffd36b : hot ? 0xffffff : 0xe6d4ff);
+      });
+    });
     // Ground Pound shockwaves: a red band rolling out across the floor. Jump it.
     special.waves = special.waves || {};
     var seenWv = {};

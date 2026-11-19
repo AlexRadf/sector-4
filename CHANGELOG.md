@@ -4,6 +4,33 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.28.0 (2026-11-19) The Striker plays like an Arcane Mage
+The Shock Rifle now has a rotation rather than one combo to chase.
+- **Shock Charges** (like Arcane Charges). Every Shock Beam that lands adds one, up to four (a coolant port adds two).
+  Each charge makes your beams 20% stronger and 3 Capacitor costlier. They orbit you as sparks; at four they spin
+  fast and glow white.
+- **Capacitor is your mana.** It refills by itself (6 a second) and starts full. A beam costs 3 plus 3 per charge, so
+  at four charges you burn through it: burn, then spend.
+- **Overcharged Core (L+R) is your Arcane Barrage.** It spends all your Shock Charges (needs at least one) and gives
+  8 Capacitor back for each. Popped: an 8m combo of 180 plus 100 per charge. Left alone: 60% of that to the first
+  enemy it touches.
+- **Charged is a debuff to keep up (8s).** A Shock Core that hits now Charges its target as well as the combo, so the
+  core's job is keeping your target Charged (beams do 40% more to it). Let it fly at one target, pop it on a crowd.
+- **Only a fresh click pops your own core.** Holding the beam fires past your cores, so letting one fly no longer
+  costs you your beam.
+- **Surge** (like Clearcasting): two coolant-port hits in a row and your next Shock Core is ready at once, flies twice
+  as fast and hits 50% harder. The sparks turn gold.
+- **E is now Overclock** (Arcane Surge, was Adrenaline): full Capacitor, four Shock Charges and 30% more damage for 8s,
+  with Capacitor refilling twice as fast. Every 45s. Your burn window: line it up with open ports, the stagger or the
+  shield.
+- **Shock Nova** also gives you four Shock Charges.
+- Talents follow: **Supercharge** needs all four charges (and still hits 30% harder); **Discharge Plating** shields
+  75 per charge spent.
+- The rotation, roughly: keep your target Charged, build to four charges on ports, burn, spend them on an Overcharged
+  Core before you run dry, take every Surge, and save Overclock for a window.
+- Bots play the same loop. Striker bot about 260 damage a second, spread across beams, ports, combos and direct core
+  hits. An all-bot squad wins about 89% in roughly 4:40.
+
 ## 0.27.1 (2026-11-19) Striker fixes from playtest
 - **Overload** keeps its stacks when you pop a core (only switching targets or missing resets it), and OVERLOADED is
   called out once when it fills instead of on every beam.

@@ -1,7 +1,7 @@
 # Sector-4 design pillars
 
 The rules every change is checked against. If a feature breaks one of these, change the feature or
-change this file on purpose, never by drift. Last revised: v0.27.0 (2026-11-18).
+change this file on purpose, never by drift. Last revised: v0.28.0 (2026-11-19).
 
 ## What the game is
 
@@ -39,7 +39,11 @@ people who are out of position alive.
 - **Every role has a single-target tool and an area tool, easy to learn and hard to master.** The floor is pressing
   the buttons at the right thing; the ceiling is aim, timing and cashing in. Borrow from esports shooters: skill shots,
   resources you earn by playing well, and rewards that chain (a good play readies the next one). The Shock Rifle is the
-  template: beam (single target), core plus combo (area), ports (aim), Capacitor (rhythm), multi-combo reset (chain).
+  template: beam (single target), core plus combo (area), ports (aim), Shock Charges and Capacitor (rhythm), multi-combo
+  reset and Surge (chain).
+- **DPS have a rotation, not one trick.** Borrow the MMO shapes: a stacking builder that makes your filler stronger and
+  costlier (Arcane Charges), a spender that cashes the stacks in for resource (Barrage), a debuff to keep up, a proc
+  to react to, and a burn window to line up with the fight. Every one of them shows on the body or the target.
 - **Ranged roles aren't rewarded for standing behind the boss.** Their precision reward comes from aim (weak points that
   move and open), not from position. Behind-the-boss bonuses belong to melee.
 - **Every ability should mean the same thing against a player.** No forced taunts: tanks hold attention with big-threat

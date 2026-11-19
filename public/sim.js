@@ -113,7 +113,7 @@
   function detonate(S, p, c) {
     S.cores.splice(S.cores.indexOf(c), 1);
     var travel = 1 + TUNE.comboTravelMult * Math.min(1, c.flown / TUNE.comboTravel);
-    var base = c.big ? TUNE.ocoreBase + TUNE.ocorePer * Math.max(0, c.spent - 50) : c.nova ? 420 : TUNE.comboDmg;
+    var base = (c.big ? TUNE.ocoreBase + TUNE.ocorePer * c.spent : c.nova ? 420 : TUNE.comboDmg) * (c.surge ? TUNE.surgeMult : 1);
     var r = c.big ? TUNE.ocoreR : T(p, 'volatile') ? 8 : TUNE.coreR;
     base *= (T(p, 'volatile') && !c.big ? 1.15 : 1) * (c.big && T(p, 'supercharge') ? 1.3 : 1);
     emit(S, { type: 'beam', src: p.id, x2: Math.round(c.x * 10) / 10, z2: Math.round(c.z * 10) / 10, fx: 'shock' });
@@ -228,17 +228,17 @@
         how: 'Capacitor. Recharges on its own. Key 1 is free, key 2 drains 50. Fire as it fills, or pool to 100 and dump two in a row. Crits give 10 back.' },
       blurb: 'Ranged damage from a safe distance.',
       weapons: [
-        TW('shock', 'Shock Rifle', 'Aimed precision with a UT heart. The beam is your single-target damage and it detonates your own Shock Cores in mid-air: the Shock Combo, your area damage. Hit the glowing coolant ports on the Foreman to crit and fill the Capacitor, then spend it all on an Overcharged Core.',
-          { id: 'cap', name: 'Capacitor', max: 100, start: 30, regen: 0, build: 0,
-            how: 'Capacitor. It doesn\'t recharge on its own: every Shock Beam that hits gives 5, a beam on a Charged target 4 more, a coolant port 15 and a crit 10. Both buttons spend all of it (50 or more) on an Overcharged Core.' },
-          [{ id: 'sbeam', key: 'LMB', name: 'Shock Beam', kind: 'aim', range: 35, hold: 'repeat', desc: 'Hold or tap. An instant beam: 80 to the enemy nearest your crosshair, and it snaps onto your own Shock Core near the crosshair to set off the combo. An open coolant port under your crosshair (no snapping for those) takes double and gives 15 Capacitor. Charged targets take 40% more.' },
-           { id: 'score', key: 'RMB', name: 'Shock Core', kind: 'aim', range: 30, cd: 4, gcd: false, desc: 'Fire a slow glowing core along your aim (every 4s). Beam it to detonate a Shock Combo: 6m, 250 to everything in it, up to 50% more the further it has flown. Everything caught is Charged for 5s. Catch two or more enemies and the core is ready again at once. Left alone, it hits the first enemy it touches for 220 (one target, no Charge).' },
-           { id: 'ocore', key: 'L+R', name: 'Overcharged Core', kind: 'aim', range: 30, needs: 50, gcd: false, shareCd: 'score', desc: 'Press both buttons together (50 Capacitor or more, all of it spent; shares the Shock Core\'s 4s). A big, very slow core. Its combo is 8m, stuns drones for 1.5s and grows with what you put in: 340 at 50, 590 at 100, plus the distance bonus. Left alone, it hits the first enemy it touches for 60% of that.' }],
+        TW('shock', 'Shock Rifle', 'Arcane precision with a UT heart. Beams build Shock Charges, and every charge makes your beams stronger and hungrier for Capacitor. Burn hot, then spend the charges on an Overcharged Core to get the Capacitor back. Keep your target Charged with Shock Cores, and hit the coolant ports to Surge.',
+          { id: 'cap', name: 'Capacitor', max: 100, start: 100, regen: 6,
+            how: 'Capacitor: your mana. It refills by itself (6 a second, faster while Overclocked). A Shock Beam costs 3, plus 3 for each Shock Charge you hold, so at four charges you burn through it. An Overcharged Core spends your charges and gives 8 Capacitor back for each.' },
+          [{ id: 'sbeam', key: 'LMB', name: 'Shock Beam', kind: 'aim', range: 35, hold: 'repeat', desc: 'Hold or tap. An instant beam at the enemy nearest your crosshair: 42, plus 20% for each Shock Charge you hold. Each hit adds a Shock Charge (up to 4; a coolant port adds 2). Costs 3 Capacitor plus 3 per charge. Click (a fresh press) with your own Shock Core near the crosshair to pop it: the Shock Combo, free. Holding the beam fires past your cores. An open coolant port under your crosshair (no snapping for those) takes double, and two port hits in a row Surge your next core. Charged targets take 40% more.' },
+           { id: 'score', key: 'RMB', name: 'Shock Core', kind: 'aim', range: 30, cd: 4, gcd: false, desc: 'Fire a slow glowing core along your aim (every 4s). Let it fly and it hits the first enemy it touches for 190 and Charges it for 8s. Click your beam on it in the air and it detonates instead: a Shock Combo, 220 to everything within 6m (up to 50% more the further it flew), all of them Charged. Catch two or more enemies and the core is ready again at once. Surge: ready at once, twice as fast, 50% harder.' },
+           { id: 'ocore', key: 'L+R', name: 'Overcharged Core', kind: 'aim', range: 30, needs: 1, gcd: false, shareCd: 'score', desc: 'Press both buttons together (needs a Shock Charge; shares the Shock Core\'s 4s). Spends all your Shock Charges on a big, slow core and gives 8 Capacitor back for each. Pop it for an 8m combo: 180, plus 100 per charge (580 with four), plus the distance bonus. Left alone, it hits the first enemy it touches for 60% of that.' }],
           { aim: true,
             utils: [A({ id: 'emp', key: 'Q', name: 'EMP Grenade', kind: 'aim', range: 25, cd: 15, lob: true, lobR: 6, desc: 'Hold to aim, let go to throw (look further up the room to throw further). 6m blast: 200 damage, drones stunned for 2.5s, and an overcharge shield takes 600 more.' }),
-                    A({ id: 'adren', key: 'E', name: 'Adrenaline', kind: 'self', range: 0, cd: 30, gcd: false, desc: '40% more damage for 6s. Save it for open ports, the shield or the stagger.' }),
+                    A({ id: 'overclock', key: 'E', name: 'Overclock', kind: 'self', range: 0, cd: 45, gcd: false, desc: 'Your burn window: the Capacitor fills up, you get 4 Shock Charges and you deal 30% more damage for 8s. Line it up with open ports, the stagger or the shield.' }),
                     A({ id: 'kshield', key: 'F', name: 'Kinetic Shield', kind: 'self', range: 0, cd: 25, gcd: false, desc: 'A 350 shield on yourself for 4s.' })],
-            ult: A({ id: 'nova', key: 'R', name: 'Shock Nova', kind: 'aim', range: 40, gcd: false, role: 'ult', desc: 'Ultimate. A Shock Nova goes off on the enemy nearest your crosshair (600 to it, 300 within 8m, drones stunned 3s, all Charged), and five Shock Cores fan out from you for 8s. Beam them one by one.' }) }),
+            ult: A({ id: 'nova', key: 'R', name: 'Shock Nova', kind: 'aim', range: 40, gcd: false, role: 'ult', desc: 'Ultimate. A Shock Nova goes off on the enemy nearest your crosshair (600 to it, 300 within 8m, drones stunned 3s, all Charged), you get 4 Shock Charges, and five Shock Cores fan out from you for 8s. Beam them one by one.' }) }),
         W('rockets', 'Rocket Launcher', 'Lock-on. Each Rocket on a target adds a rocket to your next Volley, up to five in the salvo. All instant.',
           { id: 'rocket', name: 'Rocket', kind: 'enemy', range: 30, procChance: 0.2, desc: 'Free. 85, splashing 55 within 4m. Adds a Lock-on.' },
           { id: 'volley', name: 'Rocket Volley', kind: 'enemy', range: 30, desc: '50 Capacitor. Two rockets of 110 plus one for each Lock-on (up to 3), each splashing 45.' },
@@ -364,8 +364,8 @@
         t('arclink', 'squad', 'Arc Link', 'Core: Charged for everyone.', 'Everything your combos Charge takes 10% more damage from the whole squad, not just your beams.')
       ],
       util: [
-        t('supercharge', 'aggressive', 'Supercharge', 'Overcharge: all in.', 'The Overcharged Core needs 75 Capacitor instead of 50, and its combo hits 30% harder.'),
-        t('discharge', 'steady', 'Discharge Plating', 'Overcharge: armour up.', 'Firing an Overcharged Core shields you for 3 per Capacitor you put in (150 to 300) for 6s.'),
+        t('supercharge', 'aggressive', 'Supercharge', 'Overcharge: all in.', 'The Overcharged Core needs all 4 Shock Charges, and it hits 30% harder.'),
+        t('discharge', 'steady', 'Discharge Plating', 'Overcharge: armour up.', 'Firing an Overcharged Core shields you for 75 per Shock Charge it spends (up to 300) for 6s.'),
         t('empburst', 'squad', 'EMP Burst', 'Overcharge: crack it open.', 'Overcharged combos stun drones for 3s instead of 1.5 and hit an overcharge shield for 600 more, like the EMP.')
       ]
     },
@@ -449,10 +449,10 @@
     boltGcd: 0.6, lobTime: 0.6, sbeamGcd: 0.75, throwThreat: 30, swingGcd: 0.6, slamGcd: 0.9, comboReset: 2, aegisR: 9, aegisDur: 5, chargeCd: 10,
     // Shock Rifle. Cores fly along your aim; the beam detonates them (combo grows with distance flown, to +50% at 18m).
     // Coolant ports ring the Foreman: one opens at a time, all of them after his big moves and while he's staggered.
-    sbeamDmg: 80, sbeamCap: 5, chargedMult: 1.4, chargedCap: 4, chargedDur: 5,
-    coreCd: 4, coreSpeed: 12, coreLife: 2.6, coreR: 6, comboDmg: 250, coreHit: 220,
-    ocoreSpeed: 7, ocoreLife: 4.5, ocoreR: 8, ocoreBase: 340, ocorePer: 5, ocoreHit: 0.6, comboTravel: 18, comboTravelMult: 0.5,
-    portMult: 2, portCap: 15, portHalf: 1.2, portSpin: 0.22, portOpen: 2.5, portGap: 2.5, portBurst: 3,
+    sbeamDmg: 42, chargeStep: 0.2, beamCost: 3, chargeCost: 3, chargeRefund: 8, chargedMult: 1.4, chargedDur: 8, overclockMult: 1.3, surgeMult: 1.5,
+    coreCd: 4, coreSpeed: 12, coreLife: 2.6, coreR: 6, comboDmg: 220, coreHit: 190,
+    ocoreSpeed: 7, ocoreLife: 4.5, ocoreR: 8, ocoreBase: 180, ocorePer: 100, ocoreHit: 0.6, comboTravel: 18, comboTravelMult: 0.5,
+    portMult: 2, portHalf: 1.2, portSpin: 0.22, portOpen: 2.5, portGap: 2.5, portBurst: 3,
     barrierHp: 1800, barrierRegen: 180, barrierRest: 1.5, barrierBreak: 5,
     busterEvery: 15, busterCast: 2.5, busterDmg: 1860,
     droneEvery: 32, droneHp: 1600, droneMelee: 90, droneSwing: 1.5,
@@ -647,6 +647,7 @@
       amt *= (src.adren > 0 ? 1.4 : 1) * (src.amp > 0 ? 1.5 : 1) * (src.pump > 0 ? 1.4 : 1);
       amt *= (src.boostNow || 1) * (src.opp > 0 ? 1.3 : 1) * (src.counter > 0 ? 1.4 : 1) * (src.stimmed > 0 ? 1.25 : 1) * (src.warcry > 0 ? 1.15 : 1);
       amt *= 1 + 0.08 * (src.spree || 0);
+      if (src.overclock > 0) amt *= TUNE.overclockMult;
       if (T(src, 'rampage')) {
         // Wrecker: keep swinging and it keeps climbing.
         var was = src.rampage || 0;
@@ -845,7 +846,7 @@
     if (p.hp <= 0) {
       met(S, p.id).deaths++; S.m.killers[label] = (S.m.killers[label] || 0) + 1;
       p.lastDeath = { label: label, t: Math.round(S.t), log: (p.recent || []).slice() };
-      p.hp = 0; p.alive = false; p.cast = null; p.queued = null; p.sludge = 0; p.hot = 0;
+      p.hp = 0; p.alive = false; p.cast = null; p.queued = null; p.sludge = 0; p.hot = 0; p.shockCh = 0; p.surge = 0;
       emit(S, { type: 'death', id: p.id });
       emit(S, { type: 'log', id: p.id, text: p.name + ' is down.', you: "You're down." });
       // Medic Defibrillator: the first one down this raid gets shocked back up.
@@ -949,7 +950,7 @@
     if (ab.role === 'proc' && !(p.procT > 0)) out.state = 'locked';
     else if (ab.role === 'ult' && (p.ult || 0) < 100) out.state = 'locked';
     else if (ab.role === 'spend' && (p.pips || 0) < resOf(p).min) out.state = 'locked';
-    else if ((ab.cost && (p.pips || 0) < ab.cost) || (ab.needs && (p.pips || 0) < needsOf(p, ab))) out.state = 'locked';
+    else if ((ab.cost && (p.pips || 0) < ab.cost) || (ab.needs && haveOf(p, ab) < needsOf(p, ab))) out.state = 'locked';
     else if (p.jam > 0 && (ab.id === 'spin' || ab.id === 'sweep')) out.state = 'locked';
     else if (ab.id === 'ebarrier' && p.barrierBroken > 0) out.state = 'locked';
     else if (ab.id === 'combo' && p.barrierUp) out.state = 'locked';
@@ -960,7 +961,9 @@
   }
 
   /* What an ability needs in the class resource, after talents (Supercharge raises the Overcharged Core's). */
-  function needsOf(p, ab) { return ab.id === 'ocore' && T(p, 'supercharge') ? 75 : ab.needs; }
+  function needsOf(p, ab) { return ab.id === 'ocore' && T(p, 'supercharge') ? 4 : ab.needs; }
+  /* What a 'needs' ability is measured in: Shock Charges for the Overcharged Core, the class resource otherwise. */
+  function haveOf(p, ab) { return ab.id === 'ocore' ? (p.shockCh || 0) : (p.pips || 0); }
   function fail(S, p, text) {
     if (p.human && !p.auto) emit(S, { type: 'error', id: p.id, text: text });
     return false;
@@ -974,7 +977,7 @@
     if (ab.role === 'proc' && !(p.procT > 0)) return fail(S, p, ab.name + ' has not procced');
     if (ab.role === 'ult' && (p.ult || 0) < 100) return fail(S, p, ab.name + ' is still charging');
     if (ab.role === 'spend' && (p.pips || 0) < resOf(p).min) return fail(S, p, 'Not enough ' + resOf(p).name);
-    if ((ab.cost && (p.pips || 0) < ab.cost) || (ab.needs && (p.pips || 0) < needsOf(p, ab))) return fail(S, p, 'Not enough ' + resOf(p).name);
+    if ((ab.cost && (p.pips || 0) < ab.cost) || (ab.needs && haveOf(p, ab) < needsOf(p, ab))) return fail(S, p, ab.id === 'ocore' ? 'No Shock Charges: beam something' : 'Not enough ' + resOf(p).name);
     if (p.jam > 0 && (ab.id === 'spin' || ab.id === 'sweep')) return fail(S, p, 'Minigun jammed');
     if (ab.id === 'ebarrier' && p.barrierBroken > 0) return fail(S, p, 'Barrier is broken');
     if (ab.id === 'combo' && p.barrierUp) return fail(S, p, 'Lower the barrier first');
@@ -1236,10 +1239,14 @@
       /* ---- Striker, aimed Shock Rifle ---- */
       case 'sbeam':
         p.gcd = TUNE.sbeamGcd;
-        var mine = coreInAim(S, p, ab.range);
-        if (mine) { detonate(S, p, mine); break; }   // your own core near the crosshair: the combo (Overload stacks survive it)
+        // Only a fresh click pops your own core; a held beam fires past it (p.popOk is set by shockHold; a bar click counts as fresh).
+        var mine = p.popOk !== false ? coreInAim(S, p, ab.range) : null;
+        if (mine) { detonate(S, p, mine); break; }   // your own core near the crosshair: the combo, free (Overload stacks survive it)
+        var bcost = TUNE.beamCost + TUNE.chargeCost * (p.shockCh || 0);
+        if ((p.pips || 0) < bcost) { p.gcd = 0.3; return fail(S, p, 'Not enough Capacitor: spend your charges'); }
+        p.pips -= bcost;
         var sbt = softTarget(S, p, SHOCK_AIM);
-        if (!sbt) { p.olN = 0; emit(S, { type: 'fx', fx: 'boltmiss', src: p.id }); break; }
+        if (!sbt) { p.olN = 0; p.portRun = 0; emit(S, { type: 'fx', fx: 'boltmiss', src: p.id }); break; }
         // Overload: the same target again, a little harder each time.
         if (T(p, 'overload')) { var olWas = p.olN || 0; p.olN = p.olTo === sbt.id ? Math.min(5, olWas + 1) : 0; p.olTo = sbt.id; if (p.olN === 5 && olWas < 5) proc(S, p, 'overload', 'OVERLOADED'); }
         emit(S, { type: 'beam', src: p.id, dst: sbt.id, fx: 'shock' });
@@ -1247,20 +1254,39 @@
         var chg = sbt.charged > 0;
         p.weakNow = port >= 0;
         var pmult = T(p, 'precision') ? 2.5 : TUNE.portMult, olm = T(p, 'overload') ? 1 + 0.06 * (p.olN || 0) : 1;
-        damageEnemy(S, p, sbt, TUNE.sbeamDmg * (port >= 0 ? pmult : 1) * (chg ? TUNE.chargedMult : 1) * olm, 1, port >= 0 ? 'Weak Point!' : 'Shock Beam');
+        var chm = 1 + TUNE.chargeStep * (p.shockCh || 0);
+        damageEnemy(S, p, sbt, TUNE.sbeamDmg * chm * (port >= 0 ? pmult : 1) * (chg ? TUNE.chargedMult : 1) * olm, 1, port >= 0 ? 'Weak Point!' : 'Shock Beam');
         p.weakNow = false;
-        p.pips = Math.min(resOf(p).max, (p.pips || 0) + TUNE.sbeamCap + (chg ? TUNE.chargedCap : 0) + (port >= 0 ? TUNE.portCap : 0));
-        if (port >= 0) { met(S, p.id).ports = (met(S, p.id).ports || 0) + 1; emit(S, { type: 'fx', fx: 'port', src: sbt.id, pw: port }); }
+        // Shock Charges: like Arcane Charges, each hit stacks one (a port two), up to four.
+        var chWas = p.shockCh || 0;
+        p.shockCh = Math.min(4, chWas + (port >= 0 ? 2 : 1));
+        if (p.shockCh === 4 && chWas < 4) emit(S, { type: 'fx', fx: 'charges4', src: p.id });
+        if (port >= 0) {
+          met(S, p.id).ports = (met(S, p.id).ports || 0) + 1; emit(S, { type: 'fx', fx: 'port', src: sbt.id, pw: port });
+          // Surge (Clearcasting): two port hits in a row and your next core is ready, fast and hard.
+          p.portRun = (p.portRun || 0) + 1;
+          if (p.portRun >= 2 && !(p.surge > 0)) { p.portRun = 0; p.surge = 10; p.cds.score = 0; proc(S, p, 'surge', 'SURGE'); }
+        } else p.portRun = 0;
         break;
       case 'score':
-        launchCore(S, p, p.facing, false);
+        var sc0 = launchCore(S, p, p.facing, false);
+        if (p.surge > 0) { sc0.surge = 1; sc0.sp *= 2; p.surge = 0; }
         break;
       case 'ocore':
-        var spentC = p.pips || 0; p.pips = 0;
-        if (T(p, 'discharge')) { shieldUp(p, p, spentC * 3, 600); p.kshieldT = Math.max(p.kshieldT || 0, 6); emit(S, { type: 'fx', fx: 'guard', src: p.id }); }
+        // Arcane Barrage: spend every Shock Charge, get Capacitor back for each.
+        var spentC = p.shockCh || 0; p.shockCh = 0;
+        p.pips = Math.min(resOf(p).max, (p.pips || 0) + TUNE.chargeRefund * spentC);
+        if (T(p, 'discharge')) { shieldUp(p, p, spentC * 75, 600); p.kshieldT = Math.max(p.kshieldT || 0, 6); emit(S, { type: 'fx', fx: 'guard', src: p.id }); }
         p.cds.score = TUNE.coreCd;
-        launchCore(S, p, p.facing, true, spentC);
-        if (spentC >= 99) proc(S, p, 'ocore', 'FULL OVERCHARGE');
+        var oc0 = launchCore(S, p, p.facing, true, spentC);
+        if (p.surge > 0) { oc0.surge = 1; oc0.sp *= 2; p.surge = 0; }
+        if (spentC >= 4) proc(S, p, 'ocore', 'FULL OVERCHARGE');
+        break;
+      case 'overclock':
+        // Arcane Surge / Evocation: the burn window.
+        p.pips = resOf(p).max; p.shockCh = 4; p.overclock = 8;
+        emit(S, { type: 'fx', fx: 'adren', src: p.id });
+        proc(S, p, 'overclock', 'OVERCLOCK');
         break;
       case 'emp':
         var es = lobSpot(S, p, false);
@@ -1280,6 +1306,7 @@
         }
         // Nova cores drift out for a second and a half, then hang in the air (they don't fizzle on contact).
         for (var nc = -2; nc <= 2; nc++) launchCore(S, p, p.facing + nc * 0.3, false, 0, 8).nova = 1;
+        p.shockCh = 4;
         proc(S, p, 'nova', 'SHOCK NOVA', 'all');
         break;
 
@@ -1642,7 +1669,8 @@
   function shockHold(S, p, hold, dt) {
     var L = !!hold[0], R = !!hold[1];
     var at = function (id) { var l = abilitiesOf(p); for (var i = 0; i < l.length; i++) if (l[i].id === id) return i; return -1; };
-    if (L && !p.lHeld) p.lDownT = S.t;
+    if (L && !p.lHeld) { p.lDownT = S.t; p.popPend = 0.35; }   // a fresh click can pop a core, if the beam fires in the next 0.35s
+    if (p.popPend > 0) p.popPend -= dt;
     if (R && !p.rHeld) { p.rDownT = S.t; p.rPend = 0.1; }
     if (L && R && !p.chord && Math.abs((p.lDownT == null ? -9 : p.lDownT) - (p.rDownT == null ? -9 : p.rDownT)) <= 0.12) {
       p.chord = true; p.rPend = 0;
@@ -1651,7 +1679,7 @@
     if (!L || !R) p.chord = false;
     p.lHeld = L; p.rHeld = R;
     if (p.rPend > 0) { p.rPend -= dt; if (p.rPend <= 0) { p.rPend = 0; if (!p.chord) tryUse(S, p, at('score')); } }
-    if (L && !p.chord && p.gcd <= 0 && !p.cast) tryUse(S, p, 0);
+    if (L && !p.chord && p.gcd <= 0 && !p.cast) { p.popOk = p.popPend > 0; if (tryUse(S, p, 0)) p.popPend = 0; p.popOk = undefined; }
   }
   /* Impact Hammer held inputs: hold[0] keeps the combo swinging, hold[1] keeps the barrier up. */
   function hammerHold(S, p, hold, dt) {
@@ -1779,7 +1807,7 @@
     for (var k in p.cds) if (p.cds[k] > 0) p.cds[k] = Math.max(0, p.cds[k] - dt * cdRate);
     if (p.spreeT > 0) { p.spreeT -= dt; if (p.spreeT <= 0) p.spree = 0; }
     if (p.alive && S.t > 0) p.ult = Math.min(100, (p.ult || 0) + TUNE.ultRate * dt);
-    if (p.alive && resOf(p).regen) p.pips = Math.max(0, Math.min(resOf(p).max, (p.pips || 0) + resOf(p).regen * dt));
+    if (p.alive && resOf(p).regen) p.pips = Math.max(0, Math.min(resOf(p).max, (p.pips || 0) + resOf(p).regen * (p.overclock > 0 ? 2 : 1) * dt));
     if (p.rad > 0 && p.alive) {
       // Meltdown radiation ramps up the longer it sits on you.
       var into = TUNE.radDur - p.rad; p.rad -= dt;
@@ -1799,7 +1827,7 @@
       p.barrierRestT = (p.barrierRestT || 0) + dt;
       if (!(p.barrierBroken > 0) && p.barrierRestT >= TUNE.barrierRest) p.barrier = Math.min(barrierMax(p), p.barrier + TUNE.barrierRegen * (T(p, 'hardened') ? 2 : 1) * dt);
     }   // "recent" fades over a few seconds
-    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm', 'skates', 'air', 'kshieldT', 'slideT'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
+    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm', 'skates', 'air', 'kshieldT', 'slideT', 'surge', 'overclock'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
     if (p.hot > 0) {
       var src = ent(S, p.hotSrc), step = Math.min(dt, p.hot);
       p.hot -= dt;
@@ -2195,9 +2223,10 @@
       if (!gone && !c.nova) {
         var touch = enemies(S).filter(function (e) { return Math.hypot(e.x - c.x, e.z - c.z) <= (e.radius || 1) + 0.6; })[0];
         if (touch) {
-          // Not popped: it still lands as a single-target hit (no splash, no Charge). Volatile Core halves it.
-          var hitAmt = c.big ? (TUNE.ocoreBase + TUNE.ocorePer * Math.max(0, c.spent - 50)) * TUNE.ocoreHit : TUNE.coreHit;
+          // Not popped: it lands as a single-target hit and Charges what it hits (no splash). Volatile Core halves the hit.
+          var hitAmt = (c.big ? (TUNE.ocoreBase + TUNE.ocorePer * c.spent) * TUNE.ocoreHit : TUNE.coreHit) * (c.surge ? TUNE.surgeMult : 1);
           damageEnemy(S, cby, touch, hitAmt * (T(cby, 'volatile') ? 0.5 : 1), 1, c.big ? 'Overcharged Core' : 'Shock Core');
+          if (touch.alive) { touch.charged = TUNE.chargedDur; touch.chargedBy = cby.id; touch.arcOn = T(cby, 'arclink'); }   // a direct hit Charges too
           emit(S, { type: 'fx', fx: 'corehit', src: touch.id });
           gone = true;
         }
@@ -2591,36 +2620,38 @@
     return inp;
   }
 
-  /* The aimed Striker bot. Stands off to the Foreman's side (out of the cleave, ports in view), fires a Shock Core at the
-     target, stops beaming while it flies and pops it as it gets there; beams in between, aiming for an open coolant port
-     with a person's wobble. Spends the Capacitor on an Overcharged Core when it's full or there's a crowd or a window. */
+  /* The aimed Striker bot, playing the Arcane-style loop: keep the target Charged with a core (direct hit on one target,
+     popped on a crowd), build Shock Charges with beams aimed at open ports, burn at four, spend them on an Overcharged
+     Core when the Capacitor runs low or there's a window, Overclock into staggers and shields, fire Surge cores at once. */
   function strikerBot(S, p, inp, b, tg, boss, foes, canAct, idx, ready, slow) {
-    var m = b.str || (b.str = { hold: [false, false], aim: null, port: -1, err: 0, popErr: 0, coreTgt: null });
+    var m = b.str || (b.str = { hold: [false, false], aim: null, port: -1, err: 0, popErr: 0, coreTgt: null, popIt: false });
     function moveTo(x, z) { inp.mx = x - p.x; inp.mz = z - p.z; }
     if (tg.type === 'boss' && !tg.oshield && !tg.goCentre) {
       var side = (p.id % 2 ? 1 : -1) * 1.9;
       var spot = { x: tg.x + Math.sin(tg.facing + side) * 16, z: tg.z + Math.cos(tg.facing + side) * 16 }; clampArena(spot, 2);
       if (Math.hypot(spot.x - p.x, spot.z - p.z) > 2.5) moveTo(spot.x, spot.z);
     } else if (dist(p, tg) > 22) moveTo(tg.x, tg.z);
-    var cap = p.pips || 0, drones = foes.filter(function (f) { return f.type === 'drone' && dist(p, f) <= 25; });
+    var cap = p.pips || 0, ch = p.shockCh || 0, cost = TUNE.beamCost + TUNE.chargeCost * ch;
+    var drones = foes.filter(function (f) { return f.type === 'drone' && dist(p, f) <= 25; });
     var mine = S.cores.filter(function (c) { return c.by === p.id; });
+    var crowd = foes.filter(function (f) { return f !== tg && dist(f, tg) <= 7; }).length >= 1;
     if (canAct) {
       b.think = 0.25 + S.rng() * 0.35;
-      m.aim = tg.id; m.hold = [true, false]; m.port = -1;
+      m.aim = tg.id; m.hold = [cap >= cost, false]; m.port = -1;
       var wait = S.t < 4 || (boss.alive && boss.target === p.id);
-      var crowd = drones.length >= 2 || (drones.length && boss.alive && dist(drones[0], boss) < 8);
-      var hot = boss.alive && (boss.oshield || boss.stagger > 0);
+      var hot = boss.alive && (boss.oshield || boss.stagger > 0 || boss.portBurst > 0);
+      var coreUp = !mine.length && ready('score') && dist(p, tg) <= 26;
+      var needOc = T(p, 'supercharge') ? 4 : 1;
+      var chord = function () { if (p.lHeld || p.rHeld) { m.hold = [false, false]; b.think = 0.05; } else { m.hold = [true, true]; m.coreTgt = tg.id; m.popIt = true; m.popErr = (S.rng() - 0.3) * 2 * slow; } };
       if (p.hp < p.maxHp * 0.45 && ready('kshield')) inp.ability = idx('kshield');
-      else if (wait) m.hold = S.t < 1.5 ? [false, false] : [true, false];
+      else if (wait) m.hold = S.t < 1.5 ? [false, false] : [cap >= cost, false];
       else if (ready('emp') && (drones.length || (boss.alive && boss.oshield))) {
         var et = drones[0] || boss; m.aim = et.id; inp.ad = Math.max(2, dist(p, et) - (et.type === 'boss' ? et.radius : 0)); inp.ability = idx('emp');
       }
-      else if (!mine.length && ready('score') && cap >= (T(p, 'supercharge') ? 75 : 50) && (cap >= 95 || crowd || hot) && dist(p, tg) <= 26) {
-        // Both buttons together: let go of the beam for a beat first, or it reads as a normal core.
-        if (p.lHeld || p.rHeld) { m.hold = [false, false]; b.think = 0.05; }
-        else { m.hold = [true, true]; m.coreTgt = tg.id; m.popErr = (S.rng() - 0.3) * 2 * slow; }
-      }
-      else if (!mine.length && ready('score') && dist(p, tg) <= 26) { m.hold = [false, true]; m.coreTgt = tg.id; m.popErr = (S.rng() - 0.3) * 2 * slow; }
+      else if (ready('overclock') && hot && ch < 4) inp.ability = idx('overclock');
+      else if (coreUp && p.surge > 0) { m.hold = [false, true]; m.coreTgt = tg.id; m.popIt = crowd; m.popErr = (S.rng() - 0.3) * 2 * slow; }
+      else if (coreUp && ch >= needOc && (cap < cost + 3 || (ch >= 4 && cap < 45) || (crowd && ch >= 3) || (hot && ch >= 4 && !(p.overclock > 0)))) chord();
+      else if (coreUp && (!(tg.charged > 2.5) || crowd)) { m.hold = [cap >= cost, true]; m.coreTgt = tg.id; m.popIt = crowd; m.popErr = (S.rng() - 0.3) * 2 * slow; }
       if (m.hold[0] && !m.hold[1] && m.aim === tg.id && tg.type === 'boss') {
         // Go for an open port that faces me, with a wobble.
         for (var i = 0; i < 3; i++) {
@@ -2629,19 +2660,19 @@
         }
       }
     }
-    // Cores in flight: hold fire while one travels, then pop it as it arrives (Nova cores once they've settled).
+    // A core I mean to pop (a crowd, an Overcharged one, Nova cores): let go of the beam, then click on it as it arrives.
     var popNow = null;
     if (mine.length) {
       var ct = m.coreTgt != null ? ent(S, m.coreTgt) : null;
       mine.forEach(function (c) {
-        if (popNow) return;
+        if (popNow || !(c.big || c.nova || m.popIt)) return;
         var reach = ct && ct.alive ? Math.hypot(c.x - ct.x, c.z - ct.z) - (ct.radius || 1) : 99;
         if (c.nova ? c.t > 1.6 + Math.abs(m.popErr) * 0.3 : (reach <= (c.big ? 3.5 : 2.5) + m.popErr || c.t > c.life - 0.35)) popNow = c;
       });
-      if (!popNow && !(m.hold[0] && m.hold[1])) m.hold = [false, m.hold[1]];
     }
     if (popNow) {
-      inp.aim = Math.atan2(popNow.x - p.x, popNow.z - p.z); inp.hold = [true, false]; inp.target = tg.id;
+      inp.aim = Math.atan2(popNow.x - p.x, popNow.z - p.z); inp.target = tg.id;
+      inp.hold = p.lHeld ? [false, false] : [true, false];
       return inp;
     }
     var at = m.aim != null ? ent(S, m.aim) : null;
@@ -2652,6 +2683,7 @@
       inp.aim = Math.atan2(at.x + Math.sin(pa2) * at.radius - p.x, at.z + Math.cos(pa2) * at.radius - p.z) + m.err;
     }
     inp.hold = m.hold.slice();
+    if (inp.hold[0] && (p.pips || 0) < TUNE.beamCost + TUNE.chargeCost * (p.shockCh || 0)) inp.hold[0] = false;   // out of Capacitor: wait
     return inp;
   }
 
@@ -2731,7 +2763,7 @@
         if (e.dash) o.ds = 1;
         if (e.lastDeath) o.ld = [e.lastDeath.label, e.lastDeath.t, e.lastDeath.log || []];
         if (e.cast) o.k = [e.cast.ab.id, r2(e.cast.t), r2(e.cast.dur), e.cast.targetId];
-        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'adren'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
+        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'shockCh', 'surge', 'overclock', 'adren'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
         snap.p.push(o);
       } else {
         var q = { i: e.id, ty: e.type, n: e.name, x: r2(e.x), z: r2(e.z), f: r2(e.facing), h: Math.round(e.hp), mh: e.maxHp, a: e.alive ? 1 : 0, tg: e.target, ra: e.radius };
@@ -2778,7 +2810,7 @@
       p.x = o.x; p.z = o.z; p.facing = o.f; p.hp = o.h; p.alive = !!o.a; p.target = o.tg; p.gcd = o.g; p.cds = o.c || {};
       p.moving = !!o.mv; p.auto = !!o.au || !p.human; p.defibUsed = !!o.du;
       p.lastDeath = o.ld ? { label: o.ld[0], t: o.ld[1], log: o.ld[2] || [] } : null;
-      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'adren'].forEach(function (f) { p[f] = o[f] || 0; });
+      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'shockCh', 'surge', 'overclock', 'adren'].forEach(function (f) { p[f] = o[f] || 0; });
       if (o.k) {
         var ab = abilitiesOf(p).filter(function (a) { return a.id === o.k[0]; })[0];
         p.cast = ab ? { ab: ab, t: o.k[1], dur: o.k[2], targetId: o.k[3] } : null;
@@ -2890,6 +2922,11 @@
       if (p.cloak > 0) out.push(['Cloak -40% ' + Math.ceil(p.cloak) + 's', true]);
       if (p.storm > 0) out.push(['Link Storm ' + Math.ceil(p.storm) + 's', true]);
     }
+    if (wid === 'shock') {
+      out.push(['Shock Charges ' + (p.shockCh || 0) + '/4', (p.shockCh || 0) >= 4]);
+      if (p.surge > 0) out.push(['SURGE: core ready ' + Math.ceil(p.surge) + 's', true]);
+      if (p.overclock > 0) out.push(['Overclocked +30% ' + Math.ceil(p.overclock) + 's', true]);
+    }
     if (wid === 'minigun') out.push([p.jam > 0 ? 'JAMMED ' + Math.ceil(p.jam) + 's' : (p.pips || 0) >= 85 ? 'Perfect Vent ready' : 'Heat ' + Math.floor(p.pips || 0), !(p.jam > 0) && (p.pips || 0) >= 85]);
     if (wid === 'rockets' && p.lock > 0) out.push(['Lock-on x' + p.lock, p.lock >= 3]);
     if (wid === 'sniper') { var aim = Math.min(3, Math.floor(p.still || 0)); out.push(['Steady Aim +' + aim * 5 + '% crit', aim >= 3]); }
@@ -2904,7 +2941,7 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.27.1';
+  var VERSION = '0.28.0';
 
   var api = {
     VERSION: VERSION,
