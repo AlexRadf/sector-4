@@ -25,9 +25,15 @@ const PEER_RE = /^[a-z0-9]{8,32}$/;
    The build id is a hash of the game files, so every deploy gets a new one without anyone remembering to bump it.
    index.html is never cached; the scripts are requested as file.js?v=BUILD and cached for good. */
 const stampIndex = require('./scripts/stamp');
-const GAME_FILES = ['index.html', 'sim.js', 'game.js', 'net-ws.js', 'config.js'];
+const GAME_FILES = ['index.html', 'sim.js', 'game.js', 'net-ws.js', 'config.js', 'placeholders.js'].filter((f) => fs.existsSync(path.join(PUB, f)));
+/* Models that ship with the game: public/models/<slot>.glb. They count towards the build id so a new model reaches
+   everyone despite the long cache, and models/index.json tells the page which slots have one. */
+const MODEL_DIR = path.join(PUB, 'models');
+const MODELS = fs.existsSync(MODEL_DIR) ? fs.readdirSync(MODEL_DIR).filter((f) => /^[a-z]+\.glb$/.test(f)).sort() : [];
 const BUILD = process.env.BUILD || crypto.createHash('sha1')
-  .update(GAME_FILES.map((f) => fs.readFileSync(path.join(PUB, f))).join('\n')).digest('hex').slice(0, 10);
+  .update(GAME_FILES.map((f) => fs.readFileSync(path.join(PUB, f))).join('\n'))
+  .update(Buffer.concat(MODELS.map((f) => fs.readFileSync(path.join(MODEL_DIR, f)))))
+  .digest('hex').slice(0, 10);
 
 const VERSION = require('./public/sim.js').VERSION;
 const indexHtml = stampIndex(fs.readFileSync(path.join(PUB, 'index.html'), 'utf8'), BUILD);
@@ -97,6 +103,7 @@ app.get('/api/admin/rooms', (req, res) => {
   res.json({ version: VERSION, build: BUILD, rooms: list });
 });
 app.get('/healthz', (req, res) => res.json({ ok: true, build: BUILD, rooms: rooms.size, sockets: wss ? wss.clients.size : 0 }));
+app.get('/models/index.json', (req, res) => { res.set('Cache-Control', 'no-cache'); res.json(MODELS.map((f) => f.replace(/\.glb$/, ''))); });
 app.use(express.static(PUB, {
   index: false,
   setHeaders(res, file) { res.set('Cache-Control', 'public, max-age=31536000, immutable'); }

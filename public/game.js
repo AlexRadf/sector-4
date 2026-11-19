@@ -176,36 +176,15 @@
     }
   }
 
-  /* ---------- models: placeholders and custom meshes ---------- */
-  var customBuffers = {};   // slot key -> ArrayBuffer of a .glb
+  /* ---------- models ----------
+     Each slot (SLOTS above) draws, in order of preference:
+       1. a .glb uploaded in this browser ("Swap in your own meshes" on the briefing screen; Clear removes it),
+       2. public/models/<slot>.glb shipped with the game (listed by models/index.json), for everyone,
+       3. the placeholder boxes from placeholders.js, if that file is still there; otherwise nothing.
+     Models are scaled to the slot's height, stood on the floor and centred. Face +Z. See MODELS.md for clip names. */
+  var customBuffers = {};   // slot key -> ArrayBuffer of an uploaded .glb
+  var shippedBuffers = {};  // slot key -> ArrayBuffer of public/models/<key>.glb
   var mixers = [];
-  var std = function (color, emissive) { return new THREE.MeshStandardMaterial({ color: color, roughness: 0.55, metalness: 0.45, emissive: emissive || 0x000000 }); };
-  function box(w, h, d, mat, x, y, z) { var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); return m; }
-
-  function placeholder(key) {
-    var g = new THREE.Group();
-    if (key === 'boss') {
-      var hull = std(0x4a2a22), dark = std(0x1c2229), hot = new THREE.MeshBasicMaterial({ color: 0xff4a36 });
-      g.add(box(1.1, 2.4, 1.3, dark, -1.0, 1.2, 0)); g.add(box(1.1, 2.4, 1.3, dark, 1.0, 1.2, 0));
-      g.add(box(3.6, 2.6, 2.4, hull, 0, 3.7, 0));
-      g.add(box(1.5, 1.0, 1.4, dark, 0, 5.5, 0.2)); g.add(box(1.2, 0.25, 0.2, hot, 0, 5.6, 0.95));
-      g.add(box(1.1, 2.6, 1.2, hull, -2.5, 3.5, 0.2)); g.add(box(1.1, 2.6, 1.2, hull, 2.5, 3.5, 0.2));
-      g.add(box(1.5, 1.2, 1.9, dark, -2.5, 5.2, 0.3)); g.add(box(1.5, 1.2, 1.9, dark, 2.5, 5.2, 0.3));
-      g.add(box(2.2, 0.5, 0.2, new THREE.MeshBasicMaterial({ color: 0xffb000 }), 0, 3.9, 1.22));
-    } else if (key === 'drone') {
-      var body = new THREE.Mesh(new THREE.OctahedronGeometry(0.75), std(0x39424e)); body.position.y = 1.1; g.add(body);
-      var eye = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 8), new THREE.MeshBasicMaterial({ color: 0xff4a36 })); eye.position.set(0, 1.1, 0.6); g.add(eye);
-    } else {
-      var c = ROLE_COLOR[key], suit = std(c), dk = std(0x1c2229);
-      var bulk = key === 'tank' ? 1.25 : 1;
-      g.add(box(0.34 * bulk, 0.9, 0.36, dk, -0.22 * bulk, 0.45, 0)); g.add(box(0.34 * bulk, 0.9, 0.36, dk, 0.22 * bulk, 0.45, 0));
-      g.add(box(0.9 * bulk, 0.8, 0.5 * bulk, suit, 0, 1.3, 0));
-      g.add(box(1.25 * bulk, 0.26, 0.56 * bulk, dk, 0, 1.62, 0));
-      var head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), std(0xd8c4a8)); head.position.y = 1.9; g.add(head);
-      g.add(box(0.2, 0.2, key === 'tank' ? 0.9 : 1.2, new THREE.MeshBasicMaterial({ color: c }), 0.5 * bulk, 1.25, 0.5));
-    }
-    return g;
-  }
 
   function fitModel(obj, height) {
     var b = new THREE.Box3().setFromObject(obj), size = new THREE.Vector3(); b.getSize(size);
@@ -215,20 +194,56 @@
     var c = new THREE.Vector3(); b.getCenter(c);
     obj.position.x -= c.x; obj.position.z -= c.z; obj.position.y -= b.min.y;
   }
-
+  /* Animation clips by name: idle, run (or walk/move), attack (or fire/shoot/swing/cast), hit, death (or die). */
+  var CLIP_NAMES = { idle: /idle|stand/i, run: /run|walk|move/i, attack: /attack|fire|shoot|swing|cast/i, hit: /hit|hurt/i, death: /death|die|dead/i };
+  function clipsOf(anims) {
+    var out = {};
+    Object.keys(CLIP_NAMES).forEach(function (k) { var c = anims.filter(function (a) { return CLIP_NAMES[k].test(a.name); })[0]; if (c) out[k] = c; });
+    return out;
+  }
   function buildModel(key, holder) {
     while (holder.children.length) holder.remove(holder.children[0]);
-    holder.add(placeholder(key));
-    var buf = customBuffers[key];
+    holder.anim = null;
+    if (window.S4Placeholders) holder.add(window.S4Placeholders.build(key, ROLE_COLOR[key]));
+    var buf = customBuffers[key] || shippedBuffers[key];
     if (!buf || !THREE.GLTFLoader) return;
     var slot = SLOTS.filter(function (s) { return s.key === key; })[0];
     new THREE.GLTFLoader().parse(buf.slice(0), '', function (gltf) {
       while (holder.children.length) holder.remove(holder.children[0]);
       var wrap = new THREE.Group(); wrap.add(gltf.scene); fitModel(gltf.scene, slot.h); holder.add(wrap);
-      if (gltf.animations && gltf.animations.length) {
-        var mx = new THREE.AnimationMixer(gltf.scene); mx.clipAction(gltf.animations[0]).play(); mx.holder = holder; mixers.push(mx);
-      }
+      var anims = gltf.animations || [];
+      if (!anims.length) return;
+      var mx = new THREE.AnimationMixer(gltf.scene); mx.holder = holder; mixers.push(mx);
+      var named = clipsOf(anims);
+      if (!Object.keys(named).length) { mx.clipAction(anims[0]).play(); return; }   // no names we know: loop the first clip
+      holder.anim = { mx: mx, clips: named, cur: null, action: null, attackT: 0 };
+      playClip(holder, 'idle');
     }, function () { setSlotStatus(key, 'Could not read that file', 'err'); });
+  }
+  /* Cross-fade to a named clip (falls back to idle). One-shots (attack, hit, death) play once; death holds its last frame. */
+  function playClip(holder, name) {
+    var an = holder.anim; if (!an) return;
+    var clip = an.clips[name] || an.clips.idle; if (!clip || an.cur === name) return;
+    var act = an.mx.clipAction(clip), once = name === 'attack' || name === 'hit' || name === 'death';
+    act.reset(); act.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, Infinity); act.clampWhenFinished = name === 'death';
+    act.play();
+    if (an.action && an.action !== act) an.action.crossFadeTo(act, 0.15, false);
+    an.action = act; an.cur = name;
+  }
+  /* Which clip an entity should be in right now, from the game state. */
+  function animate(v, e, dt) {
+    var an = v.holder.anim; if (!an) return;
+    if (an.attackT > 0) an.attackT -= dt;
+    if (an.hitT > 0) an.hitT -= dt;
+    var moved = Math.hypot(e.x - (v.lastX == null ? e.x : v.lastX), e.z - (v.lastZ == null ? e.z : v.lastZ)) > 0.01;
+    v.lastX = e.x; v.lastZ = e.z;
+    var want = !e.alive ? 'death' : an.attackT > 0 && an.clips.attack ? 'attack' : an.hitT > 0 && an.clips.hit ? 'hit' : (e.moving || moved || e.dash) ? 'run' : 'idle';
+    playClip(v.holder, want);
+  }
+  function animEvent(id, kind) {
+    var v = views[id], an = v && v.holder.anim; if (!an) return;
+    if (kind === 'attack') { an.attackT = 0.45; if (an.cur === 'attack' && an.action) an.action.reset(); }
+    else an.hitT = 0.3;
   }
 
   /* mesh storage: IndexedDB keeps the files in this browser between visits */
@@ -243,6 +258,25 @@
   function setSlotStatus(key, text, cls) {
     var s = document.getElementById('st-' + key); if (s) { s.textContent = text; s.className = 'st' + (cls ? ' ' + cls : ''); }
   }
+  function slotStatus(key) {
+    if (customBuffers[key]) setSlotStatus(key, 'Your upload', 'ok');
+    else if (shippedBuffers[key]) setSlotStatus(key, 'Game model', 'ok');
+    else setSlotStatus(key, window.S4Placeholders ? 'Placeholder' : 'None', '');
+  }
+  /* The models that ship with the game: models/index.json lists them (the server builds it from public/models). */
+  function loadShipped() {
+    var v = encodeURIComponent(window.S4_BUILD || 'dev');
+    fetch('models/index.json?v=' + v).then(function (r) { return r.ok ? r.json() : []; }).then(function (list) {
+      (Array.isArray(list) ? list : []).forEach(function (key) {
+        if (!SLOTS.some(function (s) { return s.key === key; })) return;
+        fetch('models/' + key + '.glb?v=' + v).then(function (r) { return r.ok ? r.arrayBuffer() : null; }).then(function (buf) {
+          if (!buf) return;
+          shippedBuffers[key] = buf; slotStatus(key);
+          if (!customBuffers[key]) refreshModels(key);
+        }).catch(function () {});
+      });
+    }).catch(function () {});
+  }
   function buildMeshSlots() {
     var host = $('#meshSlots');
     SLOTS.forEach(function (sl) {
@@ -250,22 +284,28 @@
       var lab = el('label', null, sl.label); lab.htmlFor = 'mesh-' + sl.key;
       var inp = el('input'); inp.type = 'file'; inp.id = 'mesh-' + sl.key; inp.accept = '.glb,model/gltf-binary';
       var st = el('span', 'st', 'Placeholder'); st.id = 'st-' + sl.key;
+      var clr = el('button', 'ghost mono', 'Clear'); clr.type = 'button'; clr.title = 'Remove your upload for this slot';
+      clr.addEventListener('click', function () {
+        delete customBuffers[sl.key]; inp.value = '';
+        idb('readwrite', function (store) { store.delete(sl.key); });
+        slotStatus(sl.key); refreshModels(sl.key);
+      });
       inp.addEventListener('change', function () {
         var f = inp.files && inp.files[0]; if (!f) return;
         var rd = new FileReader();
         rd.onload = function () {
-          customBuffers[sl.key] = rd.result; setSlotStatus(sl.key, 'Loaded', 'ok');
+          customBuffers[sl.key] = rd.result; slotStatus(sl.key);
           idb('readwrite', function (store) { store.put(rd.result, sl.key); });
           refreshModels(sl.key);
         };
         rd.readAsArrayBuffer(f);
       });
-      row.appendChild(lab); row.appendChild(inp); row.appendChild(st); host.appendChild(row);
+      row.appendChild(lab); row.appendChild(inp); row.appendChild(clr); row.appendChild(st); host.appendChild(row);
     });
     idb('readonly', function (store) {
       SLOTS.forEach(function (sl) {
         var rq = store.get(sl.key);
-        rq.onsuccess = function () { if (rq.result) { customBuffers[sl.key] = rq.result; setSlotStatus(sl.key, 'Loaded', 'ok'); refreshModels(sl.key); } };
+        rq.onsuccess = function () { if (rq.result) { customBuffers[sl.key] = rq.result; slotStatus(sl.key); refreshModels(sl.key); } };
       });
     });
   }
@@ -363,7 +403,7 @@
     if (!watching && Sim.aimWeapon(human) && human.kit.weapons[human.weapon].id === 'shock') logLine('Click the arena to aim with the mouse. Left click beams: each hit adds a Shock Charge (the sparks round you), and charges make beams stronger and costlier. Right click fires a Shock Core: let it hit to Charge the target, or click your beam on it to pop a Shock Combo. Both buttons spend your charges on an Overcharged Core and refill the Capacitor. E Overclocks. Lit ports take double; two in a row Surge your next core. Esc releases it.');
     else if (!watching && Sim.aimWeapon(human)) logLine(human.kit.weapons[human.weapon].id === 'link'
       ? 'Click the arena to aim with the mouse. Left click fires at whatever is nearest your crosshair (green ring: heal, red: damage), right click holds the beam on an ally, both together Nanite Burst. Esc releases it.'
-      : 'Click the arena to aim with the mouse: left click swings, right click holds the barrier, both together Shove. Esc releases it.');
+      : 'Click the arena to aim with the mouse: left click swings, right click holds the barrier, both together Shove. Shove builds Bulwark (15% less damage); block a Foreman hit for a Riposte; E Piston Shot keeps him Sundered for the squad. Esc releases it.');
     if (Net.mode !== 'solo') logLine(Sim.players(S).filter(function (p) { return p.human; }).map(function (p) { return p.name; }).join(', ') + ' on the squad. Bots fill the rest.');
   }
   function showPlates(on) { $('#plates').style.display = on ? '' : 'none'; $('#floaters').style.display = on ? '' : 'none'; }
@@ -675,7 +715,9 @@
       }
       else if (h.a.role === 'proc' && human.procT > 0) { label = 'PROC ' + Math.ceil(human.procT) + 's'; glow = 'proc'; }
       else if (h.a.role === 'spend' && u.state !== 'range') label = Sim.resOf(human).spend === 'all' ? Math.floor(human.pips || 0) + ' ' + Sim.resOf(human).name.toUpperCase() : 'COSTS ' + Sim.resOf(human).spend;
-      else if (h.a.id === 'combo') { label = human.barrierUp ? 'BARRIER UP' : ['SWING', 'SWING', 'SLAM'][human.comboStep || 0]; if ((human.comboStep || 0) === 2 && !human.barrierUp) glow = 'proc'; }
+      else if (h.a.id === 'combo') { label = human.barrierUp ? 'BARRIER UP' : human.riposte > 0 ? 'RIPOSTE' : ['SWING', 'SWING', 'SLAM'][human.comboStep || 0]; if (((human.comboStep || 0) === 2 || human.riposte > 0) && !human.barrierUp) glow = 'proc'; }
+      else if (h.a.id === 'shove' && u.state !== 'locked') { label = '+' + Math.floor((human.pips || 0) / 10) + 's BULWARK'; if ((human.pips || 0) >= 99 || !(human.bulwark > 0)) glow = 'proc'; }
+      else if (h.a.id === 'piston' && u.state === 'ok') { var bsd = Sim.ent(S, S.bossId); if (bsd && bsd.alive && !(bsd.sundered > 3)) { label = 'SUNDER'; glow = 'proc'; } }
       else if (h.a.id === 'ebarrier') { label = human.barrierBroken > 0 ? 'BROKEN ' + Math.ceil(human.barrierBroken) + 's' : (human.barrierUp ? 'UP ' : 'HOLD ') + Math.round((human.barrier == null ? Sim.barrierMax(human) : human.barrier) / Sim.barrierMax(human) * 100) + '%'; if (human.barrierUp) glow = 'ultready'; }
       else if (h.a.id === 'vent' && (human.pips || 0) >= 85) { label = 'PERFECT'; glow = 'proc'; }
       else if (h.a.id === 'score' && human.surge > 0) { label = 'SURGE'; glow = 'proc'; }
@@ -788,6 +830,7 @@
       switch (ev.type) {
         case 'dmg':
           var dst = Sim.ent(S, ev.dst);
+          animEvent(ev.src, 'attack'); if (ev.amt >= 100) animEvent(ev.dst, 'hit');
           if (stats[ev.src] && (!dst || dst.kind === 'enemy')) stats[ev.src].dmg += ev.amt;
           if (stats[ev.dst]) stats[ev.dst].taken += ev.amt;
           if (ev.src === human.id) {
@@ -800,6 +843,7 @@
           }
           break;
         case 'heal':
+          animEvent(ev.src, 'attack');
           if (stats[ev.src]) stats[ev.src].heal += ev.amt;
           if (ev.amt > 0 && (ev.src === human.id || ev.dst === human.id)) floatText(ev.dst, '+' + ev.amt + (ev.crit ? '!' : ''), 'heal' + (ev.crit ? ' crit' : ''));
           break;
@@ -850,6 +894,7 @@
           else if (ev.fx === 'field') { ringFx(ev.x2, ev.z2, 0.5, 6, 0x4fd88f, 0.5); if (ev.src === human.id) Snd.play('belt'); }
           else if (ev.fx === 'emp') { ringFx(ev.x2, ev.z2, 0.5, 6, 0x7fb8ff, 0.5); ringFx(ev.x2, ev.z2, 6, 5, 0xffffff, 0.3); Snd.play('boom'); }
           else if (ev.fx === 'core' || ev.fx === 'ocore') { if (ev.src === human.id || watching) Snd.play('orb'); }
+          else if (ev.fx === 'bulwark') { ringFx(x, z, 0.5, 2.5, 0xffd36b, 0.4); if (ev.src === human.id) Snd.play('belt'); }
           else if (ev.fx === 'corehit') { ringFx(x, z, 0.5, 2.5, 0xd9b8ff, 0.3); }
           else if (ev.fx === 'charges4') { ringFx(x, z, 0.3, 2.2, 0xd9b8ff, 0.3); if (ev.src === human.id) Snd.play('proc'); }
           else if (ev.fx === 'port') { if (v.ports && v.ports[ev.pw]) v.ports[ev.pw].hit = 1; Snd.play('port'); }
@@ -916,14 +961,17 @@
       v.g.position.x += (e.x - v.g.position.x) * k; v.g.position.z += (e.z - v.g.position.z) * k;
       var d = e.facing - v.holder.rotation.y; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
       v.holder.rotation.y += d * Math.min(1, dt * 12);
-      if (!e.alive && !v.dead) { v.dead = true; v.holder.rotation.x = -Math.PI / 2; v.holder.position.y = 0.4; v.plate.style.opacity = 0.4; }
+      var ownDeath = v.holder.anim && v.holder.anim.clips.death;   // a model with a death clip falls over by itself
+      if (!e.alive && !v.dead) { v.dead = true; if (!ownDeath) { v.holder.rotation.x = -Math.PI / 2; v.holder.position.y = 0.4; } v.plate.style.opacity = 0.4; }
       else if (e.alive && v.dead) { v.dead = false; v.holder.rotation.x = 0; v.holder.position.y = 0; v.plate.style.opacity = 1; }
-      if (e.type === 'drone') v.holder.position.y = 0.5 + Math.sin(S.t * 3 + e.id) * 0.2;
+      if (e.type === 'drone' && !v.holder.anim) v.holder.position.y = 0.5 + Math.sin(S.t * 3 + e.id) * 0.2;
+      animate(v, e, dt);
       v.ring.visible = human.target === e.id && e.alive;
       if (v.ring.visible) v.ring.material.color.setHex(e.kind === 'player' ? 0x4fd88f : 0xff4a36);
-      v.aura.visible = e.alive && (e.kind === 'player' ? (e.belt > 0 || e.sludge > 0 || e.dome > 0 || e.rad > 0) : e.charged > 0);
+      v.aura.visible = e.alive && (e.kind === 'player' ? (e.belt > 0 || e.sludge > 0 || e.dome > 0 || e.rad > 0 || e.bulwark > 0) : e.charged > 0);
       if (v.aura.visible && e.kind === 'enemy') { var ar = (e.radius || 1) * 0.9 + 0.4; v.aura.scale.set(ar, ar * (e.type === 'boss' ? 1.5 : 1), ar); v.aura.position.y = e.type === 'boss' ? 3 : 1; v.aura.material.color.setHex(0xb98cff); v.aura.material.opacity = (e.type === 'boss' ? 0.07 : 0.16) + 0.06 * Math.sin(performance.now() / 70); }
-      else if (v.aura.visible) v.aura.material.color.setHex(e.dome > 0 ? 0x4fd88f : e.rad > 0 ? 0xd4ff3a : e.belt > 0 ? 0xffb000 : 0xb46bff);   // sludge: purple, the cleanse colour
+      else if (v.aura.visible && !(e.belt > 0 || e.sludge > 0 || e.dome > 0 || e.rad > 0)) { v.aura.material.color.setHex(0xffd36b); v.aura.material.opacity = 0.14; }   // Bulwark: a faint gold shell
+      else if (v.aura.visible) { v.aura.material.opacity = 0.25; v.aura.material.color.setHex(e.dome > 0 ? 0x4fd88f : e.rad > 0 ? 0xd4ff3a : e.belt > 0 ? 0xffb000 : 0xb46bff); }   // sludge: purple, the cleanse colour
       if (e.type === 'boss') v.holder.rotation.z = e.stagger > 0 ? 0.22 * Math.sin(S.t * 9) : 0;
       if (v.ports) v.ports.forEach(function (pt0, i) {
         var la = Math.PI + (e.portRot || 0) + i * Math.PI * 2 / 3, rr = (e.radius || 3) * 0.66, open = Sim.portOpen(S, e, i);
@@ -1199,6 +1247,19 @@
       var hs = lit ? 1.35 : 1; cm.halo.scale.set(hs, hs, hs);
     });
     for (var ck in special.cores) if (!seenC[ck]) { fxRoot.remove(special.cores[ck]); delete special.cores[ck]; }
+    // Sundered enemies: an orange ring at their feet while a Piston Shot's Sunder lasts, fading in its last seconds.
+    special.sunders = special.sunders || {};
+    var seenSd = {};
+    Sim.enemies(S).forEach(function (e) {
+      if (!(e.sundered > 0)) return;
+      seenSd[e.id] = 1;
+      var sm = special.sunders[e.id];
+      if (!sm) { sm = new THREE.Mesh(new THREE.RingGeometry(0.88, 1, 48), new THREE.MeshBasicMaterial({ color: 0xff8a30, transparent: true, depthWrite: false, side: THREE.DoubleSide })); sm.rotation.x = -Math.PI / 2; fxRoot.add(sm); special.sunders[e.id] = sm; }
+      var ep = views[e.id] ? views[e.id].g.position : e, rr3 = (e.radius || 1) + 0.9;
+      sm.position.set(ep.x, 0.1, ep.z); sm.scale.set(rr3, rr3, 1);
+      sm.material.opacity = e.sundered < 3 ? 0.3 + 0.4 * Math.abs(Math.sin(performance.now() / 120)) : 0.75;
+    });
+    for (var sdk in special.sunders) if (!seenSd[sdk]) { fxRoot.remove(special.sunders[sdk]); delete special.sunders[sdk]; }
     // Shock Charges: up to four sparks orbiting each Shock Rifle Striker, so you read the build-up on the body, not the bar.
     special.sparks = special.sparks || {};
     Sim.players(S).forEach(function (p) {
@@ -1915,7 +1976,7 @@
 
   /* ---------- boot ---------- */
   function boot(saved) {
-    buildArena(); buildRoleCards(); buildMeshSlots(); resize();
+    buildArena(); buildRoleCards(); buildMeshSlots(); loadShipped(); resize();
     cam.dist = 34; cam.pitch = 0.42;
     // An idle squad stands in the arena behind the briefing.
     S = Sim.create({ humanRole: 'dps', seed: 7 }); human = Sim.ent(S, S.humanId); human.target = null;

@@ -33,6 +33,15 @@ test('serves the game, the stats page and a build id', async () => {
   assert.ok((await fetch(BASE + '/stats')).ok);
 });
 
+test('lists the shipped models and serves the placeholders', async () => {
+  const page = await (await fetch(BASE + '/')).text();
+  const { build } = await (await fetch(BASE + '/version.json')).json();
+  assert.ok(page.includes(`placeholders.js?v=${build}`), 'placeholders.js is versioned like the other scripts');
+  const list = await (await fetch(BASE + '/models/index.json')).json();
+  const onDisk = fs.readdirSync(path.join(__dirname, '..', 'public', 'models')).filter((f) => /^[a-z]+\.glb$/.test(f)).map((f) => f.replace('.glb', ''));
+  assert.deepStrictEqual(list.slice().sort(), onDisk.sort());
+});
+
 test('the relay passes a message between two players in a squad room', async () => {
   const open = (peer) => new Promise((resolve) => {
     const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws`);

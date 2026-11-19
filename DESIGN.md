@@ -1,7 +1,7 @@
 # Sector-4 design pillars
 
 The rules every change is checked against. If a feature breaks one of these, change the feature or
-change this file on purpose, never by drift. Last revised: v0.28.0 (2026-11-19).
+change this file on purpose, never by drift. Last revised: v0.29.0 (2026-11-19).
 
 ## What the game is
 
@@ -82,6 +82,7 @@ while dodging). Rules for the healer prototype:
 3. **Aimed healer prototype**: the Link Gun (v0.21.0) and its talent tree (v0.23.0), being played.
 4. One aimed DPS weapon: the Shock Rifle (v0.25.0), reworked around Shock Cores, combos and coolant ports (v0.26.0),
    with Shift/Space movement and the ramping overcharge pulse, and its talent tree (v0.27.0). To be played. The Ground
-   Pound is built but off for the Foreman. Next: the same single-target / area / mastery pass for the Juggernaut and Medic.
+   Pound is built but off for the Foreman. The Striker's Arcane-style rotation (v0.28.0) and the Juggernaut's Protection
+   rotation (Bulwark, Riposte, Sunder; v0.29.0). Next: the same rotation pass for the Medic.
 5. Only then convert the remaining weapons (Flak Cannon, Minigun, other Medic and Striker weapons),
    or cut weapons if one good one per role is enough.

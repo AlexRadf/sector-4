@@ -12,6 +12,7 @@ client, a Node relay server, deployed on Render.
 ## Layout
 - `public/sim.js`: all game logic, pure and deterministic (no DOM). `step(S, dt, inputs)`. Kits, talents, boss, bots.
 - `public/game.js`: rendering, input, HUD, networking. `public/index.html`: markup, CSS, help text.
+- Models: `public/models/<slot>.glb` ship to everyone; `public/placeholders.js` is the stand-in boxes. See `MODELS.md`.
 - `server.js`: static site, squad relay, fight records (`/api/runs`, `/api/stats`), admin spectating.
 - `test/*.test.js`: node:test. `lib/simrun.js`: headless fights for tests and sims.
 

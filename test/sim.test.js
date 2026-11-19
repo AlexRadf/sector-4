@@ -929,3 +929,35 @@ test('Striker footwork: Kinetic Slide softens hits after, Covering Dash shields 
   Sim.step(cd.S, 1 / 30, { jump: true, mx: 1, mz: 0 });
   assert.ok(med.armor >= 120 && cd.p.x > 8);
 });
+
+test('Juggernaut rotation: Shove builds Bulwark, a barrier block lights Riposte, Piston Shot Sunders for the squad', () => {
+  const a = arena('tank', { weapon: 'hammer', implant: 'capacitor' });
+  a.p.x = a.boss.x; a.p.z = a.boss.z - 6; a.p.pips = 60;
+  const face = Math.atan2(a.boss.x - a.p.x, a.boss.z - a.p.z);
+  Sim.step(a.S, 1 / 30, { aim: face, hold: [true, true] });
+  assert.ok(a.p.bulwark > 5.5 && a.p.bulwark <= 6, 'six seconds of Bulwark from 60 Energy: ' + a.p.bulwark);
+  a.p.pips = 100; a.p.gcd = 0; Sim.step(a.S, 1 / 30, { aim: face, hold: [false, false] }); Sim.step(a.S, 1 / 30, { aim: face, hold: [true, true] });
+  assert.ok(a.p.bulwark >= Sim.TUNE.bulwarkMax - 0.1, 'stacks, up to the cap');
+  Sim.step(a.S, 1 / 30, { aim: face, hold: [false, false] });   // lower the barrier (holding both raises it)
+  a.p.armor = 0; const h = a.p.hp; Sim.damagePlayer(a.S, a.S.bossId, a.p, 1000, 'Rocket');
+  assert.ok(Math.abs((h - a.p.hp) - 1000 * Sim.TUNE.bulwarkCut) <= 1, String(h - a.p.hp));
+  // Riposte: the barrier soaks a Foreman fist.
+  const r = arena('tank', { weapon: 'hammer' });
+  r.p.x = r.boss.x; r.p.z = r.boss.z - 6; r.p.cds.hthrow = 6;
+  const face2 = Math.atan2(r.boss.x - r.p.x, r.boss.z - r.p.z);
+  Sim.step(r.S, 1 / 30, { aim: face2, hold: [false, true] });
+  Sim.damagePlayer(r.S, r.S.bossId, r.p, 500, 'Hit');
+  assert.ok(r.p.riposte > 0 && r.p.cds.hthrow === 0, 'Riposte lit, Hammer Throw ready');
+  r.p.gcd = 0; r.S.events.length = 0; Sim.step(r.S, 1 / 30, { aim: face2, hold: [false, false] }); Sim.step(r.S, 1 / 30, { aim: face2, hold: [true, false] });
+  const rip = r.S.events.find((e) => e.type === 'dmg' && e.dst === r.boss.id && e.src === r.p.id);
+  assert.ok(rip && rip.label === 'Riposte!' && !(r.p.riposte > 0), 'the next swing is the Riposte Slam: ' + (rip && rip.label));
+  // Sunder: Piston Shot, then everyone hits harder.
+  const sd = arena('tank', { weapon: 'hammer' });
+  sd.p.x = sd.boss.x; sd.p.z = sd.boss.z - 15; sd.S.rng = () => 0.5;
+  const dps = Sim.players(sd.S).find((q) => q.role === 'dps');
+  const hit = () => { sd.S.events.length = 0; Sim.damageEnemy(sd.S, dps, sd.boss, 1000, 1, 'Test'); return sd.S.events.find((e) => e.label === 'Test').amt; };
+  const before = hit();
+  Sim.step(sd.S, 1 / 30, { aim: Math.atan2(sd.boss.x - sd.p.x, sd.boss.z - sd.p.z), ability: Sim.abilitiesOf(sd.p).findIndex((ab) => ab.id === 'piston') });
+  assert.ok(sd.boss.sundered > 11, 'Sundered');
+  assert.ok(hit() >= Math.round(before * Sim.TUNE.sunderMult) - 1, 'the squad hits a Sundered target harder');
+});

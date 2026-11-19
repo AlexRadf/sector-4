@@ -166,15 +166,15 @@
           [{ id: 'flak', name: 'Flak Blast', kind: 'enemy', range: 8, desc: '75 to every enemy within 8m. Loads 15 Ammo, plus 10 per extra enemy.' },
            { id: 'shell', name: 'Flak Shell', kind: 'enemy', range: 25, cost: 30, desc: '30 Ammo. 190 at up to 25m and very high threat. Slows the target 4s. Pulls drones from range.' },
            { id: 'screen', name: 'Flak Screen', kind: 'self', range: 0, cost: 50, gcd: false, desc: '50 Ammo. For 3.5s every hit on you is cut by 70%, and each one sprays 100 shrapnel back. Time it for the Crusher.' }]),
-        TW('hammer', 'Impact Hammer', 'The plate-wearing mitigator. Swing the hammer and hold the barrier to fill Shield Energy, then press both to Shove: everything in front of you is thrown back, and whatever you slam into a wall or another enemy is stunned. No self-healing: you block, the Medic heals.',
+        TW('hammer', 'Impact Hammer', 'The plate-wearing mitigator, played like a Protection Warrior. Swing and block to fill Shield Energy; Shove spends it and builds Bulwark, your active mitigation. Block a Foreman hit with the barrier for a Riposte, and keep him Sundered with Piston Shot for the squad. No self-healing: you block, the Medic heals.',
           { id: 'senergy', name: 'Shield Energy', max: 100, start: 0, regen: 0, build: 0,
-            how: 'Shield Energy. Each swing stores 6, the slam 12, and your barrier stores 1 for every 25 damage it blocks. It never leaks. Spend all of it on a Shove (LMB + RMB): the fuller the bar, the harder it lands, so a full one is worth waiting for.' },
-          [{ id: 'combo', key: 'LMB', name: 'Hammer Combo', kind: 'aim', range: 6, hold: 'repeat', desc: 'Swing, swing, slam. Hits everything in an arc in front of you: 60, 60, then a wider 150 slam. Hold or tap to keep the chain going; a 2s pause resets it.' },
-           { id: 'ebarrier', key: 'RMB', name: 'Energy Barrier', kind: 'aim', range: 0, hold: 'channel', gcd: false, desc: 'Hold to raise a barrier facing where you aim. It blocks enemy hits on you and anyone behind you until its 1,800 health runs out, and what it blocks fills Shield Energy. Regenerates while lowered; breaks for 5s if emptied. No swinging while it\'s up.' },
-           { id: 'shove', key: 'L+R', name: 'Shove', kind: 'aim', range: 8, needs: 20, gcd: false, desc: 'Press both mouse buttons (needs 20 Shield Energy). Spends it all: everything in the arc in front of you is thrown back up to 14m, and anything slammed into a wall or another enemy is stunned for 2s and takes 150 more. The Foreman won\'t budge, but a full Shove hits him for 500.' }],
+            how: 'Shield Energy. Each swing stores 6, the slam 12, and your barrier stores 1 for every 25 damage it blocks. It never leaks. Spend all of it on a Shove (LMB + RMB): the fuller the bar, the harder it lands, and every 10 spent is a second of Bulwark (15% less damage, stacking up to 12s). Hoard for a big Shove or spend often to keep Bulwark up.' },
+          [{ id: 'combo', key: 'LMB', name: 'Hammer Combo', kind: 'aim', range: 6, hold: 'repeat', desc: 'Swing, swing, slam. Hits everything in an arc in front of you: 60, 60, then a wider 150 slam. Hold or tap to keep the chain going; a 2s pause resets it. With Riposte lit, your next swing is a Slam with 50% more.' },
+           { id: 'ebarrier', key: 'RMB', name: 'Energy Barrier', kind: 'aim', range: 0, hold: 'channel', gcd: false, desc: 'Hold to raise a barrier facing where you aim. It blocks enemy hits on you and anyone behind you until its 1,800 health runs out, and what it blocks fills Shield Energy. Block a Foreman hit of 100 or more for a Riposte: your next swing is a Slam with 50% more, and Hammer Throw is ready again. Regenerates while lowered; breaks for 5s if emptied. No swinging while it\'s up.' },
+           { id: 'shove', key: 'L+R', name: 'Shove', kind: 'aim', range: 8, needs: 20, gcd: false, desc: 'Press both mouse buttons (needs 20 Shield Energy). Spends it all: everything in the arc in front of you is thrown back up to 14m, and anything slammed into a wall or another enemy is stunned for 2s and takes 150 more. The Foreman won\'t budge, but a full Shove hits him for 500. Every 10 Shield Energy spent gives a second of Bulwark: 15% less damage, stacking up to 12s.' }],
           { aim: true,
             utils: [A({ id: 'hthrow', key: 'Q', name: 'Hammer Throw', kind: 'enemy', range: 30, cd: 8, gcd: false, desc: 'Hurl the charged hammer head at what you aim at (or your target): 180 and huge threat, then it bounces to the nearest other enemy within 10m for 120 and huge threat. How you pick up drones. No forced taunt: it works on anything.' }),
-                    A({ id: 'piston', key: 'E', name: 'Piston Shot', kind: 'aim', range: 22, cd: 4, desc: 'The hammer head fires a compressed-air round where you aim: 120 to the first enemy within 22m and very high threat. For pulling a drone or poking from range.' }),
+                    A({ id: 'piston', key: 'E', name: 'Piston Shot', kind: 'aim', range: 22, cd: 4, desc: 'The hammer head fires a compressed-air round where you aim: 120 to the first enemy within 22m and very high threat, and it Sunders them for 12s: they take 8% more damage from the whole squad (an orange ring at their feet). Keep the Foreman Sundered.' }),
                     A({ id: 'belt', key: 'F', name: 'Shield Belt', kind: 'self', range: 0, cd: 30, gcd: false, desc: 'Take half damage for 6s. Your big emergency button.' })],
             ult: A({ id: 'aegis', key: 'R', name: 'Aegis Dome', kind: 'self', range: 0, gcd: false, role: 'ult', desc: 'Ultimate. A dome 9m across forms around you: nobody inside takes any damage for 5s. Buy the squad time.' }) }),
         TW('minigun', 'Minigun', 'Wild card. The hotter the barrels, the faster it fires. Vent the heat into a shield at the right moment: past 85 is a Perfect Vent, 100 jams the gun.',
@@ -423,7 +423,7 @@
        hold: seconds a key direction is held before re-deciding. aim: radians of error on a new direction.
        eightWay: WASD gives eight directions relative to the camera, not any angle. */
     hands: { holdMin: 0.12, holdMax: 0.34, aim: 0.22, release: 0.07, eightWay: true },
-    bossHp: 182000, bossMelee: 515, bossSwing: 2.0, cleaveMult: 0.5,
+    bossHp: 194000, bossMelee: 515, bossSwing: 2.0, cleaveMult: 0.5,
     barrageEvery: 12, barrageDelay: 2.6, barrageR: 6, barrageDmg: 660,
     // Overcharge shield: break it inside the window or the whole room takes the pulse. Breaking it staggers him.
     // Overcharge: energy fills over overEvery seconds, then he walks to the middle, channels a shield and pulses the room.
@@ -453,6 +453,8 @@
     coreCd: 4, coreSpeed: 12, coreLife: 2.6, coreR: 6, comboDmg: 220, coreHit: 190,
     ocoreSpeed: 7, ocoreLife: 4.5, ocoreR: 8, ocoreBase: 180, ocorePer: 100, ocoreHit: 0.6, comboTravel: 18, comboTravelMult: 0.5,
     portMult: 2, portHalf: 1.2, portSpin: 0.22, portOpen: 2.5, portGap: 2.5, portBurst: 3,
+    // Impact Hammer rotation: Bulwark (active mitigation from Shove), Riposte (a barrier block lights it), Sunder (Piston Shot).
+    bulwarkCut: 0.85, bulwarkMax: 12, riposteDur: 6, riposteMult: 1.5, sunderDur: 12, sunderMult: 1.08,
     barrierHp: 1800, barrierRegen: 180, barrierRest: 1.5, barrierBreak: 5,
     busterEvery: 15, busterCast: 2.5, busterDmg: 1860,
     droneEvery: 32, droneHp: 1600, droneMelee: 90, droneSwing: 1.5,
@@ -673,6 +675,7 @@
     }
     if (tgt.spotted > 0) amt *= 1.06;
     if (tgt.charged > 0 && tgt.arcOn) amt *= 1.1;   // Arc Link: Charged for the whole squad
+    if (tgt.sundered > 0) amt *= TUNE.sunderMult;   // Sundered by a Piston Shot
     // A Shock Beam on an open coolant port (see portHit): the fireAbility sets weakNow for that one hit.
     var vent = src.kind === 'player' && !!src.weakNow;
     if (tgt.branded > 0) amt *= 1.15;
@@ -745,6 +748,7 @@
       if (guard) { var share = amt * 0.2; amt -= share; damagePlayer(S, srcId, guard, share, 'Bodyguard', true); }
     }
     if (p.belt > 0) amt = amt * 0.5;
+    if (p.bulwark > 0) amt = amt * TUNE.bulwarkCut;   // Impact Hammer Bulwark
     if (p.slideT > 0) amt = amt * 0.7;   // Kinetic Slide
     if (p.pump > 0) amt = amt * 0.75;
     if (braced(p)) amt = amt * 0.85;
@@ -763,6 +767,11 @@
       addEnergy(wallBy, soakB / 25);
       if (T(wallBy, 'spikes') && bsrc.kind === 'enemy' && bsrc.alive && soakB > 0) damageEnemy(S, wallBy, bsrc, soakB * 0.3, 4, 'Spiked Barrier');
       emit(S, { type: 'absorb', id: p.id, amt: Math.round(soakB), barrier: 1, by: wallBy.id });
+      if (bsrc.type === 'boss' && soakB >= 100 && wallBy.role === 'tank') {
+        // Riposte (a Revenge proc): the next swing is a Slam, and Hammer Throw is ready again.
+        if (!(wallBy.riposte > 0)) proc(S, wallBy, 'riposte', 'RIPOSTE');
+        wallBy.riposte = TUNE.riposteDur; wallBy.cds.hthrow = 0;
+      }
       if (wallBy.barrier <= 0) {
         wallBy.barrier = 0; wallBy.barrierUp = 0; wallBy.barrierBroken = TUNE.barrierBreak; wallBy.barrierRestT = 0;
         emit(S, { type: 'fx', fx: 'barrierbreak', src: wallBy.id });
@@ -1200,12 +1209,14 @@
       case 'combo':
         // Swing, swing, slam. The chain resets after a pause.
         if (S.t - (p.comboT == null ? -99 : p.comboT) > TUNE.comboReset) p.comboStep = 0;
+        var rip = p.riposte > 0;
+        if (rip) { p.comboStep = 2; p.riposte = 0; }
         var step = p.comboStep || 0, slam = step === 2;
         var hitList = inCone(S, p, ab.range + (slam ? 1 : 0), slam ? 0.25 : 0.5);
         emit(S, { type: 'fx', fx: 'smash', src: p.id, pw: slam ? 1 : 0.3 });
         var rageAdd = T(p, 'vengeance') && p.rage >= 1 && hitList.length ? Math.round(p.rage) : 0;
         if (rageAdd) p.rage = 0;
-        hitList.forEach(function (e, i) { damageEnemy(S, p, e, (slam ? 150 : 60) + (i === 0 ? rageAdd : 0), slam ? 8 : 6, slam ? 'Slam!' : 'Swing'); });
+        hitList.forEach(function (e, i) { damageEnemy(S, p, e, ((slam ? 150 : 60) + (i === 0 ? rageAdd : 0)) * (rip ? TUNE.riposteMult : 1), slam ? 8 : 6, rip ? 'Riposte!' : slam ? 'Slam!' : 'Swing'); });
         addEnergy(p, slam ? 12 : 6);
         p.comboStep = (step + 1) % 3; p.comboT = S.t;
         p.gcd = slam ? TUNE.slamGcd : TUNE.swingGcd;
@@ -1217,6 +1228,10 @@
         // Spend every drop. Energy scales it steeply, so a full bar is worth far more than two half ones.
         var en = Math.min(1, (p.pips || 0) / 100), pd = T(p, 'piledriver') ? 1.4 : 1, full = en >= 0.99;
         p.pips = 0;
+        // Bulwark: a second of active mitigation for every 10 Energy spent, stacking on what's left.
+        var wasBw = p.bulwark || 0;
+        p.bulwark = Math.min(TUNE.bulwarkMax, wasBw + en * 10);
+        if (!(wasBw > 0)) emit(S, { type: 'fx', fx: 'bulwark', src: p.id });
         emit(S, { type: 'fx', fx: 'shove', src: p.id, pw: Math.round(en * 100) / 100 });
         if (full) proc(S, p, 'shove', 'FULL SHOVE');
         inCone(S, p, ab.range, 0.4).forEach(function (e) {
@@ -1234,6 +1249,7 @@
         var pt = inCone(S, p, ab.range, 0.93)[0];
         if (!pt) { p.cds.piston = 0.5; emit(S, { type: 'fx', fx: 'piston', src: p.id, miss: 1 }); break; }
         emit(S, { type: 'beam', src: p.id, dst: pt.id, fx: 'shell' });
+        pt.sundered = TUNE.sunderDur;
         damageEnemy(S, p, pt, 120, 14, 'Piston Shot');
         break;
       /* ---- Striker, aimed Shock Rifle ---- */
@@ -1827,7 +1843,7 @@
       p.barrierRestT = (p.barrierRestT || 0) + dt;
       if (!(p.barrierBroken > 0) && p.barrierRestT >= TUNE.barrierRest) p.barrier = Math.min(barrierMax(p), p.barrier + TUNE.barrierRegen * (T(p, 'hardened') ? 2 : 1) * dt);
     }   // "recent" fades over a few seconds
-    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm', 'skates', 'air', 'kshieldT', 'slideT', 'surge', 'overclock'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
+    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm', 'skates', 'air', 'kshieldT', 'slideT', 'surge', 'overclock', 'bulwark', 'riposte'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
     if (p.hot > 0) {
       var src = ent(S, p.hotSrc), step = Math.min(dt, p.hot);
       p.hot -= dt;
@@ -1890,6 +1906,7 @@
       if (!e.alive) return;
     }
     if (e.charged > 0) e.charged = Math.max(0, e.charged - dt);
+    if (e.sundered > 0) e.sundered = Math.max(0, e.sundered - dt);
     if (e.type === 'boss') { e.portRot = (e.portRot || 0) + TUNE.portSpin * dt; if (e.portBurst > 0) e.portBurst -= dt; }
     if (e.stagger > 0) { e.stagger -= dt; return; }   // staggered: no moving, no swinging
     if (e.goCentre) {
@@ -2490,7 +2507,9 @@
         if (looseH.length && dist(p, looseH[0]) > 12 && (p.charges || 0) >= 1 && !S.telegraphs.length) { inp.jump = true; aimAt(looseH[0]); return inp; }
         // Shove when the bar is (nearly) full, or a little earlier if there's a drone in the arc to throw.
         var arcAdds = inCone(S, p, 8, 0.4).filter(function (f) { return f.type !== 'boss'; }).length;
-        if (heat >= 95 - (slow > 1 ? 10 : 0) || (heat >= 60 && arcAdds >= 1)) { if (d <= 7) { inp.hold = [true, true]; b.think = 0.2; return inp; } }
+        if (heat >= 95 - (slow > 1 ? 10 : 0) || (heat >= 60 && arcAdds >= 1) || (heat >= 40 && !(p.bulwark > 1.5 * slow))) { if (d <= 7) { inp.hold = [true, true]; b.think = 0.2; return inp; } }
+        // Keep the Foreman Sundered for the squad.
+        if (boss.alive && main === boss && ready('piston') && !(boss.sundered > 2 * slow) && canAct && dist(p, boss) <= 22 + boss.radius) { aimAt(boss); return fire0(idx('piston'), boss); }
         if (d <= 6 && canAct) { inp.hold = [true, false]; b.think = 0.05 + S.rng() * 0.2 * slow; }
         return inp;
       }
@@ -2763,7 +2782,7 @@
         if (e.dash) o.ds = 1;
         if (e.lastDeath) o.ld = [e.lastDeath.label, e.lastDeath.t, e.lastDeath.log || []];
         if (e.cast) o.k = [e.cast.ab.id, r2(e.cast.t), r2(e.cast.dur), e.cast.targetId];
-        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'shockCh', 'surge', 'overclock', 'adren'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
+        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'shockCh', 'surge', 'overclock', 'bulwark', 'riposte', 'adren'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
         snap.p.push(o);
       } else {
         var q = { i: e.id, ty: e.type, n: e.name, x: r2(e.x), z: r2(e.z), f: r2(e.facing), h: Math.round(e.hp), mh: e.maxHp, a: e.alive ? 1 : 0, tg: e.target, ra: e.radius };
@@ -2776,6 +2795,7 @@
         if (e.branded > 0) q.br = 1;
         if (e.slowed > 0) q.sw = 1;
         if (e.charged > 0) q.ch = 1;
+        if (e.sundered > 0) q.sd = r1(e.sundered);
         if (e.type === 'boss') { q.pr = r2(e.portRot || 0); if (e.portBurst > 0) q.pb = r1(e.portBurst); }
         snap.e.push(q);
       }
@@ -2810,7 +2830,7 @@
       p.x = o.x; p.z = o.z; p.facing = o.f; p.hp = o.h; p.alive = !!o.a; p.target = o.tg; p.gcd = o.g; p.cds = o.c || {};
       p.moving = !!o.mv; p.auto = !!o.au || !p.human; p.defibUsed = !!o.du;
       p.lastDeath = o.ld ? { label: o.ld[0], t: o.ld[1], log: o.ld[2] || [] } : null;
-      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'shockCh', 'surge', 'overclock', 'adren'].forEach(function (f) { p[f] = o[f] || 0; });
+      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'shockCh', 'surge', 'overclock', 'bulwark', 'riposte', 'adren'].forEach(function (f) { p[f] = o[f] || 0; });
       if (o.k) {
         var ab = abilitiesOf(p).filter(function (a) { return a.id === o.k[0]; })[0];
         p.cast = ab ? { ab: ab, t: o.k[1], dur: o.k[2], targetId: o.k[3] } : null;
@@ -2826,7 +2846,7 @@
       e.oshield = q.os ? { hp: q.os[0], max: q.os[1], t: q.os[2], dur: q.os[3] } : null;
       e.stagger = q.st || 0; e.energy = q.eg || 0; e.goCentre = !!q.gc;
       e.weak = q.wk ? 1 : 0; e.slowed = q.sw ? 1 : 0; e.branded = q.br ? 1 : 0;
-      e.charged = q.ch ? 1 : 0; if (q.pr != null) { e.portRot = q.pr; e.portBurst = q.pb || 0; }
+      e.charged = q.ch ? 1 : 0; e.sundered = q.sd || 0; if (q.pr != null) { e.portRot = q.pr; e.portBurst = q.pb || 0; }
     });
     M.ents = M.ents.filter(function (e) { return e.kind === 'player' || seen[e.id]; });
     M.telegraphs = snap.g.map(function (g) {
@@ -2916,6 +2936,8 @@
       out.push([p.barrierBroken > 0 ? 'Barrier broken ' + Math.ceil(p.barrierBroken) + 's' : (p.barrierUp ? 'Barrier UP ' : 'Barrier ') + Math.round(p.barrier == null ? barrierMax(p) : p.barrier), !!p.barrierUp]);
       out.push([['Swing', 'Swing', 'SLAM next'][p.comboStep || 0], (p.comboStep || 0) === 2]);
       out.push([(p.pips || 0) >= 99 ? 'FULL SHOVE ready' : 'Shield Energy ' + Math.floor(p.pips || 0), (p.pips || 0) >= 99]);
+      out.push([p.bulwark > 0 ? 'Bulwark -15% ' + Math.ceil(p.bulwark) + 's' : 'No Bulwark: Shove', p.bulwark > 0]);
+      if (p.riposte > 0) out.push(['RIPOSTE: next swing Slams', true]);
     }
     if (wid === 'link') {
       out.push([p.beamTo ? 'Beam linked: LMB = Burst' : 'Beam free', !!p.beamTo]);
@@ -2941,7 +2963,7 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.28.0';
+  var VERSION = '0.29.0';
 
   var api = {
     VERSION: VERSION,

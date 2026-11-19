@@ -4,6 +4,25 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.29.0 (2026-11-19) Juggernaut rotation, and real models
+- **The Impact Hammer has a Protection Warrior rotation:**
+  - **Bulwark** (active mitigation, like Shield of the Righteous): every Shove gives a second of Bulwark for every 10
+    Shield Energy it spends, stacking up to 12s: 15% less damage from everything. Spend often to keep it up, or hoard
+    for a big Shove. A faint gold shell shows it, and the Shove button shows how much you'd add.
+  - **Riposte** (a Revenge proc): block a Foreman hit of 100 or more with the barrier and your next swing is a Slam with
+    50% more damage, and Hammer Throw is ready again.
+  - **Sunder** (raid utility): Piston Shot Sunders what it hits for 12s, and the whole squad does 8% more to it. An
+    orange ring at its feet shows it, blinking in the last 3s; the Piston Shot button lights when the Foreman needs it.
+  - The rotation: keep Bulwark up and the Foreman Sundered, block his fists for Ripostes, Hammer Throw on cooldown,
+    swing in between.
+  - Bot Juggernauts keep both up too. The Foreman has 194,000 health (was 182,000) to make up for the Sunder; an
+    all-bot squad wins about 89% in roughly 4:41.
+- **Real models.** Put a binary glTF at `public/models/<slot>.glb` (tank, healer, dps, melee, boss, drone) and everyone
+  gets it: the server lists them and they count towards the build, so a new model gets past the browser cache. Clips
+  named idle, run, attack, hit and death play from what the character is doing. See `MODELS.md`.
+- **The placeholder boxes moved into `public/placeholders.js`.** Delete it (and its script tag) once every slot has a
+  model. Each "Swap in your own meshes" slot now has a **Clear** button.
+
 ## 0.28.0 (2026-11-19) The Striker plays like an Arcane Mage
 The Shock Rifle now has a rotation rather than one combo to chase.
 - **Shock Charges** (like Arcane Charges). Every Shock Beam that lands adds one, up to four (a coolant port adds two).

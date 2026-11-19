@@ -7,5 +7,6 @@ module.exports = function stampIndex(html, build) {
     .replace('<script src="sim.js"></script>',
       `<script>window.S4_BUILD = ${JSON.stringify(build)};</script>\n` +
       `<script src="config.js?v=${v}"></script>\n<script src="net-ws.js?v=${v}"></script>\n<script src="sim.js?v=${v}"></script>`)
+    .replace('<script src="placeholders.js"></script>', `<script src="placeholders.js?v=${v}"></script>`)
     .replace('<script src="game.js"></script>', `<script src="game.js?v=${v}"></script>`);
 };
