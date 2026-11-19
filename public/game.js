@@ -93,7 +93,13 @@
   scene.background = new THREE.Color(0x0a0d12);
   scene.fog = new THREE.FogExp2(0x0a0d12, 0.009);
   var camera = new THREE.PerspectiveCamera(55, 1, 0.1, 600);
-  var cam = { yaw: Math.PI, pitch: 0.55, dist: 22 };
+  var cam = { yaw: Math.PI, pitch: 0.55, dist: 22, sDist: 7 };
+  /* Camera: 'shoulder' (over the right shoulder, like Marvel Rivals; the default while you play an aimed weapon) or
+     'overhead' (the orbit camera, always used when spectating). V switches; the choice is remembered. */
+  var camMode = 'shoulder';
+  try { camMode = localStorage.getItem('s4-cam') || 'shoulder'; } catch (e) {}
+  function shoulderOn() { return camMode === 'shoulder' && running && !watching && human && Sim.aimWeapon(human); }
+  function clampPitch(v) { return shoulderOn() ? Math.max(0.02, Math.min(0.95, v)) : Math.max(0.12, Math.min(1.35, v)); }
 
   function resize() {
     var w = stage.clientWidth || 800, h = stage.clientHeight || 600;
@@ -393,6 +399,7 @@
     stats = {}; Sim.players(S).forEach(function (p) { stats[p.id] = { dmg: 0, heal: 0, taken: 0 }; });
     input.ability = -1; input.jump = false; input.hop = false; input.target = (role === 'healer') ? undefined : S.bossId; keys = {};
     cam.yaw = Math.PI; cam.pitch = 0.6; cam.dist = 18;
+    if (camMode === 'shoulder' && !watching && Sim.aimWeapon(human)) cam.pitch = 0.3;
     buildHud();
     ['#menu', '#end', '#armory', '#lobby'].forEach(function (q) { $(q).classList.remove('on'); }); $('#hud').classList.add('on'); showPlates(true);
     $('#netBadge').textContent = Net.mode === 'solo' ? '' : 'SQUAD ' + Net.code.toUpperCase() + (Net.mode === 'host' ? '  /  HOST' : Net.mode === 'spy' ? '  /  ADMIN' : '');
@@ -401,6 +408,7 @@
     running = true; acc = 0; lastSim = performance.now(); Net.evMark = 0;
     logLine(watching ? 'Shift started. You are watching from the gantry.' : 'Shift started. ' + human.kit.title + ' on the floor.');
     if (!watching && Sim.aimWeapon(human) && human.kit.weapons[human.weapon].id === 'shock') logLine('Click the arena to aim with the mouse. Left click beams: each hit adds a Shock Charge (the sparks round you), and charges make beams stronger and costlier. Right click fires a Shock Core: let it hit to Charge the target, or click your beam on it to pop a Shock Combo. Both buttons spend your charges on an Overcharged Core and refill the Capacitor. E Overclocks. Lit ports take double; two in a row Surge your next core. Esc releases it.');
+    else if (!watching && Sim.aimWeapon(human) && human.kit.weapons[human.weapon].id === 'ripsaw') logLine('Click the arena to aim with the mouse. Left click Rips what is in front of you (Revs: the orange sparks; double from behind), right click Saw Through spends them and leaves a Bleed, both together Shred everything round you. Rips on a bleeding target can light Overdrive. Shift dashes, Q Chain Hook, E Redline, F Iron Hide. Esc releases it.');
     else if (!watching && Sim.aimWeapon(human)) logLine(human.kit.weapons[human.weapon].id === 'link'
       ? 'Click the arena to aim with the mouse. Left click fires at whatever is nearest your crosshair (green ring: heal, red: damage). Healing an ally Tags them (green motes); bolts on the Foreman then heal everyone Tagged. Right click holds the beam on an ally, both together Nanite Burst (Tags everyone near you). Every fifth hit on an enemy lights Flux: your next heal is double and jumps. Esc releases it.'
       : 'Click the arena to aim with the mouse: left click swings, right click holds the barrier, both together Shove. Shove builds Bulwark (15% less damage); block a Foreman hit for a Riposte; E Piston Shot keeps him Sundered for the squad. Esc releases it.');
@@ -725,6 +733,8 @@
       else if (h.a.id === 'vent' && (human.pips || 0) >= 85) { label = 'PERFECT'; glow = 'proc'; }
       else if (h.a.id === 'score' && human.surge > 0) { label = 'SURGE'; glow = 'proc'; }
       else if (h.a.id === 'lbolt' && human.flux > 0) { label = 'FLUX'; glow = 'proc'; }
+      else if (h.a.id === 'wsaw') { label = human.overdrive > 0 ? 'OVERDRIVE' : Math.floor(human.pips || 0) + ' REVS'; if (human.overdrive > 0 || (human.pips || 0) >= 5) glow = 'proc'; }
+      else if (h.a.id === 'shred' && u.state === 'ok') label = Math.floor(human.pips || 0) + ' REVS';
       else if (h.a.id === 'lburst' && u.state === 'ok') { var untagged = Sim.players(S, true).filter(function (q) { return !(q.tag > 0); }).length; label = untagged ? 'TAGS ' + untagged : 'COSTS 35'; }
       else if (h.a.id === 'ocore' && u.state !== 'cd') { label = (human.shockCh || 0) + ' CHARGES'; if ((human.shockCh || 0) >= 4) glow = 'proc'; }
       else if (h.a.id === 'sbeam') { label = 'COSTS ' + (3 + 3 * (human.shockCh || 0)); }
@@ -1054,6 +1064,18 @@
   function placeCamera(tx, tz) {
     // Pull the camera in so it never ends up behind the arena wall or a pillar.
     // The wall only draws its inner face, so a camera outside it sees straight in. Hide the pillars on that side.
+    if (shoulderOn()) {
+      // Over the right shoulder: the camera sits behind, above and to the right of you and looks along your aim, so the
+      // middle of the screen is where your shots go and you're a little left of it.
+      var lp = cam.pitch * 0.75, fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
+      var dx3 = fx * Math.cos(lp), dy3 = -Math.sin(lp), dz3 = fz * Math.cos(lp);
+      var SH = 1.6, px3 = tx + rx * SH, pz3 = tz + rz * SH, sd = cam.sDist;
+      for (var j = 0; j < 20 && Math.hypot(px3 - dx3 * sd, pz3 - dz3 * sd) > R - 1 && sd > 2; j++) sd *= 0.9;
+      camera.position.set(px3 - dx3 * sd, 2.6 - dy3 * sd, pz3 - dz3 * sd);
+      camera.lookAt(px3 + dx3 * 10, 2.6 + dy3 * 10, pz3 + dz3 * 10);
+      pillars.forEach(function (p) { p.visible = true; });
+      return;
+    }
     var cp = Math.cos(cam.pitch), d = cam.dist, sx = Math.sin(cam.yaw) * cp, sz = Math.cos(cam.yaw) * cp;
     for (var i = 0; i < 24 && Math.hypot(tx + sx * d, tz + sz * d) > 44 && d > 6; i++) d *= 0.93;
     camera.position.set(tx + sx * d, 1.5 + Math.sin(cam.pitch) * d, tz + sz * d);
@@ -1269,6 +1291,19 @@
         tm.material.opacity = p.tag < 2 ? 0.3 + 0.5 * Math.abs(Math.sin(tt * 8)) : 0.9;   // blinks as it runs out
       });
     });
+    // Bleeding enemies: a thin red ring that pulses while the Ripsaw's Bleed runs.
+    special.bleeds = special.bleeds || {};
+    var seenBl = {};
+    Sim.enemies(S).forEach(function (e) {
+      if (!(e.bleed > 0)) return;
+      seenBl[e.id] = 1;
+      var bm = special.bleeds[e.id];
+      if (!bm) { bm = new THREE.Mesh(new THREE.RingGeometry(0.93, 1, 48), new THREE.MeshBasicMaterial({ color: 0xd0201a, transparent: true, depthWrite: false, side: THREE.DoubleSide })); bm.rotation.x = -Math.PI / 2; fxRoot.add(bm); special.bleeds[e.id] = bm; }
+      var ep2 = views[e.id] ? views[e.id].g.position : e, rr4 = (e.radius || 1) + 0.5;
+      bm.position.set(ep2.x, 0.11, ep2.z); bm.scale.set(rr4, rr4, 1);
+      bm.material.opacity = (e.bleed < 2 ? 0.3 : 0.6) + 0.3 * Math.sin(performance.now() / 150);
+    });
+    for (var blk in special.bleeds) if (!seenBl[blk]) { fxRoot.remove(special.bleeds[blk]); delete special.bleeds[blk]; }
     // Sundered enemies: an orange ring at their feet while a Piston Shot's Sunder lasts, fading in its last seconds.
     special.sunders = special.sunders || {};
     var seenSd = {};
@@ -1285,19 +1320,20 @@
     // Shock Charges: up to four sparks orbiting each Shock Rifle Striker, so you read the build-up on the body, not the bar.
     special.sparks = special.sparks || {};
     Sim.players(S).forEach(function (p) {
-      var n = p.alive ? (p.shockCh || 0) : 0, sk = special.sparks[p.id];
+      var wid3 = p.kit ? p.kit.weapons[p.weapon].id : '', revsW = wid3 === 'ripsaw';
+      var n = !p.alive ? 0 : revsW ? (p.pips || 0) : (p.shockCh || 0), cap3 = revsW ? 5 : 4, sk = special.sparks[p.id];
       if (!sk) {
-        sk = []; for (var si = 0; si < 4; si++) { var sm = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: 0xe6d4ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); sm.visible = false; fxRoot.add(sm); sk.push(sm); }
+        sk = []; for (var si = 0; si < 5; si++) { var sm = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: 0xe6d4ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); sm.visible = false; fxRoot.add(sm); sk.push(sm); }
         special.sparks[p.id] = sk;
       }
-      var pp = views[p.id] ? views[p.id].g.position : p, t0 = performance.now() / 1000, hot = n >= 4;
+      var pp = views[p.id] ? views[p.id].g.position : p, t0 = performance.now() / 1000, hot = n >= cap3;
       sk.forEach(function (sm, i) {
         sm.visible = i < n;
         if (!sm.visible) return;
-        var ang = t0 * (hot ? 5 : 3) + i * Math.PI / 2;
+        var ang = t0 * (hot ? 5 : 3) + i * Math.PI * 2 / cap3;
         sm.position.set(pp.x + Math.sin(ang) * 0.9, 1.3 + 0.15 * Math.sin(t0 * 4 + i), pp.z + Math.cos(ang) * 0.9);
         var sc2 = hot ? 1.3 + 0.2 * Math.sin(t0 * 12) : 1; sm.scale.set(sc2, sc2, sc2);
-        sm.material.color.setHex(p.surge > 0 ? 0xffd36b : hot ? 0xffffff : 0xe6d4ff);
+        sm.material.color.setHex(revsW ? (p.overdrive > 0 ? 0xff4a36 : hot ? 0xffffff : 0xff9a30) : p.surge > 0 ? 0xffd36b : hot ? 0xffffff : 0xe6d4ff);
       });
     });
     // Ground Pound shockwaves: a red band rolling out across the floor. Jump it.
@@ -1382,6 +1418,7 @@
         lockT = 'done';
       }
       else if (wpnId === 'hammer') { lockT = human.barrierUp ? null : Sim.softTarget(S, human, { range: 6.5, dot: 0.5, enemy: true }); reach = 6; }
+      else if (wpnId === 'ripsaw') { lockT = Sim.inCone(S, human, 4.5, 0.55)[0] || null; reach = 4.5; }
       var wp;
       if (lockT === 'done') wp = null;
       else if (lockT) { var lv = views[lockT.id] ? views[lockT.id].g.position : lockT; wp = project(lv.x, entHeight(lockT) * 0.6, lv.z); }
@@ -1417,7 +1454,7 @@
   /* Keybinds. Each action has a default key; a rebind maps the new key onto the default, so the rest of the
      input code only ever sees the defaults. A default key that's been moved somewhere else does nothing. */
   var BIND_DEF = [['KeyW', 'Move forward'], ['KeyS', 'Move back'], ['KeyA', 'Move left'], ['KeyD', 'Move right'],
-    ['ShiftLeft', 'Movement ability (Riot Charge, leap, dodge)'], ['Space', 'Jump'], ['KeyQ', 'Q ability'], ['KeyE', 'E ability'], ['KeyF', 'F ability'], ['KeyR', 'Ultimate']];
+    ['ShiftLeft', 'Movement ability (Riot Charge, leap, dodge)'], ['Space', 'Jump'], ['KeyQ', 'Q ability'], ['KeyE', 'E ability'], ['KeyF', 'F ability'], ['KeyR', 'Ultimate'], ['KeyV', 'Camera: over the shoulder / overhead']];
   var binds = {};
   try { binds = JSON.parse(localStorage.getItem('s4-binds') || '{}') || {}; } catch (e) { binds = {}; }
   function remap(code) {
@@ -1463,6 +1500,12 @@
     if (c === 'Tab') { ev.preventDefault(); cycleEnemy(ev.shiftKey ? -1 : 1); return; }
     if (/^F[1-4]$/.test(c)) { ev.preventDefault(); var p = Sim.players(S)[+c[1] - 1]; if (p) input.target = p.id; return; }
     if (c === 'KeyM') { setMute(Snd.toggle()); return; }
+    if (c === 'KeyV') {
+      camMode = camMode === 'shoulder' ? 'overhead' : 'shoulder';
+      try { localStorage.setItem('s4-cam', camMode); } catch (e) {}
+      cam.pitch = camMode === 'shoulder' ? 0.3 : 0.6; $('#toast').textContent = camMode === 'shoulder' ? 'Camera: over the shoulder' : 'Camera: overhead'; toastT = 1.2;
+      return;
+    }
     if (c === 'Space') { ev.preventDefault(); if (!ev.repeat) input.hop = true; return; }
     if (c === 'ShiftLeft' || c === 'ShiftRight') { if (!ev.repeat) input.jump = true; return; }
     // Aimed weapons (the Impact Hammer): mouse buttons are the weapon, then Q, E, F and R. No number keys.
@@ -1500,7 +1543,7 @@
   window.addEventListener('mousemove', function (ev) {
     if (!locked() || !mouseAim()) return;
     cam.yaw -= (ev.movementX || 0) * 0.0035;
-    cam.pitch = Math.max(0.12, Math.min(1.35, cam.pitch + (ev.movementY || 0) * 0.003));
+    cam.pitch = clampPitch(cam.pitch + (ev.movementY || 0) * 0.003);
   });
   document.addEventListener('pointerlockchange', function () { if (!locked()) { mouse.l = false; mouse.r = false; } });
   var drag = null;
@@ -1508,7 +1551,7 @@
   window.addEventListener('pointermove', function (ev) {
     if (!drag) return;
     var dx = ev.clientX - drag.x, dy = ev.clientY - drag.y; drag.x = ev.clientX; drag.y = ev.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
-    cam.yaw -= dx * 0.006; cam.pitch = Math.max(0.12, Math.min(1.35, cam.pitch + dy * 0.005));
+    cam.yaw -= dx * 0.006; cam.pitch = clampPitch(cam.pitch + dy * 0.005);
   });
   window.addEventListener('pointerup', function (ev) {
     if (drag && drag.moved < 6 && running) {
@@ -1523,11 +1566,21 @@
     }
     drag = null;
   });
-  renderer.domElement.addEventListener('wheel', function (ev) { ev.preventDefault(); cam.dist = Math.max(8, Math.min(42, cam.dist + ev.deltaY * 0.02)); }, { passive: false });
+  renderer.domElement.addEventListener('wheel', function (ev) {
+    ev.preventDefault();
+    if (shoulderOn()) cam.sDist = Math.max(3, Math.min(10, cam.sDist + ev.deltaY * 0.005));
+    else cam.dist = Math.max(8, Math.min(42, cam.dist + ev.deltaY * 0.02));
+  }, { passive: false });
   renderer.domElement.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
 
   /* Where you are aiming: straight ahead of the camera. Held buttons: keyboard 1/2 or the controller's triggers. */
-  function aimAngle() { return cam.yaw + Math.PI; }
+  function aimAngle() {
+    if (!shoulderOn()) return cam.yaw + Math.PI;
+    // Over the shoulder the camera is 1.6m to your right: aim at what the middle of the screen sees 18m out, so the
+    // crosshair and your shots line up at fighting range.
+    var fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
+    return Math.atan2(rx * 1.6 + fx * 18, rz * 1.6 + fz * 18);
+  }
   /* How far a thrown thing goes: look further up the room (a flatter camera) to throw further. 3m to 25m. */
   function throwDist() { return 3 + Math.max(0, Math.min(1, (1.35 - cam.pitch) / 1.15)) * 22; }
   var lobAim = null;   // the bar slot of a held-to-aim throw (the Medic's Nano Field), while the key is down
@@ -1936,7 +1989,7 @@
     if (!gp) { pad.f = 0; pad.r = 0; pad.hold = [false, false]; return; }
     var dz = function (v) { return Math.abs(v) < 0.2 ? 0 : v; }, ax = gp.axes || [];
     pad.r = dz(ax[0] || 0); pad.f = -dz(ax[1] || 0);
-    cam.yaw -= dz(ax[2] || 0) * 2.6 * dt; cam.pitch = Math.max(0.12, Math.min(1.35, cam.pitch + dz(ax[3] || 0) * 1.4 * dt));
+    cam.yaw -= dz(ax[2] || 0) * 2.6 * dt; cam.pitch = clampPitch(cam.pitch + dz(ax[3] || 0) * 1.4 * dt);
     var btn = function (i) { var b = gp.buttons[i]; return !!b && (b.pressed || b.value > 0.5); };
     var down = function (i) { return btn(i) && !pad.prev[i]; };
     if (running && !watching) {

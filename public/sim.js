@@ -260,6 +260,17 @@
         how: 'Revs. Key 1 revs the engine up to 5, key 2 cashes every rev in at once.' },
       blurb: 'Melee damage. Stay out of the Foreman\'s front.',
       weapons: [
+        TW('ripsaw', 'Ripsaw', 'Aimed melee, played like a Rogue. Rip what\'s in front of you to build Revs (double from behind), cash them in on Saw Through to keep a Bleed rolling, or Shred everything round you. Rips on a bleeding target can light Overdrive.',
+          { id: 'revs', name: 'Revs', max: 5, start: 0, regen: 0, build: 0, spend: 'all', min: 1, per: 1,
+            how: 'Revs, like combo points: up to 5. Rip adds one, two from behind. Saw Through (RMB) and Shred (both buttons) spend them all.' },
+          [{ id: 'wrip', key: 'LMB', name: 'Rip', kind: 'aim', range: 4.5, hold: 'repeat', desc: 'Hold or tap. Rips the enemy in front of you for 40 and adds a Rev; from behind, 50% more and two Revs. A Rip on a bleeding target can light Overdrive (always on a crit).' },
+           { id: 'wsaw', key: 'RMB', name: 'Saw Through', kind: 'aim', range: 4.5, needs: 1, gcd: false, desc: 'Spends all your Revs on the enemy in front of you: 30 plus 32 a Rev (50% more from behind), and a Bleed of 25 a second for 2.4s a Rev, added on to what\'s left. With Overdrive lit, it counts as five Revs.' },
+           { id: 'shred', key: 'L+R', name: 'Shred', kind: 'aim', range: 5, needs: 1, gcd: false, desc: 'Press both buttons together. Spends all your Revs on everything within 5m of you: 40 plus 45 a Rev each, and a Bleed of 1s a Rev. For drones in a pile.' }],
+          { aim: true,
+            utils: [A({ id: 'hook', key: 'Q', name: 'Chain Hook', kind: 'aim', range: 22, cd: 12, gcd: false, desc: 'Hook the enemy nearest your crosshair within 22m. A drone is yanked to you and stunned for 1s; the Foreman pulls you onto his back instead.' }),
+                    A({ id: 'redline', key: 'E', name: 'Redline', kind: 'self', range: 0, cd: 45, gcd: false, desc: 'Your burn window: for 8s Rips come a third faster and everything hits 20% harder.' }),
+                    A({ id: 'ironhide', key: 'F', name: 'Iron Hide', kind: 'self', range: 0, cd: 25, gcd: false, desc: 'Take 40% less damage for 5s. For when you have to stay in.' })],
+            ult: A({ id: 'slam', key: 'R', name: 'Wrecking Slam', kind: 'aim', range: 8, gcd: false, role: 'ult', desc: 'Ultimate. 450 to the enemy in front of you and it staggers for 3s: it stops attacking and the whole squad hits it 30% harder.' }) }),
         W('chainsaw', 'Chainsaw', 'Positional bleeder. Double Revs from behind; Saw Through leaves a Bleed, and Rips on a bleeding target proc more.',
           { id: 'rip', name: 'Rip', kind: 'enemy', range: 4, procChance: 0.15, desc: 'Melee 80 and a Rev. From behind: 50% more and two Revs.' },
           { id: 'saw', name: 'Saw Through', kind: 'enemy', range: 4, desc: 'Spends all Revs. 80 + 70 a Rev, 50% more from behind. Leaves a Bleed for 2s a Rev.' },
@@ -280,7 +291,7 @@
       ult: A({ id: 'slam', name: 'Wrecking Slam', kind: 'enemy', range: 8, gcd: false, role: 'ult', desc: 'Ultimate. 450 to your target and it staggers for 3s: it stops attacking and the whole squad hits it 30% harder.' })
     }
   };
-  var BACKSTAB = { rip: 1, saw: 1, overdrive: 1 };
+  var BACKSTAB = { rip: 1, saw: 1, overdrive: 1, wrip: 1, wsaw: 1 };
 
   /* ---------- talents ----------
      Each class has its own tree: four tiers, three picks a tier, always in the same order:
@@ -372,8 +383,9 @@
     melee: {
       theme: 'Demolition berserker. Momentum, mess and noise. The longer you keep swinging, the worse it gets for them.',
       tiers: ['Momentum', 'Hide', 'Butchery', 'Mayhem'],
+      // Shift is the Wrecker's Dash; Momentum changes it. The other rows change how you hit and how you survive.
       boots: [
-        t('afterburner', 'aggressive', 'Afterburner', 'Dash in constantly.', 'Dash is ready every 5s. For 3s after a Dash, every hit counts as from behind.'),
+        t('afterburner', 'aggressive', 'Afterburner', 'Dash in constantly.', 'Your Dash (Shift) is ready every 5s. For 3s after a Dash, every hit counts as from behind.'),
         t('clamps', 'steady', 'Mag-Clamps', 'Bolt yourself to the floor.', 'Charges can\'t knock you back and the Foreman\'s cleave does half damage to you.'),
         t('escort', 'squad', 'Breach Team', 'Bring them with you.', 'You and every squad member within 8m of you move 20% faster.')
       ],
@@ -384,13 +396,13 @@
       ],
       implant: [
         t('rampage', 'aggressive', 'Rampage', 'Never stop swinging.', 'Each hit within 4s of your last adds 5% damage, up to 40%. A 4s gap resets it.'),
-        t('flanker', 'steady', 'Flanker', 'Hold the back line.', 'Key 1 gives an extra Rev when it hits from behind.'),
+        t('flanker', 'steady', 'Flanker', 'Hold the back line.', 'Rip gives an extra Rev when it hits from behind.'),
         t('hamstring', 'squad', 'Hamstring', 'Blunt his hits for the tank.', 'Your hits from behind make the target deal 15% less damage for 4s.')
       ],
       util: [
         t('opportunist', 'aggressive', 'Thrill Seeker', 'Dodge late, strike hard.', 'Leave a red zone in its last second and you deal and heal 30% more for 6s.'),
         t('breaker', 'steady', 'Can Opener', 'Rip the shield open.', 'Your hits do 40% more to the overcharge shield. When it breaks, your Revs are full.'),
-        t('warcry', 'squad', 'War Cry', 'Lead the charge.', 'Dash gives every squad member within 10m 15% more damage for 5s.')
+        t('warcry', 'squad', 'War Cry', 'Lead the charge.', 'Your Dash (Shift) gives every squad member within 10m 15% more damage for 5s.')
       ]
     }
   };
@@ -403,7 +415,7 @@
     tank: { weapon: 'hammer', boots: 'twincharge', rig: 'hardened', implant: 'breathing', util: 'brand' },
     healer: { weapon: 'link', boots: 'medevac', rig: 'chainlink', implant: 'burstshield', util: 'lingering' },
     dps: { weapon: 'shock', boots: 'dodge', rig: 'spotter', implant: 'magnet', util: 'empburst' },
-    melee: { weapon: 'chainsaw', boots: 'escort', rig: 'pump', implant: 'flanker', util: 'breaker' }
+    melee: { weapon: 'ripsaw', boots: 'escort', rig: 'pump', implant: 'flanker', util: 'breaker' }
   };
   /* Players only get aimed weapons: the tab-target ones are switched off until they're converted (the code stays for
      bots and tests). A role with no aimed weapon yet (the Wrecker) is bots-only. */
@@ -462,6 +474,9 @@
     bulwarkCut: 0.85, bulwarkMax: 12, riposteDur: 6, riposteMult: 1.5, sunderDur: 12, sunderMult: 1.08,
     // Link Gun rotation: Nanite Tags (a HoT, and who Atonement reaches), Atonement (bolts on enemies heal the Tagged), Flux (proc).
     tagDur: 10, tagHot: 8, atone: 0.2, burstTagMult: 1.3, fluxEvery: 5, fluxDur: 10,
+    // Ripsaw: Rip builds Revs, Saw Through / Shred spend them; Bleeds stack time on; Overdrive is the proc; Redline the burst.
+    ripDmg: 40, ripGcd: 0.6, sawBase: 30, sawPer: 32, bleedDps: 25, bleedPer: 2.4, bleedCap: 14, shredBase: 40, shredPer: 45,
+    overdriveChance: 0.06, redlineMult: 1.2, redlineGcd: 0.4, dashLen: 10, dashCd: 10,
     barrierHp: 1800, barrierRegen: 180, barrierRest: 1.5, barrierBreak: 5,
     busterEvery: 15, busterCast: 2.5, busterDmg: 1860,
     droneEvery: 32, droneHp: 1600, droneMelee: 90, droneSwing: 1.5,
@@ -759,6 +774,7 @@
     if (p.belt > 0) amt = amt * 0.5;
     if (p.bulwark > 0) amt = amt * TUNE.bulwarkCut;   // Impact Hammer Bulwark
     if (p.slideT > 0) amt = amt * 0.7;   // Kinetic Slide
+    if (p.ironhide > 0) amt = amt * 0.6;   // Wrecker Iron Hide
     if (p.pump > 0) amt = amt * 0.75;
     if (braced(p)) amt = amt * 0.85;
     if (srcId !== p.id && S.domes.some(function (d) { return Math.hypot(p.x - d.x, p.z - d.z) <= d.r; })) {
@@ -926,6 +942,7 @@
 
   function shieldUp(q, src, amt, cap) { q.armor = Math.min(cap, Math.max(q.armor, 0) + amt); q.armorSrc = src.id; }
   function resolveTarget(S, p, ab) {
+    if (ab.id === 'slam' && aimWeapon(p)) return inCone(S, p, ab.range, 0.5)[0] || null;   // the aimed Wrecking Slam: what's in front of you
     if (ab.kind === 'aim') return p;
     if (ab.id === 'hthrow' && aimWeapon(p)) {
       // Aimed tanks throw at whatever is in front of them, falling back to their target.
@@ -1335,6 +1352,63 @@
         proc(S, p, 'nova', 'SHOCK NOVA', 'all');
         break;
 
+      /* ---- Wrecker, aimed Ripsaw ---- */
+      case 'wrip':
+        p.gcd = p.redline > 0 ? TUNE.redlineGcd : TUNE.ripGcd;
+        var rt = inCone(S, p, ab.range, 0.55)[0];
+        emit(S, { type: 'fx', fx: 'smash', src: p.id, pw: 0.25 });
+        if (!rt) { emit(S, { type: 'fx', fx: 'boltmiss', src: p.id }); break; }
+        var rback = behind(p, rt) || p.afterburn > 0;
+        emit(S, { type: 'beam', src: p.id, dst: rt.id, fx: 'saw' });
+        damageEnemy(S, p, rt, TUNE.ripDmg * (rback ? 1.5 : 1) * (p.redline > 0 ? TUNE.redlineMult : 1), 1, rback ? 'Rip!' : 'Rip');
+        p.pips = Math.min(5, (p.pips || 0) + (rback ? 2 : 1) + (rback && T(p, 'flanker') ? 1 : 0));
+        if (rt.alive && rt.bleed > 0 && (p.critThis || S.rng() < TUNE.overdriveChance) && !(p.overdrive > 0)) { p.overdrive = 10; proc(S, p, 'overdrive', 'OVERDRIVE'); }
+        break;
+      case 'wsaw':
+        var st2 = inCone(S, p, ab.range, 0.55)[0];
+        if (!st2) { p.gcd = 0.3; return fail(S, p, 'Nothing in front of you'); }
+        var revs = p.overdrive > 0 ? 5 : (p.pips || 0), od = p.overdrive > 0;
+        p.pips = 0; p.overdrive = 0;
+        var sback = behind(p, st2) || p.afterburn > 0;
+        emit(S, { type: 'beam', src: p.id, dst: st2.id, fx: 'sawbig' });
+        damageEnemy(S, p, st2, (TUNE.sawBase + TUNE.sawPer * revs) * (sback ? 1.5 : 1) * (p.redline > 0 ? TUNE.redlineMult : 1), 1, od ? 'Overdrive!' : revs >= 5 ? 'Saw Through!' : 'Saw Through');
+        if (st2.alive) { st2.bleed = Math.min(TUNE.bleedCap, (st2.bleedBy === p.id ? st2.bleed || 0 : 0) + TUNE.bleedPer * revs); st2.bleedBy = p.id; st2.bleedDps = TUNE.bleedDps; }
+        p.gcd = TUNE.ripGcd;
+        break;
+      case 'shred':
+        var sr = p.pips || 0; p.pips = 0;
+        emit(S, { type: 'fx', fx: 'flak', src: p.id });
+        enemies(S).forEach(function (e) {
+          if (dist(e, p) > ab.range + (e.radius || 0)) return;
+          emit(S, { type: 'beam', src: p.id, dst: e.id, fx: 'saw' });
+          damageEnemy(S, p, e, (TUNE.shredBase + TUNE.shredPer * sr) * (p.redline > 0 ? TUNE.redlineMult : 1), 1, sr >= 5 ? 'Shred!' : 'Shred');
+          if (e.alive) { e.bleed = Math.min(TUNE.bleedCap, (e.bleedBy === p.id ? e.bleed || 0 : 0) + sr); e.bleedBy = p.id; e.bleedDps = TUNE.bleedDps; }
+        });
+        p.gcd = TUNE.ripGcd;
+        break;
+      case 'hook':
+        var hk = softTarget(S, p, { range: ab.range, dot: 0.9, enemy: true });
+        if (!hk) { p.cds.hook = 1; return fail(S, p, 'Nothing to hook'); }
+        emit(S, { type: 'beam', src: p.id, dst: hk.id, fx: 'kick' });
+        var hox = p.x, hoz = p.z;
+        if (hk.type === 'boss') {
+          p.x = hk.x - Math.sin(hk.facing) * (hk.radius + 1.5); p.z = hk.z - Math.cos(hk.facing) * (hk.radius + 1.5); clampArena(p);
+          p.facing = Math.atan2(hk.x - p.x, hk.z - p.z);
+          emit(S, { type: 'blink', id: p.id, fromX: hox, fromZ: hoz, fx: 'dash' });
+        } else {
+          var hl = dist(p, hk) || 1;
+          hk.x = p.x + (hk.x - p.x) / hl * 2.2; hk.z = p.z + (hk.z - p.z) / hl * 2.2;
+          hk.stagger = Math.max(hk.stagger || 0, 1);
+          damageEnemy(S, p, hk, 60, 4, 'Chain Hook');
+        }
+        break;
+      case 'redline':
+        p.redline = 8; emit(S, { type: 'fx', fx: 'adren', src: p.id }); proc(S, p, 'redline', 'REDLINE');
+        break;
+      case 'ironhide':
+        p.ironhide = 5; emit(S, { type: 'fx', fx: 'guard', src: p.id });
+        break;
+
       /* ---- Medic, aimed Link Gun ---- */
       case 'lbolt':
         var lt = softTarget(S, p, BOLT_AIM);
@@ -1649,7 +1723,7 @@
     if (aimWeapon(p)) {
       if (typeof inp.aim === 'number' && isFinite(inp.aim)) p.facing = inp.aim;
       var hw0 = p.kit.weapons[p.weapon].id;
-      if (hw0 === 'link') medicHold(S, p, inp.hold || [], dt); else if (hw0 === 'shock') shockHold(S, p, inp.hold || [], dt); else hammerHold(S, p, inp.hold || [], dt);
+      if (hw0 === 'link') medicHold(S, p, inp.hold || [], dt); else if (hw0 === 'shock') shockHold(S, p, inp.hold || [], dt); else if (hw0 === 'ripsaw') sawHold(S, p, inp.hold || [], dt); else hammerHold(S, p, inp.hold || [], dt);
     }
     if (inp.jump && (p.role === 'tank' || (p.cds.leap || 0) <= 0)) spaceTalent(S, p);   // Shift: the class's movement ability
     if (inp.hop && !(p.air > 0) && !p.dash) { p.air = TUNE.jumpAir; emit(S, { type: 'fx', fx: 'jump', src: p.id }); }   // Space: a plain jump
@@ -1716,6 +1790,19 @@
     p.lHeld = L; p.rHeld = R;
     if (p.rPend > 0) { p.rPend -= dt; if (p.rPend <= 0) { p.rPend = 0; if (!p.chord) tryUse(S, p, at('score')); } }
     if (L && !p.chord && p.gcd <= 0 && !p.cast) { p.popOk = p.popPend > 0; if (tryUse(S, p, 0)) p.popPend = 0; p.popOk = undefined; }
+  }
+  /* Ripsaw held inputs: hold[0] keeps Ripping. A right-click press is Saw Through a tenth of a second later, unless
+     the left button goes down in that time: both together (within 0.12s) is Shred. */
+  function sawHold(S, p, hold, dt) {
+    var L = !!hold[0], R = !!hold[1];
+    var at = function (id) { var l = abilitiesOf(p); for (var i = 0; i < l.length; i++) if (l[i].id === id) return i; return -1; };
+    if (L && !p.lHeld) p.lDownT = S.t;
+    if (R && !p.rHeld) { p.rDownT = S.t; p.rPend = 0.1; }
+    if (L && R && !p.chord && Math.abs((p.lDownT == null ? -9 : p.lDownT) - (p.rDownT == null ? -9 : p.rDownT)) <= 0.12) { p.chord = true; p.rPend = 0; tryUse(S, p, at('shred')); }
+    if (!L || !R) p.chord = false;
+    p.lHeld = L; p.rHeld = R;
+    if (p.rPend > 0) { p.rPend -= dt; if (p.rPend <= 0) { p.rPend = 0; if (!p.chord) tryUse(S, p, at('wsaw')); } }
+    if (L && !p.chord && p.gcd <= 0 && !p.cast) tryUse(S, p, 0);
   }
   /* Impact Hammer held inputs: hold[0] keeps the combo swinging, hold[1] keeps the barrier up. */
   function hammerHold(S, p, hold, dt) {
@@ -1823,6 +1910,14 @@
     if (T(p, 'stim')) { var d2 = dir(); land(p.x + d2[0] * 9, p.z + d2[1] * 9, 8, 3, 'leap'); return; }
     if (T(p, 'skates')) { p.cds.leap = 8; p.skates = 3; emit(S, { type: 'fx', fx: 'boost', src: p.id }); return; }
     if (p.role === 'tank') { riotCharge(S, p, ox, oz); return; }
+    if (p.role === 'melee' && aimWeapon(p)) {
+      // The Wrecker's Dash: along your aim (or the way you're moving if you're not aiming).
+      var da = typeof p.aimIn === 'number' ? [Math.sin(p.aimIn), Math.cos(p.aimIn)] : dir();
+      land(p.x + da[0] * TUNE.dashLen, p.z + da[1] * TUNE.dashLen, T(p, 'afterburner') ? 5 : TUNE.dashCd, 0, 'dash');
+      if (T(p, 'afterburner')) p.afterburn = 3;
+      if (T(p, 'warcry')) { players(S, true).forEach(function (q) { if (dist(q, p) <= 10) q.warcry = 5; }); proc(S, p, 'warcry', 'WAR CRY', 'all'); }
+      return;
+    }
     if (T(p, 'medevac')) {
       // Aimed: whoever you're pointing at. Otherwise (or nobody there), the most hurt.
       var hurt = (aimWeapon(p) ? softTarget(S, p, { range: 25, dot: 0.75, ally: true }) : null) ||
@@ -1863,7 +1958,7 @@
       p.barrierRestT = (p.barrierRestT || 0) + dt;
       if (!(p.barrierBroken > 0) && p.barrierRestT >= TUNE.barrierRest) p.barrier = Math.min(barrierMax(p), p.barrier + TUNE.barrierRegen * (T(p, 'hardened') ? 2 : 1) * dt);
     }   // "recent" fades over a few seconds
-    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm', 'skates', 'air', 'kshieldT', 'slideT', 'surge', 'overclock', 'bulwark', 'riposte', 'flux'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
+    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm', 'skates', 'air', 'kshieldT', 'slideT', 'surge', 'overclock', 'bulwark', 'riposte', 'flux', 'overdrive', 'redline', 'ironhide'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
     if (p.tag > 0) {
       // Nanite Tag heal over time, a beat at a time.
       var tsrc = ent(S, p.tagBy), tstep = Math.min(dt, p.tag); p.tag -= dt;
@@ -1928,7 +2023,7 @@
     if (e.bleed > 0) {
       // Chainsaw bleed: kept apart from the Bio Rifle's acid so a Medic and a Wrecker don't overwrite each other.
       var bstep = Math.min(dt, e.bleed); e.bleed -= dt;
-      e.bleedAcc = (e.bleedAcc || 0) + 28 * bstep;
+      e.bleedAcc = (e.bleedAcc || 0) + (e.bleedDps || 28) * bstep;
       if (e.bleedAcc >= 28 || e.bleed <= 0) { var bsrc = ent(S, e.bleedBy); if (bsrc) damageEnemy(S, bsrc, e, e.bleedAcc, 1, 'Bleed'); e.bleedAcc = 0; }
       if (!e.alive) return;
     }
@@ -2575,6 +2670,7 @@
       inp.target = tg.id;
       if (ready('adren') && boss.alive && canAct && boss.hp < boss.maxHp * 0.97) { inp.ability = idx('adren'); b.think = 0.2; return inp; }
       if (p.role === 'dps' && W === 'shock') return strikerBot(S, p, inp, b, tg, boss, foes, canAct, idx, ready, slow);
+      if (p.role === 'melee' && W === 'ripsaw') return wreckerBot(S, p, inp, b, tg, boss, foes, canAct, idx, ready, slow);
       if (p.role === 'dps') {
         var dd = dist(p, tg);
         if (dd > 28) { moveTo(tg.x, tg.z); return inp; }
@@ -2738,6 +2834,31 @@
     return inp;
   }
 
+  /* The aimed Wrecker bot, playing the Rogue loop: get behind the Foreman (Chain Hook or Dash in), Rip to build Revs,
+     Saw Through at five (or four with the Bleed running low, or at once on Overdrive), Shred a pile of drones,
+     Redline on cooldown into the fight, Iron Hide when it's getting bad. */
+  function wreckerBot(S, p, inp, b, tg, boss, foes, canAct, idx, ready, slow) {
+    var m = b.wr || (b.wr = { hold: [false, false] });
+    var aimAt = function (t) { inp.aim = Math.atan2(t.x - p.x, t.z - p.z); };
+    var spot = tg.type === 'boss' ? { x: tg.x - Math.sin(tg.facing) * (tg.radius + 1.6), z: tg.z - Math.cos(tg.facing) * (tg.radius + 1.6) } : { x: tg.x, z: tg.z };
+    var dm = dist(p, tg) - (tg.radius || 0), off = Math.hypot(spot.x - p.x, spot.z - p.z);
+    aimAt(tg); inp.target = tg.id;
+    if (dm > 9 && ready('hook') && canAct && dm < 22) { inp.ability = idx('hook'); b.think = 0.3; return inp; }
+    if (dm > 8 && !((p.cds.leap || 0) > 0) && !S.telegraphs.length) inp.jump = true;
+    if (off > 1.2 && (tg.type === 'boss' || dm > 3)) { inp.mx = spot.x - p.x; inp.mz = spot.z - p.z; }
+    if (canAct) {
+      b.think = 0.2 + S.rng() * 0.3 * slow;
+      var revs = p.pips || 0, near = foes.filter(function (f) { return dist(f, p) <= 5 + (f.radius || 0); }).length;
+      m.hold = [true, false];
+      if (p.hp < p.maxHp * 0.4 && ready('ironhide')) inp.ability = idx('ironhide');
+      else if (ready('redline') && boss.alive && S.t > 6 && dm < 4) inp.ability = idx('redline');
+      else if (near >= 2 && revs >= 3) { if (p.lHeld || p.rHeld) { m.hold = [false, false]; b.think = 0.05; } else m.hold = [true, true]; }
+      else if (dm < 4.5 && (p.overdrive > 0 || revs >= 5 || (revs >= 4 && !(tg.bleed > 2)))) { if (p.rHeld) { m.hold = [true, false]; b.think = 0.05; } else m.hold = [true, true]; }
+    }
+    inp.hold = m.hold.slice();
+    return inp;
+  }
+
   /* ---------- main step ---------- */
 
   /* inputs: { [playerId]: { mx, mz, ability, target, jump } }. A bare input object means the solo player. */
@@ -2814,7 +2935,7 @@
         if (e.dash) o.ds = 1;
         if (e.lastDeath) o.ld = [e.lastDeath.label, e.lastDeath.t, e.lastDeath.log || []];
         if (e.cast) o.k = [e.cast.ab.id, r2(e.cast.t), r2(e.cast.dur), e.cast.targetId];
-        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'shockCh', 'surge', 'overclock', 'bulwark', 'riposte', 'tag', 'flux', 'fluxN', 'adren'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
+        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'shockCh', 'surge', 'overclock', 'bulwark', 'riposte', 'tag', 'flux', 'fluxN', 'overdrive', 'redline', 'ironhide', 'adren'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
         snap.p.push(o);
       } else {
         var q = { i: e.id, ty: e.type, n: e.name, x: r2(e.x), z: r2(e.z), f: r2(e.facing), h: Math.round(e.hp), mh: e.maxHp, a: e.alive ? 1 : 0, tg: e.target, ra: e.radius };
@@ -2828,6 +2949,7 @@
         if (e.slowed > 0) q.sw = 1;
         if (e.charged > 0) q.ch = 1;
         if (e.sundered > 0) q.sd = r1(e.sundered);
+        if (e.bleed > 0) q.bl = r1(e.bleed);
         if (e.type === 'boss') { q.pr = r2(e.portRot || 0); if (e.portBurst > 0) q.pb = r1(e.portBurst); }
         snap.e.push(q);
       }
@@ -2862,7 +2984,7 @@
       p.x = o.x; p.z = o.z; p.facing = o.f; p.hp = o.h; p.alive = !!o.a; p.target = o.tg; p.gcd = o.g; p.cds = o.c || {};
       p.moving = !!o.mv; p.auto = !!o.au || !p.human; p.defibUsed = !!o.du;
       p.lastDeath = o.ld ? { label: o.ld[0], t: o.ld[1], log: o.ld[2] || [] } : null;
-      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'shockCh', 'surge', 'overclock', 'bulwark', 'riposte', 'tag', 'flux', 'fluxN', 'adren'].forEach(function (f) { p[f] = o[f] || 0; });
+      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'shockCh', 'surge', 'overclock', 'bulwark', 'riposte', 'tag', 'flux', 'fluxN', 'overdrive', 'redline', 'ironhide', 'adren'].forEach(function (f) { p[f] = o[f] || 0; });
       if (o.k) {
         var ab = abilitiesOf(p).filter(function (a) { return a.id === o.k[0]; })[0];
         p.cast = ab ? { ab: ab, t: o.k[1], dur: o.k[2], targetId: o.k[3] } : null;
@@ -2878,7 +3000,7 @@
       e.oshield = q.os ? { hp: q.os[0], max: q.os[1], t: q.os[2], dur: q.os[3] } : null;
       e.stagger = q.st || 0; e.energy = q.eg || 0; e.goCentre = !!q.gc;
       e.weak = q.wk ? 1 : 0; e.slowed = q.sw ? 1 : 0; e.branded = q.br ? 1 : 0;
-      e.charged = q.ch ? 1 : 0; e.sundered = q.sd || 0; if (q.pr != null) { e.portRot = q.pr; e.portBurst = q.pb || 0; }
+      e.charged = q.ch ? 1 : 0; e.sundered = q.sd || 0; e.bleed = q.bl || 0; if (q.pr != null) { e.portRot = q.pr; e.portBurst = q.pb || 0; }
     });
     M.ents = M.ents.filter(function (e) { return e.kind === 'player' || seen[e.id]; });
     M.telegraphs = snap.g.map(function (g) {
@@ -2978,6 +3100,11 @@
       if (p.cloak > 0) out.push(['Cloak -40% ' + Math.ceil(p.cloak) + 's', true]);
       if (p.storm > 0) out.push(['Link Storm ' + Math.ceil(p.storm) + 's', true]);
     }
+    if (wid === 'ripsaw') {
+      if (p.overdrive > 0) out.push(['OVERDRIVE: Saw counts as 5', true]);
+      if (p.redline > 0) out.push(['Redline ' + Math.ceil(p.redline) + 's', true]);
+      if (p.ironhide > 0) out.push(['Iron Hide -40% ' + Math.ceil(p.ironhide) + 's', true]);
+    }
     if (wid === 'shock') {
       out.push(['Shock Charges ' + (p.shockCh || 0) + '/4', (p.shockCh || 0) >= 4]);
       if (p.surge > 0) out.push(['SURGE: core ready ' + Math.ceil(p.surge) + 's', true]);
@@ -2997,7 +3124,7 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.30.0';
+  var VERSION = '0.31.0';
 
   var api = {
     VERSION: VERSION,

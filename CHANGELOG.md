@@ -4,6 +4,25 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.31.0 (2026-11-19) The Wrecker is playable, and an over-the-shoulder camera
+- **The Ripsaw**, the Wrecker's aimed weapon, played like a Rogue:
+  - **LMB Rip**: the enemy in front of you, 40 and a Rev; from behind 50% more and two Revs. Revs show as orange
+    sparks round you, spinning white at five.
+  - **RMB Saw Through**: spends all your Revs on the enemy in front of you (30 plus 32 a Rev, 50% more from behind)
+    and Bleeds it, 2.4s a Rev added on to what's left (a red ring at its feet). Keep the Bleed rolling.
+  - **L+R Shred**: spends all your Revs on everything within 5m (40 plus 45 a Rev each, and a short Bleed).
+  - **Overdrive** (proc): a Rip on a bleeding target can light it (always on a crit); your next Saw counts as five
+    Revs. The sparks go red.
+  - **Shift Dash** along your aim (Afterburner and War Cry work on it), **Q Chain Hook** (yank a drone to you and
+    stun it, or pull yourself onto the Foreman's back), **E Redline** (8s of faster, 20% harder Rips: your burn
+    window), **F Iron Hide** (40% less damage for 5s), **R Wrecking Slam** on what's in front of you.
+  - The rotation: get behind him, Rip to five, Saw to keep the Bleed up, Shred piles, cash in Overdrive at once,
+    Redline into the windows.
+  - Bot Wreckers play it too, about as hard as the old Chainsaw. An all-bot squad wins about 90% in roughly 4:40.
+- **Over-the-shoulder camera.** With an aimed weapon the camera sits behind your right shoulder and looks along your
+  aim, Marvel Rivals style: the middle of the screen is where your shots go (they line up at about 18m). The mouse
+  wheel moves it in and out. **V** switches to the overhead view and back; it's remembered. Spectating stays overhead.
+
 ## 0.30.0 (2026-11-19) Medic rotation, and aimed weapons only
 - **The Link Gun plays like a Discipline Priest:**
   - **Nanite Tag**: healing an ally with a Link Bolt Tags them for 10s (three green motes circling their feet, blinking

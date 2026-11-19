@@ -1,7 +1,7 @@
 # Sector-4 design pillars
 
 The rules every change is checked against. If a feature breaks one of these, change the feature or
-change this file on purpose, never by drift. Last revised: v0.30.0 (2026-11-19).
+change this file on purpose, never by drift. Last revised: v0.31.0 (2026-11-19).
 
 ## What the game is
 
@@ -85,6 +85,6 @@ while dodging). Rules for the healer prototype:
    Pound is built but off for the Foreman. The Striker's Arcane-style rotation (v0.28.0) and the Juggernaut's Protection
    rotation (Bulwark, Riposte, Sunder; v0.29.0), the Medic's Discipline rotation (Tags, Atonement, Flux; v0.30.0).
    Tab-target weapons are switched off for players (v0.30.0); the Wrecker is bots-only until it has an aimed weapon.
-5. Next: convert the Wrecker to an aimed melee weapon with its own rotation, then decide which switched-off weapons
-   are worth converting and cut the rest.
+5. The Wrecker's aimed Ripsaw with its Rogue rotation, and the over-the-shoulder camera (v0.31.0). To be played.
+   Next: decide which switched-off weapons are worth converting and cut the rest.
 6. Only then convert more weapons, or cut them if one good one per role is enough.

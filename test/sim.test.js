@@ -447,7 +447,7 @@ test('ultimates are free-use against the Foreman: no hero calls, and bots still 
 test('Wrecking Slam staggers its target at any time', () => {
   const { S, p, boss } = arena('melee');
   p.ult = 100; p.x = boss.x; p.z = boss.z - 5;
-  press(S, 5, { target: boss.id });
+  press(S, Sim.abilitiesOf(p).findIndex((ab) => ab.id === 'slam'), { target: boss.id, aim: 0 });   // aimed: what's in front of you
   assert.ok(boss.stagger > 2);
 });
 
@@ -962,7 +962,7 @@ test('Juggernaut rotation: Shove builds Bulwark, a barrier block lights Riposte,
   assert.ok(hit() >= Math.round(before * Sim.TUNE.sunderMult) - 1, 'the squad hits a Sundered target harder');
 });
 
-test('players only get aimed weapons; the Wrecker is bots-only until it has one', () => {
+test('players only get aimed weapons', () => {
   for (const role of Object.keys(Sim.KITS)) {
     if (!Sim.playable(role)) continue;
     for (const w of Sim.KITS[role].weapons) {
@@ -971,7 +971,8 @@ test('players only get aimed weapons; the Wrecker is bots-only until it has one'
     }
   }
   assert.strictEqual(Sim.validGear('tank', { weapon: 'flak' }).weapon, 'hammer');
-  assert.ok(!Sim.playable('melee'));
+  assert.ok(Sim.playable('melee'), 'the Wrecker has the Ripsaw');
+  assert.strictEqual(Sim.validGear('melee', { weapon: 'chainsaw' }).weapon, 'ripsaw');
   const S = Sim.create({ humanRole: 'dps', gear: { weapon: 'rockets' }, seed: 1 });
   assert.strictEqual(Sim.ent(S, S.humanId).gear.weapon, 'shock');
 });
@@ -999,4 +1000,50 @@ test('Medic rotation: bolts Tag allies, bolts on the Foreman heal the Tagged (At
   const b = medic(); b.p.pips = 100; b.tank.x = 3; b.tank.z = 3; b.dps.x = -3; b.dps.z = 2;
   Sim.step(b.S, 1 / 30, { aim: 0, hold: [true, true] });
   assert.ok(b.tank.tag > 9 && b.dps.tag > 9 && b.p.tag > 9);
+});
+
+/* The aimed Ripsaw: a Wrecker right behind the Foreman, everyone else frozen. */
+function wrecker(gear) {
+  const a = arena('melee', Object.assign({ weapon: 'ripsaw' }, gear || {}));
+  Sim.players(a.S).forEach((q) => { if (q !== a.p) { q.human = true; q.auto = false; q.x = 30; q.z = -20; } });
+  a.boss.x = 0; a.boss.z = 10; a.boss.facing = 0; a.boss.speed = 0; a.boss.stagger = 30;   // staggered: he holds still
+  a.p.x = 0; a.p.z = 5.5; a.S.rng = () => 0.5;
+  return a;
+}
+const rip = (a, h) => { a.p.gcd = 0; a.S.events.length = 0; Sim.step(a.S, 1 / 30, { aim: 0, hold: h }); return a.S.events.filter((e) => e.type === 'dmg' && e.src === a.p.id); };
+
+test('Ripsaw: Rip builds Revs (two from behind), Saw Through spends them and Bleeds, Shred hits everything round you', () => {
+  const a = wrecker({ implant: 'rampage' });
+  const r1 = rip(a, [true, false]);
+  assert.ok(r1[0] && r1[0].label === 'Rip!' && a.p.pips === 2, 'from behind: Rip! and two Revs');
+  rip(a, [false, false]); rip(a, [true, false]);
+  assert.strictEqual(a.p.pips, 4);
+  rip(a, [false, false]); Sim.step(a.S, 1 / 30, { aim: 0, hold: [false, true] }); for (let i = 0; i < 4; i++) Sim.step(a.S, 1 / 30, { aim: 0, hold: [false, false] });
+  assert.ok(a.p.pips === 0 && a.boss.bleed > 9 && a.boss.bleedBy === a.p.id, 'four Revs: a 9.6s Bleed (' + a.boss.bleed + ')');
+  assert.ok(a.S.events.some((e) => e.label === 'Saw Through' || e.label === 'Saw Through!'));
+  const b = wrecker(); b.S.ents.push(drone(951, 3, 6), drone(952, -3, 5)); b.p.pips = 5;
+  b.S.events.length = 0; Sim.step(b.S, 1 / 30, { aim: 0, hold: [true, true] });
+  const hit = new Set(b.S.events.filter((e) => /^Shred/.test(e.label)).map((e) => e.dst));
+  assert.ok(hit.has(951) && hit.has(952) && hit.has(b.boss.id) && b.p.pips === 0, 'Shred: ' + [...hit].join(','));
+  const o = wrecker(); o.boss.bleed = 5; o.boss.bleedBy = o.p.id; o.S.rng = () => 0.01;   // every Rip on a bleeding target procs
+  rip(o, [true, false]);
+  assert.ok(o.p.overdrive > 0, 'Overdrive');
+  o.p.pips = 1; rip(o, [false, false]); Sim.step(o.S, 1 / 30, { aim: 0, hold: [false, true] }); for (let i = 0; i < 4; i++) Sim.step(o.S, 1 / 30, { aim: 0, hold: [false, false] });
+  assert.ok(o.S.events.some((e) => e.label === 'Overdrive!') && !(o.p.overdrive > 0), 'the next Saw counts as five');
+});
+
+test('Wrecker utilities: Chain Hook pulls a drone in or you onto his back, Shift dashes along your aim, Iron Hide', () => {
+  const a = wrecker(); a.p.x = 0; a.p.z = -10;
+  const d = drone(953, 0, 8); a.S.ents.push(d); a.boss.x = 20;
+  Sim.step(a.S, 1 / 30, { aim: 0, ability: Sim.abilitiesOf(a.p).findIndex((ab) => ab.id === 'hook') });
+  assert.ok(Math.hypot(d.x - a.p.x, d.z - a.p.z) < 3 && d.stagger > 0, 'the drone comes to you');
+  const b = wrecker(); b.p.x = 0; b.p.z = -10; b.boss.facing = Math.PI;   // facing us: the hook puts us behind him
+  Sim.step(b.S, 1 / 30, { aim: 0, ability: Sim.abilitiesOf(b.p).findIndex((ab) => ab.id === 'hook') });
+  assert.ok(Sim.behind(b.p, b.boss) && Math.hypot(b.p.x - b.boss.x, b.p.z - b.boss.z) < 6, 'you go to his back');
+  const c = wrecker(); c.p.x = -15; c.p.z = -15; c.boss.x = 15;
+  Sim.step(c.S, 1 / 30, { aim: Math.PI / 2, jump: true });
+  assert.ok(c.p.x > -6, 'dashed along the aim: ' + c.p.x);
+  c.p.armor = 0; Sim.step(c.S, 1 / 30, { ability: Sim.abilitiesOf(c.p).findIndex((ab) => ab.id === 'ironhide') });
+  const h = c.p.hp; Sim.damagePlayer(c.S, c.S.bossId, c.p, 100, 'Rocket');
+  assert.strictEqual(h - c.p.hp, 60);
 });
