@@ -67,7 +67,7 @@ test('each class has its own four tiers of three talents', () => {
 });
 
 function solo(role, gear) {
-  const S = Sim.create({ humanRole: role, gear, humanAuto: false, seed: 3, allWeapons: true });   // tests still cover the switched-off weapons
+  const S = Sim.create({ humanRole: role, gear, humanAuto: false, seed: 3 });
   S.countdown = 0;
   return { S, p: Sim.ent(S, S.humanId), boss: Sim.ent(S, S.bossId) };
 }
@@ -79,15 +79,6 @@ test('Riot Charge closes the gap to the target', () => {
   run(S, 0.8, { target: boss.id, jump: true });   // the boosters take a moment to get you there
   assert.ok(Math.hypot(p.x - boss.x, p.z - boss.z) < before - 5);
   assert.ok(p.charges < 1);
-});
-
-test('Medevac leaps to the most hurt ally and shields them (or, aimed, to whoever you point at)', () => {
-  const { S, p } = solo('healer', { weapon: 'bio', boots: 'medevac' });
-  const hurt = Sim.players(S).find((q) => q.role === 'dps');
-  hurt.hp = Math.round(hurt.maxHp * 0.3);
-  run(S, 0.1, { jump: true });
-  assert.ok(Math.hypot(p.x - hurt.x, p.z - hurt.z) < 3);
-  assert.ok(hurt.armor > 0);
 });
 
 test('Rampage stacks while the Wrecker keeps swinging', () => {
@@ -126,59 +117,11 @@ test('fight records keep movement measures and stats compare people with bots', 
 
 /* v0.10: rotations, the overcharge shield, ultimates and hero moments. */
 function arena(role, gear) {
-  const S = Sim.create({ humanRole: role, gear, humanAuto: false, seed: 4, allWeapons: true }); S.countdown = 0;
+  const S = Sim.create({ humanRole: role, gear, humanAuto: false, seed: 4 }); S.countdown = 0;
   return { S, p: Sim.ent(S, S.humanId), boss: Sim.ent(S, S.bossId) };
 }
 const press = (S, i, extra) => Sim.step(S, 1 / 30, Object.assign({ ability: i }, extra || {}));
 const idle = (S, secs) => { for (let i = 0; i < secs * 30; i++) Sim.step(S, 1 / 30, {}); };
-
-test('Wrecker Revs: key 1 builds, key 2 cashes them all in, and is refused with none', () => {
-  const { S, p, boss } = arena('melee', { weapon: 'ripper' });
-  p.x = boss.x; p.z = boss.z - 12;
-  press(S, 1, { target: boss.id });
-  assert.ok(S.events.some((e) => e.type === 'error' && /Revs/.test(e.text)));
-  for (let n = 0; n < 3; n++) { p.gcd = 0; press(S, 0, { target: boss.id }); }
-  assert.strictEqual(p.pips, 3);
-  p.gcd = 0; press(S, 1, { target: boss.id });
-  assert.strictEqual(p.pips, 0);
-});
-
-test('Striker Capacitor (tab-target Rockets): recharges by itself, the heavy shot drains 50', () => {
-  const { S, p, boss } = arena('dps', { weapon: 'rockets' });
-  p.x = boss.x; p.z = boss.z - 15; p.pips = 100;
-  S.events.length = 0; press(S, 1, { target: boss.id });
-  assert.ok(p.pips <= 60.5 && p.pips >= 49, String(p.pips));   // 50 spent, crits refund 10
-  assert.strictEqual(S.events.filter((e) => e.type === 'dmg' && /^Volley/.test(e.label)).length, 2, 'two rockets with no Lock-on');
-  p.pips = 100;
-  for (let n = 0; n < 3; n++) { p.gcd = 0; press(S, 0, { target: boss.id }); }
-  S.events.length = 0; p.gcd = 0; press(S, 1, { target: boss.id });
-  assert.strictEqual(S.events.filter((e) => e.type === 'dmg' && /^Volley/.test(e.label)).length, 5, 'three Lock-ons add three rockets');
-  p.pips = 0; idle(S, 2);
-  assert.ok(p.pips > 12, 'recharges');
-});
-
-test('Medic Nanites: heals cost them, shooting harvests them', () => {
-  const { S, p, boss } = arena('healer', { weapon: 'bio' });
-  p.x = boss.x; p.z = boss.z - 15; p.pips = 30;
-  press(S, 1);
-  assert.ok(p.pips < 6);
-  p.gcd = 0; press(S, 1);
-  assert.ok(S.events.some((e) => e.type === 'error' && /Nanites/.test(e.text)));
-  p.gcd = 0; const before = p.pips; press(S, 0, { target: boss.id });
-  assert.ok(p.pips >= before + 11);
-});
-
-test('Flak Cannon: blasts load Ammo, Flak Screen spends it and cuts hits by 60%', () => {
-  const { S, p, boss } = arena('tank', { weapon: 'flak' });
-  p.x = boss.x; p.z = boss.z - 5; p.pips = 0;
-  press(S, 0, { target: boss.id });
-  assert.ok(p.pips >= 15);
-  p.pips = 60; press(S, 2);
-  assert.ok(p.screen > 2 && p.pips <= 10.5);
-  p.armor = 0; const h = p.hp;
-  Sim.damagePlayer(S, S.bossId, p, 1000, 'Crusher');
-  assert.ok(h - p.hp <= 230 && h - p.hp >= 180, String(h - p.hp));   // plating 30%, then the screen 70%
-});
 
 test('Impact Hammer: swing, swing, slam, and holding key 1 keeps the chain going', () => {
   const { S, p, boss } = arena('tank', { weapon: 'hammer', rig: 'vengeance' });
@@ -271,7 +214,7 @@ test('Aegis Dome: nobody inside takes damage while it lasts', () => {
 });
 
 test('Riot Charge: an aimed boosted dash, Twin Thrusters holds two, Intercept shields an ally', () => {
-  const a = arena('tank', { weapon: 'flak', boots: 'twincharge' });
+  const a = arena('tank', { weapon: 'hammer', boots: 'twincharge' });
   const toBoss = () => Math.atan2(a.boss.x - a.p.x, a.boss.z - a.p.z);
   a.p.x = a.boss.x; a.p.z = a.boss.z - 22;
   Sim.step(a.S, 1 / 30, { aim: toBoss(), jump: true });
@@ -281,7 +224,7 @@ test('Riot Charge: an aimed boosted dash, Twin Thrusters holds two, Intercept sh
   a.p.x = a.boss.x; a.p.z = a.boss.z - 22;
   Sim.step(a.S, 1 / 30, { aim: toBoss(), jump: true });
   assert.ok(a.p.charges < 1, 'used the second charge');
-  const b = arena('tank', { weapon: 'flak', boots: 'intercept' });
+  const b = arena('tank', { weapon: 'hammer', boots: 'intercept' });
   const ally = Sim.players(b.S).find((q) => q.role === 'healer');
   Sim.players(b.S).forEach((q) => { if (q !== b.p && q !== ally) { q.x = 0; q.z = 20; } });   // a clear lane
   b.p.x = -10; b.p.z = -20; ally.x = 20; ally.z = -20; ally.armor = 0;
@@ -321,22 +264,8 @@ test('Impact Hammer: the barrier covers you and whoever is behind you, then brea
   assert.ok(!p.barrierUp && p.barrierBroken > 0);
 });
 
-test('Minigun: heat speeds it up, Perfect Vent shields big, 100 jams it', () => {
-  const { S, p, boss } = arena('tank', { weapon: 'minigun', rig: 'vengeance' });
-  p.x = boss.x; p.z = boss.z - 10;
-  p.pips = 0; press(S, 0, { target: boss.id }); const cold = p.gcd;
-  p.pips = 80; p.gcd = 0; press(S, 0, { target: boss.id });
-  assert.ok(p.gcd < cold * 0.7, 'hot barrels fire faster');
-  p.pips = 90; p.armor = 0; press(S, 2);
-  assert.ok(p.armor >= 800 && p.pips > 43 && p.pips <= 45, 'perfect vent');
-  p.pips = 95; p.gcd = 0; press(S, 0, { target: boss.id });
-  assert.ok(p.jam > 0);
-  p.gcd = 0; press(S, 0, { target: boss.id });
-  assert.ok(S.events.some((e) => e.type === 'error' && /jammed/i.test(e.text)));
-});
-
-test('Hammer Throw (tab-target Flak) hits the target and one more, and forces nothing', () => {
-  const { S, p, boss } = arena('tank', { weapon: 'flak' });
+test('Hammer Throw hits the target and one more, and forces nothing', () => {
+  const { S, p, boss } = arena('tank', { weapon: 'hammer' });
   p.x = boss.x; p.z = boss.z - 5;
   const near = { id: 999, kind: 'enemy', type: 'drone', x: boss.x + 5, z: boss.z, radius: 1, hp: 1600, maxHp: 1600, alive: true, threat: {}, target: null };
   const far = { id: 998, kind: 'enemy', type: 'drone', x: boss.x + 25, z: boss.z, radius: 1, hp: 1600, maxHp: 1600, alive: true, threat: {}, target: null };
@@ -356,17 +285,6 @@ test('the Foreman winds up a Crusher on his target, and a one-button tank loses'
   const lazy = summarise(seeds(10, 11).map((seed) => runFight({ role: 'tank', seed, lazy: true })));
   const good = summarise(seeds(10, 11).map((seed) => runFight({ role: 'tank', seed })));
   assert.ok(lazy.winRate + 30 <= good.winRate, `lazy ${lazy.winRate} vs good ${good.winRate}`);
-});
-
-test('a proc lights the third button for a while and using it spends the proc', () => {
-  const { S, p, boss } = arena('melee', { weapon: 'chainsaw' });
-  p.x = boss.x; p.z = boss.z - 5;
-  press(S, 2, { target: boss.id });
-  assert.ok(S.events.some((e) => e.type === 'error' && /procced/.test(e.text)));
-  p.procT = Sim.PROC_WINDOW; S.events.length = 0;
-  press(S, 2, { target: boss.id });
-  assert.ok(S.events.some((e) => e.type === 'dmg' && e.label === 'Overdrive!'));
-  assert.strictEqual(p.procT, 0);
 });
 
 test('every hit varies, and crits are flagged', () => {
@@ -390,47 +308,6 @@ test('breaking the overcharge shield staggers the Foreman; letting it run shocks
   assert.ok(soft.every((q, i) => q.hp < hp[i]), 'everyone takes the pulse');
 });
 
-test('Riot Wall: standing behind the Juggernaut blocks the Demolition Blast', () => {
-  const { S, p, boss } = arena('tank');
-  p.ult = 100; p.x = boss.x; p.z = boss.z - 8;
-  const safe = Sim.players(S).find((q) => q.role === 'healer'), exposed = Sim.players(S).find((q) => q.role === 'dps');
-  safe.x = p.x; safe.z = p.z - 5; exposed.x = boss.x + 12; exposed.z = boss.z;
-  press(S, 5);
-  assert.ok(p.wall > 0);
-  const h0 = safe.hp, e0 = exposed.hp;
-  Sim.damagePlayer(S, S.bossId, safe, 500, 'Demolition Blast');
-  Sim.damagePlayer(S, S.bossId, exposed, 500, 'Demolition Blast');
-  assert.strictEqual(safe.hp, h0);
-  assert.ok(exposed.hp < e0);
-});
-
-test('Counter-Slam during a Haymaker cancels it and staggers the Foreman', () => {
-  const { S, p, boss } = arena('melee');
-  p.ult = 100; p.x = boss.x; p.z = boss.z - 5;
-  S.hero = { role: 'melee', t: 0 };
-  boss.cast = { name: 'Haymaker', t: 1, dur: 5, done: () => {} };
-  press(S, Sim.abilitiesOf(p).findIndex((ab) => ab.id === 'slam'), { target: boss.id, aim: 0 });
-  assert.strictEqual(boss.cast, null);
-  assert.ok(boss.stagger > 0);
-  assert.strictEqual(S.m.heroes.melee[1], 1);
-});
-
-test('Deadeye shoots the Heavy Rocket down; Field Hospital clears radiation', () => {
-  const a = arena('dps', { weapon: 'rockets' });
-  a.p.ult = 100;
-  a.S.missile = { x: 0, z: 0, x0: 0, z0: 0, tgt: Sim.players(a.S)[1].id, t: 2, dur: 7 };
-  a.S.hero = { role: 'dps', t: 0 };
-  press(a.S, 5);
-  assert.strictEqual(a.S.missile, null);
-  assert.strictEqual(a.S.m.heroes.dps[1], 1);
-  const b = arena('healer', { weapon: 'bio' });
-  b.p.ult = 100; b.S.hero = { role: 'healer', t: 0, melt: true };
-  Sim.players(b.S).forEach((q) => { q.rad = 5; });
-  press(b.S, 5);
-  assert.ok(Sim.players(b.S).every((q) => !(q.rad > 0)));
-  assert.strictEqual(b.S.m.heroes.healer[1], 1);
-});
-
 test('collapsing floor sections only catch people standing on them', () => {
   const g = { shape: 'sector', a0: 0, a1: Math.PI / 3, r0: 7, r1: 30 };
   assert.ok(Sim.inTele(g, { x: Math.sin(0.5) * 15, z: Math.cos(0.5) * 15 }));
@@ -438,9 +315,8 @@ test('collapsing floor sections only catch people standing on them', () => {
   assert.ok(!Sim.inTele(g, { x: Math.sin(0.5) * 4, z: Math.cos(0.5) * 4 }));
 });
 
-test('ultimates are free-use against the Foreman: no hero calls, and bots still use them', () => {
+test('ultimates are free-use, and bots use them', () => {
   const r = runFight({ seed: 5 });
-  assert.ok(Object.values(r.heroes).every(([called]) => called === 0));
   assert.ok(r.players.filter((p) => p.ults >= 1).length >= 3, JSON.stringify(r.players.map((p) => [p.role, p.ults])));
 });
 
@@ -451,38 +327,15 @@ test('Wrecking Slam staggers its target at any time', () => {
   assert.ok(boss.stagger > 2);
 });
 
-test('scripted hero moments still work when a boss switches them on', () => {
-  Sim.TUNE.heroMoments = true;
-  try {
-    const hp = Sim.TUNE.bossHp; Sim.TUNE.bossHp = hp * 1.6;   // long enough for the rotation to come round
-    const called = { tank: 0, healer: 0, dps: 0, melee: 0 };
-    try { for (const seed of [5, 6, 7]) { const r = runFight({ seed }); for (const k in called) called[k] += r.heroes[k][0]; } } finally { Sim.TUNE.bossHp = hp; }
-    for (const role of Object.keys(called)) assert.ok(called[role] >= 1, role + ' was never called');
-  } finally { Sim.TUNE.heroMoments = false; }
-});
-
-test('weapon signatures: Trick Shot every third tap, Steady Aim crit, Chainsaw bleed', () => {
-  const a = arena('melee', { weapon: 'enforcers' });
-  a.p.x = a.boss.x; a.p.z = a.boss.z - 8;
-  for (let n = 0; n < 3; n++) { a.p.gcd = 0; press(a.S, 0, { target: a.boss.id }); }
-  const taps = a.S.events.filter((e) => e.type === 'dmg' && /Tap|Trick/.test(e.label));
-  assert.ok(taps[2].label === 'Trick Shot!' && taps[2].crit === 1);
-
-  const c = arena('melee', { weapon: 'chainsaw' });
-  c.p.x = c.boss.x; c.p.z = c.boss.z - 5; c.p.pips = 5;
-  press(c.S, 1, { target: c.boss.id });
-  assert.ok(c.boss.bleed > 8);
-
-});
-
-test('no two abilities share an id across classes (Adrenaline is shared on purpose)', () => {
+test('one weapon per role, and no two abilities share an id', () => {
   const seen = {};
   for (const r of Object.keys(Sim.KITS)) {
-    const k = Sim.KITS[r];
-    k.weapons.forEach((w) => w.abilities.forEach((a) => { (seen[a.id] = seen[a.id] || []).push(r + '/' + w.id); }));
-    k.utils.concat([k.ult]).forEach((a) => { (seen[a.id] = seen[a.id] || []).push(r); });
+    assert.strictEqual(Sim.KITS[r].weapons.length, 1, r);
+    const w = Sim.KITS[r].weapons[0];
+    assert.ok(w.aim, r + ' has an aimed weapon');
+    w.abilities.concat(w.utils, [w.ult]).forEach((a) => { (seen[a.id] = seen[a.id] || []).push(r); });
   }
-  const dups = Object.entries(seen).filter(([id, at]) => at.length > 1 && id !== 'adren');
+  const dups = Object.entries(seen).filter(([id, at]) => at.length > 1);
   assert.deepStrictEqual(dups, []);
 });
 
@@ -960,21 +813,6 @@ test('Juggernaut rotation: Shove builds Bulwark, a barrier block lights Riposte,
   Sim.step(sd.S, 1 / 30, { aim: Math.atan2(sd.boss.x - sd.p.x, sd.boss.z - sd.p.z), ability: Sim.abilitiesOf(sd.p).findIndex((ab) => ab.id === 'piston') });
   assert.ok(sd.boss.sundered > 11, 'Sundered');
   assert.ok(hit() >= Math.round(before * Sim.TUNE.sunderMult) - 1, 'the squad hits a Sundered target harder');
-});
-
-test('players only get aimed weapons', () => {
-  for (const role of Object.keys(Sim.KITS)) {
-    if (!Sim.playable(role)) continue;
-    for (const w of Sim.KITS[role].weapons) {
-      const g = Sim.validGear(role, { weapon: w.id });
-      assert.ok(Sim.KITS[role].weapons.find((x) => x.id === g.weapon).aim, role + ': ' + w.id + ' fell back to an aimed weapon');
-    }
-  }
-  assert.strictEqual(Sim.validGear('tank', { weapon: 'flak' }).weapon, 'hammer');
-  assert.ok(Sim.playable('melee'), 'the Wrecker has the Ripsaw');
-  assert.strictEqual(Sim.validGear('melee', { weapon: 'chainsaw' }).weapon, 'ripsaw');
-  const S = Sim.create({ humanRole: 'dps', gear: { weapon: 'rockets' }, seed: 1 });
-  assert.strictEqual(Sim.ent(S, S.humanId).gear.weapon, 'shock');
 });
 
 test('Medic rotation: bolts Tag allies, bolts on the Foreman heal the Tagged (Atonement), Flux doubles and jumps, Burst Tags the group', () => {

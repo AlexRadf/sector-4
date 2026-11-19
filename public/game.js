@@ -516,7 +516,6 @@
       var ok = Sim.playable(r), ws = ok ? Sim.weaponsFor(r) : [];
       card.appendChild(el('div', 'kit-w', ok ? 'Weapon' : 'Bots only for now'));
       if (ok) ws.forEach(function (w) { var d = el('p', 'kit-opt'); d.appendChild(el('b', null, w.name + '. ')); d.appendChild(document.createTextNode(w.pitch)); card.appendChild(d); });
-      else card.appendChild(el('p', 'kit-opt', 'The Wrecker\'s weapons are still tab-target, so a bot plays this role until they\'re converted to aimed weapons.'));
       if (ok) addList('Always carried', (ws[0].utils || k.utils).concat([ws[0].ult || k.ult]), 4);
       var b = el('button', 'go', ok ? 'Gear up as ' + k.title : 'Coming soon'); b.type = 'button'; b.disabled = !ok;
       b.addEventListener('click', function () { if (ok) openArmory(r); });
@@ -611,27 +610,21 @@
       eb.lastElementChild.textContent = boss.oshield ? 'OVERCHARGE SHIELD UP' : boss.goCentre ? 'OVERCHARGED: HEADING FOR THE MIDDLE' : 'ENERGY ' + Math.floor(boss.energy || 0) + '%';
       eb.classList.toggle('full', !!boss.goCentre || !!boss.oshield);
     }
-    var HERO_ANSWER = { 'Demolition Blast': ['tank', 'GET BEHIND THE JUGGERNAUT'], Haymaker: ['melee', 'WRECKER: COUNTER-SLAM'], Meltdown: ['healer', 'MEDIC: FIELD HOSPITAL'] };
     if (boss.oshield) {
       bc.className = 'bar on shield'; setBar(bc.firstElementChild, boss.oshield.hp / boss.oshield.max);
       bc.lastElementChild.textContent = 'OVERCHARGE SHIELD ' + Math.ceil(boss.oshield.hp) + '  /  BREAK IT: ' + Math.max(0, Math.ceil(boss.oshield.dur - boss.oshield.t)) + 'S';
     } else if (boss.stagger > 0) {
       bc.className = 'bar on'; setBar(bc.firstElementChild, boss.stagger / 5);
       bc.lastElementChild.textContent = 'STAGGERED  /  EVERYTHING YOU HAVE';
-    } else if (S.missile) {
-      var mt = Sim.ent(S, S.missile.tgt);
-      bc.className = 'bar on hero' + (human.role === 'dps' && !watching ? ' mine' : ''); setBar(bc.firstElementChild, S.missile.t / S.missile.dur);
-      bc.lastElementChild.textContent = 'HEAVY ROCKET ON ' + (mt ? mt.name : '?') + '  /  STRIKER: DEADEYE';
     } else if (boss.cast && boss.cast.name === 'Crusher') {
       var cv = Sim.ent(S, boss.cast.target), onMe = cv === human && !watching;
       bc.className = 'bar on hero' + (onMe ? ' mine' : '');
       setBar(bc.firstElementChild, boss.cast.t / boss.cast.dur);
       bc.lastElementChild.textContent = 'CRUSHER ON ' + (cv ? cv.name : '?') + '  /  ' + (onMe ? 'MITIGATE NOW' : 'TANK BUSTER');
     } else if (boss.cast) {
-      var ha = HERO_ANSWER[boss.cast.name];
-      bc.className = 'bar on' + (ha ? ' hero' : '') + (ha && ha[0] === human.role && !watching ? ' mine' : '');
+      bc.className = 'bar on';
       setBar(bc.firstElementChild, boss.cast.t / boss.cast.dur);
-      bc.lastElementChild.textContent = boss.cast.name.toUpperCase() + '  /  ' + (ha ? ha[1] : 'GET CLEAR');
+      bc.lastElementChild.textContent = boss.cast.name.toUpperCase() + '  /  GET CLEAR';
     } else bc.className = 'bar';
     var left = Sim.TUNE.enrageAt - S.t, ot = $('#overtime');
     ot.textContent = S.enraged ? 'THE FOREMAN IS ON OVERTIME' : 'OVERTIME IN ' + fmtTime(left);
@@ -641,7 +634,7 @@
     hud.party.forEach(function (h) {
       var p = h.p; setBar(h.fill, p.hp / p.maxHp);
       var aggro = Sim.enemies(S).some(function (e) { return e.target === p.id; });
-      var onKick = S.hero && S.hero.role === p.role;
+      var onKick = false;
       var st = (p === human && watching ? 'f' : '') + (p.alive ? '' : 'd') + (human.target === p.id ? 's' : '') + (p.sludge > 0 ? 'g' : '') + (p.belt > 0 ? 'b' : '') + (aggro ? 'a' : '') + (p.amp > 0 ? 'm' : '') + (p.armor > 0 ? 'r' : '') + (p.adren > 0 ? 'n' : '') + (p.hot > 0 ? 'h' : '') + (p.pump > 0 ? 'p' : '') + (onKick ? 'k' : '');
       if (st !== h.state) {
         h.state = st;
@@ -653,7 +646,6 @@
         if (p.sludge > 0) h.chips.appendChild(el('span', 'chip sludge', 'SLUDGE'));
         if (p.belt > 0) h.chips.appendChild(el('span', 'chip belt', 'BELT'));
         if (p.armor > 0) h.chips.appendChild(el('span', 'chip belt', 'ARMOR'));
-        if (p.adren > 0) h.chips.appendChild(el('span', 'chip amp', 'ADREN'));
         if (p.hot > 0) h.chips.appendChild(el('span', 'chip sludge', 'REGEN'));
         if (p.pump > 0) h.chips.appendChild(el('span', 'chip aggro', 'PUMP'));
       }
@@ -716,15 +708,13 @@
       if (cd > g) frac = cd / h.a.cd; else if (g > 0) frac = g / Sim.GCD;
       h.cool.style.height = (frac * 100).toFixed(0) + '%';
       h.sec.textContent = cd > 1.5 ? Math.ceil(cd) : '';
-      var u = Sim.usable(S, human, i), label = '', duty = false, glow = '';
+      var u = Sim.usable(S, human, i), label = '', glow = '';
       if (h.a.role === 'ult') {
         var full = (human.ult || 0) >= 100;
         if (h.meter) h.meter.style.transform = 'scaleX(' + Math.min(1, (human.ult || 0) / 100).toFixed(2) + ')';
-        duty = full && !!S.hero && S.hero.role === human.role;
-        label = duty ? 'HERO MOMENT' : full ? 'READY' : Math.floor(human.ult || 0) + '%';
-        glow = duty ? 'hero' : full ? 'ultready' : '';
+        label = full ? 'READY' : Math.floor(human.ult || 0) + '%';
+        glow = full ? 'ultready' : '';
       }
-      else if (h.a.role === 'proc' && human.procT > 0) { label = 'PROC ' + Math.ceil(human.procT) + 's'; glow = 'proc'; }
       else if (h.a.role === 'spend' && u.state !== 'range') label = Sim.resOf(human).spend === 'all' ? Math.floor(human.pips || 0) + ' ' + Sim.resOf(human).name.toUpperCase() : 'COSTS ' + Sim.resOf(human).spend;
       else if (h.a.id === 'combo') { label = human.barrierUp ? 'BARRIER UP' : human.riposte > 0 ? 'RIPOSTE' : ['SWING', 'SWING', 'SLAM'][human.comboStep || 0]; if (((human.comboStep || 0) === 2 || human.riposte > 0) && !human.barrierUp) glow = 'proc'; }
       else if (h.a.id === 'shove' && u.state !== 'locked') { label = '+' + Math.floor((human.pips || 0) / 10) + 's BULWARK'; if ((human.pips || 0) >= 99 || !(human.bulwark > 0)) glow = 'proc'; }
@@ -738,8 +728,6 @@
       else if (h.a.id === 'lburst' && u.state === 'ok') { var untagged = Sim.players(S, true).filter(function (q) { return !(q.tag > 0); }).length; label = untagged ? 'TAGS ' + untagged : 'COSTS 35'; }
       else if (h.a.id === 'ocore' && u.state !== 'cd') { label = (human.shockCh || 0) + ' CHARGES'; if ((human.shockCh || 0) >= 4) glow = 'proc'; }
       else if (h.a.id === 'sbeam') { label = 'COSTS ' + (3 + 3 * (human.shockCh || 0)); }
-      else if (h.a.id === 'screen' && human.screen > 0) label = 'UP ' + Math.ceil(human.screen) + 's';
-      else if ((h.a.id === 'spin' || h.a.id === 'sweep') && human.jam > 0) label = 'JAMMED';
       else if (h.a.cost && u.state !== 'range') label = 'COSTS ' + h.a.cost;
       else if (u.state === 'range') label = 'OUT OF RANGE';
       else if (u.behind) label = 'BEHIND +50%';
@@ -883,7 +871,6 @@
           else if (ev.fx === 'opportunist') { ringFx(x, z, 0.5, 4, 0xff4a36, 0.5); if (ev.src === human.id && !watching) { announce('OPPORTUNIST', 'good', true); Snd.play('challenge'); } }
           else if (ev.fx === 'lifeline') { ringFx(x, z, 0.5, 4, 0x4fd88f, 0.6); if (ev.src === human.id && !watching) announce('LIFELINE', 'good', true); }
           else if (ev.fx === 'combo') { ringFx(x, z, 1, 6, 0xd9b8ff, 0.4); Snd.play('combo'); }
-          else if (ev.fx === 'wall' || ev.fx === 'hospital') { ringFx(x, z, 0.5, ev.fx === 'wall' ? 14 : 40, ev.fx === 'wall' ? 0xffb000 : 0x4fd88f, 0.9); Snd.play('ult'); }
           else if (ev.fx === 'oshield') { ringFx(x, z, 6, 3, 0x7fd0ff, 0.6); Snd.play('alarm'); }
           else if (ev.fx === 'shieldbreak') { ringFx(x, z, 3, 12, 0x7fd0ff, 0.7); ringFx(x, z, 2, 8, 0xffffff, 0.4); Snd.play('boom'); }
           else if (ev.fx === 'smash') {
@@ -945,9 +932,7 @@
           if (v) ringFx(v.g.position.x, v.g.position.z, 0.3, 3, ROLE_COLOR[ev.role] || 0xffffff, 0.35);
           if (ev.id === human.id && !watching) { Snd.play('proc'); logLine(ev.name + ' is ready. Press 3.'); }
           break;
-        case 'hero': if (ev.role === human.role) Snd.play('hero'); break;
         case 'collapse': Snd.play('boom'); hitFlash(); break;
-        case 'missiledown': Snd.play('boom'); ringFx(ev.x, ev.z, 0.5, 6, 0xffd36b, 0.6); ringFx(ev.x, ev.z, 0.2, 3, 0xffffff, 0.4); break;
         case 'revive':
           v = views[ev.id]; if (v) { ringFx(v.g.position.x, v.g.position.z, 4, 0.3, ROLE_COLOR.healer, 0.8); ringFx(v.g.position.x, v.g.position.z, 0.3, 6, 0xffffff, 0.4); }
           Snd.play('combo'); break;
@@ -984,10 +969,10 @@
       animate(v, e, dt);
       v.ring.visible = human.target === e.id && e.alive;
       if (v.ring.visible) v.ring.material.color.setHex(e.kind === 'player' ? 0x4fd88f : 0xff4a36);
-      v.aura.visible = e.alive && (e.kind === 'player' ? (e.belt > 0 || e.sludge > 0 || e.dome > 0 || e.rad > 0 || e.bulwark > 0) : e.charged > 0);
+      v.aura.visible = e.alive && (e.kind === 'player' ? (e.belt > 0 || e.sludge > 0 || e.ironhide > 0 || e.bulwark > 0) : e.charged > 0);
       if (v.aura.visible && e.kind === 'enemy') { var ar = (e.radius || 1) * 0.9 + 0.4; v.aura.scale.set(ar, ar * (e.type === 'boss' ? 1.5 : 1), ar); v.aura.position.y = e.type === 'boss' ? 3 : 1; v.aura.material.color.setHex(0xb98cff); v.aura.material.opacity = (e.type === 'boss' ? 0.07 : 0.16) + 0.06 * Math.sin(performance.now() / 70); }
-      else if (v.aura.visible && !(e.belt > 0 || e.sludge > 0 || e.dome > 0 || e.rad > 0)) { v.aura.material.color.setHex(0xffd36b); v.aura.material.opacity = 0.14; }   // Bulwark: a faint gold shell
-      else if (v.aura.visible) { v.aura.material.opacity = 0.25; v.aura.material.color.setHex(e.dome > 0 ? 0x4fd88f : e.rad > 0 ? 0xd4ff3a : e.belt > 0 ? 0xffb000 : 0xb46bff); }   // sludge: purple, the cleanse colour
+      else if (v.aura.visible && !(e.belt > 0 || e.sludge > 0 || e.ironhide > 0)) { v.aura.material.color.setHex(0xffd36b); v.aura.material.opacity = 0.14; }   // Bulwark: a faint gold shell
+      else if (v.aura.visible) { v.aura.material.opacity = 0.25; v.aura.material.color.setHex(e.ironhide > 0 ? 0x9aa7b4 : e.belt > 0 ? 0xffb000 : 0xb46bff); }   // sludge: purple, the cleanse colour
       if (e.type === 'boss') v.holder.rotation.z = e.stagger > 0 ? 0.22 * Math.sin(S.t * 9) : 0;
       if (v.ports) v.ports.forEach(function (pt0, i) {
         var la = Math.PI + (e.portRot || 0) + i * Math.PI * 2 / 3, rr = (e.radius || 3) * 0.66, open = Sim.portOpen(S, e, i);
@@ -1154,14 +1139,13 @@
   function setMute(m) { $('#mute').textContent = m ? 'Sound off' : 'Sound on'; $('#mute').setAttribute('aria-pressed', m ? 'false' : 'true'); }
 
   function wpnId0() { return human && human.kit ? human.kit.weapons[human.weapon].id : ''; }
-  /* Things that aren't entities: the overcharge bubble, Riot Walls and their shelter, the Heavy Rocket. */
-  var special = { walls: {} };
+  /* Things that aren't entities: the overcharge bubble, barriers, domes, fields, cores, rings and the rest. */
+  var special = {};
   function syncSpecials() {
     var boss = Sim.ent(S, S.bossId), bv = boss && views[boss.id];
     if (!special.bubble) {
       special.bubble = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0x7fd0ff, transparent: true, opacity: 0.22, depthWrite: false }));
-      special.rocket = new THREE.Mesh(new THREE.SphereGeometry(0.6, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffd36b }));
-      fxRoot.add(special.bubble); fxRoot.add(special.rocket);
+      fxRoot.add(special.bubble);
     }
     special.bubble.visible = !!(boss && boss.alive && boss.oshield && bv);
     if (special.bubble.visible) {
@@ -1169,27 +1153,6 @@
       special.bubble.position.set(bv.g.position.x, 2.5, bv.g.position.z);
       special.bubble.material.opacity = 0.12 + 0.18 * (boss.oshield.hp / boss.oshield.max);
     }
-    special.rocket.visible = !!S.missile;
-    if (S.missile) special.rocket.position.set(S.missile.x, 3 + Math.sin(S.t * 10) * 0.2, S.missile.z);
-    var seenW = {};
-    Sim.players(S).forEach(function (p) {
-      if (!(p.wall > 0) || !p.alive || !boss || !boss.alive) return;
-      seenW[p.id] = 1;
-      var w = special.walls[p.id];
-      if (!w) {
-        w = new THREE.Group();
-        var pane = new THREE.Mesh(new THREE.PlaneGeometry(7, 4), new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }));
-        pane.position.set(0, 2, 2.2); w.add(pane);
-        // The shelter: a wedge on the floor behind the tank, away from the Foreman.
-        var shade = new THREE.Mesh(new THREE.CircleGeometry(14, 32, Math.PI / 4, Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x4fd88f, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }));
-        shade.rotation.x = -Math.PI / 2; shade.position.y = 0.07; w.add(shade);
-        fxRoot.add(w); special.walls[p.id] = w;
-      }
-      var pv2 = views[p.id] ? views[p.id].g.position : p;
-      w.position.set(pv2.x, 0, pv2.z);
-      w.rotation.y = Math.atan2(boss.x - pv2.x, boss.z - pv2.z);
-    });
-    for (var wid in special.walls) if (!seenW[wid]) { fxRoot.remove(special.walls[wid]); delete special.walls[wid]; }
     // Impact Hammer barriers, and your own aim arc so you can see what a smash will hit.
     special.barriers = special.barriers || {};
     var seenB = {};
@@ -1981,7 +1944,7 @@
   }, 50);
   /* Controller (any standard gamepad). Left stick moves, right stick turns the camera.
      RT and LT are weapon buttons 1 and 2 (held for aimed weapons), X = 3, RB = 4, B = 5, Y = ultimate,
-     A = jump, LB (aimed) or L3 = the movement ability, LB (tab-target) = next enemy. Keyboard Q and E turn the camera too, for aiming without the mouse. */
+     A = jump, LB or L3 = the movement ability. */
   var pad = { f: 0, r: 0, hold: [false, false], prev: [] };
   function pollPad(dt) {
     if (running && !watching && human && Sim.aimWeapon(human)) cam.yaw += ((keys.ArrowLeft ? 1 : 0) - (keys.ArrowRight ? 1 : 0)) * 2.2 * dt;

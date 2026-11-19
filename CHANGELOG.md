@@ -4,6 +4,18 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.32.0 (2026-11-19) One good weapon per role
+- **The tab-target weapons are cut.** Each role has one aimed weapon: Impact Hammer (Juggernaut), Link Gun (Medic),
+  Shock Rifle (Striker), Ripsaw (Wrecker). Gone: Flak Cannon, Minigun, Bio Rifle, Shield Gun, Rocket Launcher,
+  Sniper Rifle, Chainsaw, Ripper and Dual Enforcers, with their abilities, bots and tests. Saved builds move to the one
+  weapon.
+- **The scripted hero moments are gone too** (Demolition Blast, Haymaker, Meltdown, Heavy Rocket). They were already
+  switched off, and their answers were the old roles' ultimates (Riot Wall, Field Hospital, Deadeye), which no weapon
+  has any more. Ultimates stay free to use.
+- Code for talents that no longer exist (Live Fire, Defibrillator, Killing Spree, Decoy Beacon and the rest) is gone.
+- **Fix:** "next hit +30%" from Riot Charge and Dodge Jump now works with the aimed weapons (it never applied to them).
+- The help screen, controller notes and README describe the four weapons.
+
 ## 0.31.0 (2026-11-19) The Wrecker is playable, and an over-the-shoulder camera
 - **The Ripsaw**, the Wrecker's aimed weapon, played like a Rogue:
   - **LMB Rip**: the enemy in front of you, 40 and a Rev; from behind 50% more and two Revs. Revs show as orange

@@ -7,7 +7,7 @@ const { runFight, seeds, summarise, Sim } = require('../lib/simrun');
 const N = 10;
 for (const role of Object.keys(Sim.KITS)) {
   const items = [];
-  (Sim.playable(role) ? Sim.weaponsFor(role) : Sim.KITS[role].weapons).forEach((w) => items.push(['weapon', w.id, w.name]));
+  Sim.KITS[role].weapons.forEach((w) => items.push(['weapon', w.id, w.name]));
   Sim.SLOTS.forEach((slot) => Sim.talentList(slot, role).forEach((g) => items.push([slot, g.id, g.name])));
   for (const [slot, id, name] of items) {
     test(`${Sim.KITS[role].title} with ${name} can win`, () => {

@@ -53,7 +53,7 @@ for (const role of Object.keys(Sim.KITS)) {
   const def = Sim.BOT_GEAR[role];
   const ref = batch({ role, gear: def, offset: 11 });
   const items = [];
-  (Sim.playable(role) ? Sim.weaponsFor(role) : Sim.KITS[role].weapons).forEach((w) => items.push(['weapon', w.id, w.name]));
+  Sim.KITS[role].weapons.forEach((w) => items.push(['weapon', w.id, w.name]));
   Sim.SLOTS.forEach((slot) => Sim.talentList(slot, role).forEach((g) => items.push([slot, g.id, g.name])));
   for (const [slot, id, name] of items) {
     const isDefault = def[slot] === id;

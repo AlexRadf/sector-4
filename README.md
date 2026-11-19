@@ -1,6 +1,6 @@
 # Sector-4: Skyscraper Ascent
 
-A co-op raid prototype: Unreal Tournament as a tab-target MMO. One Node server serves the game and relays squad traffic. The fight itself runs in the host player's browser.
+A co-op raid prototype: Unreal Tournament weapons in an MMO raid, aimed like a hero shooter. One Node server serves the game and relays squad traffic. The fight itself runs in the host player's browser.
 
 ## Hosting it
 
