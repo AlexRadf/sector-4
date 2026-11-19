@@ -409,7 +409,7 @@ test('Counter-Slam during a Haymaker cancels it and staggers the Foreman', () =>
   p.ult = 100; p.x = boss.x; p.z = boss.z - 5;
   S.hero = { role: 'melee', t: 0 };
   boss.cast = { name: 'Haymaker', t: 1, dur: 5, done: () => {} };
-  press(S, 5, { target: boss.id });
+  press(S, Sim.abilitiesOf(p).findIndex((ab) => ab.id === 'slam'), { target: boss.id, aim: 0 });
   assert.strictEqual(boss.cast, null);
   assert.ok(boss.stagger > 0);
   assert.strictEqual(S.m.heroes.melee[1], 1);
