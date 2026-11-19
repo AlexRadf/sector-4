@@ -4,6 +4,25 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.30.0 (2026-11-19) Medic rotation, and aimed weapons only
+- **The Link Gun plays like a Discipline Priest:**
+  - **Nanite Tag**: healing an ally with a Link Bolt Tags them for 10s (three green motes circling their feet, blinking
+    as it runs out), with a small heal over time. The beam keeps whoever it's on Tagged.
+  - **Atonement**: every Link Bolt that hits an enemy heals everyone you've Tagged for 20% of the damage. Tag the squad,
+    then shoot the Foreman (or his shield) to heal them.
+  - **Nanite Burst** Tags everyone it heals and heals the already-Tagged 30% more: the fastest way to Tag the group.
+    Its button shows how many of the squad aren't Tagged.
+  - **Flux** (like Infusion of Light): a crit or every fifth bolt on an enemy lights it. Your next bolt on an ally heals
+    double and jumps to the next most hurt ally within 10m.
+  - The rotation: Tag the squad, shoot the Foreman for Atonement and Nanites, spend Flux on whoever needs it, beam the
+    tank through spikes, Burst to Tag (and save) the group.
+- **Players only get aimed weapons.** The tab-target weapons (Flak Cannon, Minigun, Bio Rifle, Shield Gun, Rocket
+  Launcher, Sniper Rifle) are switched off in the armory until they're converted; saved builds move to the aimed one.
+  **The Wrecker is bots-only for now**: none of its weapons is aimed yet. The code is kept, and bots and tests still use it.
+- The overcharge shield has 11,500 health (was 10,000): Atonement made the shield window much safer for the squad, so it
+  lasts a little longer. An all-bot squad wins about 90% in roughly 4:40.
+- Party frames show F1 to F4 only (Shift no longer targets).
+
 ## 0.29.0 (2026-11-19) Juggernaut rotation, and real models
 - **The Impact Hammer has a Protection Warrior rotation:**
   - **Bulwark** (active mitigation, like Shield of the Righteous): every Shove gives a second of Bulwark for every 10

@@ -196,12 +196,12 @@
         how: 'Nanite Reserve. Heals on key 2 cost 25 and it barely refills on its own. Shooting the Foreman with key 1 harvests 12 a shot.' },
       blurb: 'Keep four health bars up. Your builder shoots the Foreman, and every shot patches someone up.',
       weapons: [
-        TW('link', 'Link Gun', 'Aimed healing. Your shot snaps to whatever is nearest your crosshair: it heals a hurt ally or hits an enemy, and hitting enemies refills the Nanites your beam and burst spend. Where you stand decides who you can reach.',
+        TW('link', 'Link Gun', 'Aimed healing, played like a Discipline Priest. Tag your squad with Link Bolts, the beam or a Nanite Burst, then shoot the Foreman: every bolt that hits him heals everyone you have Tagged (Atonement) and refills your Nanites. Where you stand decides who you can reach.',
           { id: 'nanites', name: 'Nanites', max: 100, start: 100, regen: 2.5, build: 0,
-            how: 'Nanites. Every Link Bolt that hits an enemy harvests 7. The Link Beam drains 5 a second, Nanite Burst costs 35 and a Nano Field 25. They barely refill on their own: shoot to heal.' },
-          [{ id: 'lbolt', key: 'LMB', name: 'Link Bolt', kind: 'aim', range: 35, hold: 'repeat', desc: 'Fires at whatever is nearest your crosshair, no precision needed. A hurt ally is healed for 70; an enemy takes 50 and gives you 7 Nanites. Allies at full health are skipped.' },
-           { id: 'lbeam', key: 'RMB', name: 'Link Beam', kind: 'aim', range: 25, hold: 'channel', gcd: false, desc: 'Hold to latch onto the ally nearest your crosshair. The beam stays attached and heals 185 a second for 5 Nanites a second. It snaps if they get more than 25m away. No bolts while it\'s on.' },
-           { id: 'lburst', key: 'L+R', name: 'Nanite Burst', kind: 'aim', range: 10, needs: 35, gcd: false, desc: 'Press both mouse buttons (35 Nanites). Heals everyone within 10m of you, you included, for 260. Get into the group, then pop it.' }],
+            how: 'Nanites. Every Link Bolt that hits an enemy harvests 7. The Link Beam drains 5 a second, Nanite Burst costs 35 and a Nano Field 25. They barely refill on their own: shoot to heal, and with the squad Tagged, shooting is healing.' },
+          [{ id: 'lbolt', key: 'LMB', name: 'Link Bolt', kind: 'aim', range: 35, hold: 'repeat', desc: 'Fires at whatever is nearest your crosshair, no precision needed. A hurt ally is healed for 70 and Tagged for 10s (green motes: a small heal over time). An enemy takes 50, gives you 7 Nanites, and heals every ally you have Tagged for a quarter of the damage (Atonement). A crit or every fifth bolt on an enemy lights Flux: your next bolt on an ally heals double and jumps to a second hurt ally. Allies at full health are skipped.' },
+           { id: 'lbeam', key: 'RMB', name: 'Link Beam', kind: 'aim', range: 25, hold: 'channel', gcd: false, desc: 'Hold to latch onto the ally nearest your crosshair. The beam stays attached, heals 185 a second for 5 Nanites a second and keeps them Tagged. It snaps if they get more than 25m away. No bolts while it\'s on.' },
+           { id: 'lburst', key: 'L+R', name: 'Nanite Burst', kind: 'aim', range: 10, needs: 35, gcd: false, desc: 'Press both mouse buttons (35 Nanites). Heals everyone within 10m of you, you included, for 260 (30% more on anyone already Tagged) and Tags them all. Get into the group, then pop it: the fastest way to Tag the squad.' }],
           { aim: true,
             utils: [A({ id: 'field', key: 'Q', name: 'Nano Field', kind: 'aim', range: 25, cd: 10, cost: 25, lob: true, lobR: 6, desc: '25 Nanites. Hold to aim a healing grenade (look further up or down the room to throw it further or nearer), let go to throw. It lands as a 6m field, settling on any ally within 3m of where it lands. Anyone standing in it heals 70 a second for 6s.' }),
                     A({ id: 'purge', key: 'E', name: 'Purge', kind: 'friend', range: 30, cd: 6, gcd: false, desc: 'Cleanses Bio Sludge and heals for 60. Smart: it takes a sludged ally roughly in front of you first, then you if you have it, then whoever you point at.' }),
@@ -405,10 +405,15 @@
     dps: { weapon: 'shock', boots: 'dodge', rig: 'spotter', implant: 'magnet', util: 'empburst' },
     melee: { weapon: 'chainsaw', boots: 'escort', rig: 'pump', implant: 'flanker', util: 'breaker' }
   };
-  function validGear(role, g) {
+  /* Players only get aimed weapons: the tab-target ones are switched off until they're converted (the code stays for
+     bots and tests). A role with no aimed weapon yet (the Wrecker) is bots-only. */
+  function weaponsFor(role) { var all = KITS[role].weapons, aimed = all.filter(function (w) { return w.aim; }); return aimed; }
+  function playable(role) { return weaponsFor(role).length > 0; }
+  function validGear(role, g, anyWeapon) {
     var out = {}, has = function (list, id) { return list.some(function (x) { return x.id === id; }); };
     g = g || {};
-    out.weapon = has(KITS[role].weapons, g.weapon) ? g.weapon : KITS[role].weapons[0].id;
+    var offer = anyWeapon || !playable(role) ? KITS[role].weapons : weaponsFor(role);
+    out.weapon = has(offer, g.weapon) ? g.weapon : offer[0].id;
     SLOTS.forEach(function (slot) { var list = talentList(slot, role); out[slot] = has(list, g[slot]) ? g[slot] : list[0].id; });
     return out;
   }
@@ -427,7 +432,7 @@
     barrageEvery: 12, barrageDelay: 2.6, barrageR: 6, barrageDmg: 660,
     // Overcharge shield: break it inside the window or the whole room takes the pulse. Breaking it staggers him.
     // Overcharge: energy fills over overEvery seconds, then he walks to the middle, channels a shield and pulses the room.
-    overEvery: 34, overShield: 10000, overWindow: 14, overDmg: 600, staggerDur: 7, staggerBonus: 1.3,
+    overEvery: 34, overShield: 11500, overWindow: 14, overDmg: 600, staggerDur: 7, staggerBonus: 1.3,
     // The pulse ramps while the shield holds (one entry per pulse, the last repeats): the longer the DPS take, the harder the healer works.
     pulseEvery: 2.25, pulseRamp: [30, 90, 180, 270, 360, 450], centreSpeed: 10,
     // Ground Pound: a boss slams the floor and a shockwave rolls out to the walls. Jump it (Space). Anything lying
@@ -455,6 +460,8 @@
     portMult: 2, portHalf: 1.2, portSpin: 0.22, portOpen: 2.5, portGap: 2.5, portBurst: 3,
     // Impact Hammer rotation: Bulwark (active mitigation from Shove), Riposte (a barrier block lights it), Sunder (Piston Shot).
     bulwarkCut: 0.85, bulwarkMax: 12, riposteDur: 6, riposteMult: 1.5, sunderDur: 12, sunderMult: 1.08,
+    // Link Gun rotation: Nanite Tags (a HoT, and who Atonement reaches), Atonement (bolts on enemies heal the Tagged), Flux (proc).
+    tagDur: 10, tagHot: 8, atone: 0.2, burstTagMult: 1.3, fluxEvery: 5, fluxDur: 10,
     barrierHp: 1800, barrierRegen: 180, barrierRest: 1.5, barrierBreak: 5,
     busterEvery: 15, busterCast: 2.5, busterDmg: 1860,
     droneEvery: 32, droneHp: 1600, droneMelee: 90, droneSwing: 1.5,
@@ -599,7 +606,7 @@
         auto: !isHuman || !!opts.humanAuto,
         x: sl.x, z: sl.z, facing: 0, moving: false, speed: 7, inMx: 0, inMz: 0,
         hp: kit.hp, maxHp: kit.hp, alive: true, target: null,
-        weapon: 0, gear: validGear(sl.role, isHuman ? h.gear : BOT_GEAR[sl.role]), pump: 0, afterburn: 0, mark: null,
+        weapon: 0, gear: isHuman ? validGear(sl.role, h.gear, opts.allWeapons) : validGear(sl.role, BOT_GEAR[sl.role], true), pump: 0, afterburn: 0, mark: null,
         cast: null, gcd: 0, cds: {}, queued: null,
         belt: 0, adren: 0, amp: 0, armor: 0, hot: 0, sludge: 0, sludgeAcc: 0,
         pips: 0, procT: 0, ult: TUNE.ultStart,
@@ -708,6 +715,8 @@
     }
     return dealt;
   }
+  /* Nanite Tag: a small heal over time, and who your Atonement reaches. One Medic's Tag at a time per person. */
+  function tagAlly(S, p, q) { if (!q.alive) return; if (!(q.tag > 0)) emit(S, { type: 'fx', fx: 'tag', src: q.id }); q.tag = TUNE.tagDur; q.tagBy = p.id; }
   /* An EMP hit on an overcharge shield: 600 straight off it. */
   function empShield(S, by, e) {
     if (!e.oshield || !(e.oshield.hp > 0)) return;
@@ -855,7 +864,7 @@
     if (p.hp <= 0) {
       met(S, p.id).deaths++; S.m.killers[label] = (S.m.killers[label] || 0) + 1;
       p.lastDeath = { label: label, t: Math.round(S.t), log: (p.recent || []).slice() };
-      p.hp = 0; p.alive = false; p.cast = null; p.queued = null; p.sludge = 0; p.hot = 0; p.shockCh = 0; p.surge = 0;
+      p.hp = 0; p.alive = false; p.cast = null; p.queued = null; p.sludge = 0; p.hot = 0; p.shockCh = 0; p.surge = 0; p.tag = 0;
       emit(S, { type: 'death', id: p.id });
       emit(S, { type: 'log', id: p.id, text: p.name + ' is down.', you: "You're down." });
       // Medic Defibrillator: the first one down this raid gets shocked back up.
@@ -1332,11 +1341,22 @@
         p.gcd = TUNE.boltGcd;
         if (!lt) { emit(S, { type: 'fx', fx: 'boltmiss', src: p.id }); break; }
         emit(S, { type: 'beam', src: p.id, dst: lt.id, fx: 'link' });
-        if (lt.kind === 'player') heal(S, p, lt, 70, 'Link Bolt');
-        else {
-          damageEnemy(S, p, lt, 50 * (T(p, 'battlemedic') ? 1.6 : 1), 1, 'Link Bolt');
+        if (lt.kind === 'player') {
+          var fx2 = p.flux > 0; p.flux = 0;
+          heal(S, p, lt, 70 * (fx2 ? 2 : 1), fx2 ? 'Flux!' : 'Link Bolt'); tagAlly(S, p, lt);
+          if (fx2) {
+            // Flux: the bolt jumps on to the next most hurt ally within 10m.
+            var jump = players(S, true).filter(function (q) { return q !== lt && q !== p && q.hp < q.maxHp && dist(q, lt) <= 10; }).sort(function (a, c) { return a.hp / a.maxHp - c.hp / c.maxHp; })[0];
+            if (jump) { emit(S, { type: 'beam', src: lt.id, dst: jump.id, fx: 'link' }); heal(S, p, jump, 70, 'Flux!'); tagAlly(S, p, jump); }
+          }
+        } else {
+          var dealtL = damageEnemy(S, p, lt, 50 * (T(p, 'battlemedic') ? 1.6 : 1), 1, 'Link Bolt') || 0;
           p.pips = Math.min(resOf(p).max, (p.pips || 0) + 7);
           if (p.critThis || S.rng() < 0.08) procUp(S, p);
+          // Atonement: everyone you've Tagged is healed for a share of the hit.
+          players(S, true).forEach(function (q) { if (q.tag > 0 && q.tagBy === p.id) heal(S, p, q, dealtL * TUNE.atone, 'Atonement'); });
+          p.fluxN = (p.fluxN || 0) + 1;
+          if ((p.critThis || p.fluxN >= TUNE.fluxEvery) && !(p.flux > 0)) { p.fluxN = 0; p.flux = TUNE.fluxDur; proc(S, p, 'flux', 'FLUX'); }
         }
         break;
       case 'lbeam':
@@ -1348,7 +1368,7 @@
         players(S, true).forEach(function (q) {
           if (dist(q, p) > ab.range) return;
           if (T(p, 'recycler') && q.hp < q.maxHp) p.pips = Math.min(resOf(p).max, p.pips + 8);
-          heal(S, p, q, 260, 'Nanite Burst');
+          heal(S, p, q, 260 * (q.tag > 0 ? TUNE.burstTagMult : 1), 'Nanite Burst'); tagAlly(S, p, q);
           if (T(p, 'burstshield')) shieldUp(q, p, 200, 400);
         });
         if (T(p, 'shockburst')) enemies(S).forEach(function (e) {
@@ -1662,7 +1682,7 @@
         p.pips = Math.max(0, (p.pips || 0) - (longL ? 3 : 5) * dt);
         p.beamAcc = (p.beamAcc || 0) + 185 * dt;
         if (p.beamAcc >= 40) {
-          heal(S, p, bt, p.beamAcc, 'Link Beam');
+          heal(S, p, bt, p.beamAcc, 'Link Beam'); tagAlly(S, p, bt);
           if (T(p, 'chainlink')) {
             // Chain Link: on to the most hurt ally near them, at half strength.
             var nx = players(S, true).filter(function (q) { return q !== bt && q.hp < q.maxHp && dist(q, bt) <= 12; })
@@ -1843,7 +1863,14 @@
       p.barrierRestT = (p.barrierRestT || 0) + dt;
       if (!(p.barrierBroken > 0) && p.barrierRestT >= TUNE.barrierRest) p.barrier = Math.min(barrierMax(p), p.barrier + TUNE.barrierRegen * (T(p, 'hardened') ? 2 : 1) * dt);
     }   // "recent" fades over a few seconds
-    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm', 'skates', 'air', 'kshieldT', 'slideT', 'surge', 'overclock', 'bulwark', 'riposte'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
+    ['belt', 'adren', 'amp', 'pump', 'afterburn', 'momentum', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'procT', 'wall', 'dome', 'screen', 'jam', 'barrierHoldT', 'barrierBroken', 'beamHoldT', 'cloak', 'storm', 'skates', 'air', 'kshieldT', 'slideT', 'surge', 'overclock', 'bulwark', 'riposte', 'flux'].forEach(function (f) { if (p[f] > 0) p[f] = Math.max(0, p[f] - dt); });
+    if (p.tag > 0) {
+      // Nanite Tag heal over time, a beat at a time.
+      var tsrc = ent(S, p.tagBy), tstep = Math.min(dt, p.tag); p.tag -= dt;
+      p.tagAcc = (p.tagAcc || 0) + TUNE.tagHot * tstep;
+      if (p.tagAcc >= 15 || p.tag <= 0) { if (tsrc && tsrc.alive) heal(S, tsrc, p, p.tagAcc, 'Nanite Tag'); p.tagAcc = 0; }
+      if (p.tag <= 0 || !tsrc || !tsrc.alive) p.tag = 0;
+    }
     if (p.hot > 0) {
       var src = ent(S, p.hotSrc), step = Math.min(dt, p.hot);
       p.hot -= dt;
@@ -2631,6 +2658,11 @@
       else if (hurt >= 1 && lowO && ready('field') && nan >= 40 && dist(p, lowO) <= 25 && lowO.hp < lowO.maxHp * 0.75) { m.aim = lowO.id; inp.ad = dist(p, lowO); inp.ability = idx('field'); }
       else if (lowO && lowO.hp < lowO.maxHp * (p.beamTo ? 0.97 : 0.8) && nan > (p.beamTo ? 3 : 15) && dist(p, lowO) <= 24) { m.aim = (p.beamTo && ent(S, p.beamTo)) ? p.beamTo : lowO.id; m.hold = [false, true]; }
       else if (lowO && lowO.hp < lowO.maxHp * 0.9 && dist(p, lowO) <= 33) { m.aim = lowO.id; m.hold = [true, false]; }
+      else if (others.some(function (a) { return !(a.tag > 1.5) && a.hp < a.maxHp - 1 && dist(p, a) <= 33; })) {
+        // Keep the squad Tagged so shooting the Foreman heals them (Atonement).
+        var untag = others.filter(function (a) { return !(a.tag > 1.5) && a.hp < a.maxHp - 1 && dist(p, a) <= 33; })[0];
+        m.aim = untag.id; m.hold = [true, false];
+      }
       else if (boss.alive) { m.aim = boss.id; m.hold = [true, false]; }
     }
     var at = m.aim != null ? ent(S, m.aim) : null;
@@ -2782,7 +2814,7 @@
         if (e.dash) o.ds = 1;
         if (e.lastDeath) o.ld = [e.lastDeath.label, e.lastDeath.t, e.lastDeath.log || []];
         if (e.cast) o.k = [e.cast.ab.id, r2(e.cast.t), r2(e.cast.dur), e.cast.targetId];
-        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'shockCh', 'surge', 'overclock', 'bulwark', 'riposte', 'adren'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
+        ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'shockCh', 'surge', 'overclock', 'bulwark', 'riposte', 'tag', 'flux', 'fluxN', 'adren'].forEach(function (f) { if (e[f] > 0) o[f] = r1(e[f]); });
         snap.p.push(o);
       } else {
         var q = { i: e.id, ty: e.type, n: e.name, x: r2(e.x), z: r2(e.z), f: r2(e.facing), h: Math.round(e.hp), mh: e.maxHp, a: e.alive ? 1 : 0, tg: e.target, ra: e.radius };
@@ -2830,7 +2862,7 @@
       p.x = o.x; p.z = o.z; p.facing = o.f; p.hp = o.h; p.alive = !!o.a; p.target = o.tg; p.gcd = o.g; p.cds = o.c || {};
       p.moving = !!o.mv; p.auto = !!o.au || !p.human; p.defibUsed = !!o.du;
       p.lastDeath = o.ld ? { label: o.ld[0], t: o.ld[1], log: o.ld[2] || [] } : null;
-      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'shockCh', 'surge', 'overclock', 'bulwark', 'riposte', 'adren'].forEach(function (f) { p[f] = o[f] || 0; });
+      ['belt', 'adren', 'pump', 'afterburn', 'armor', 'hot', 'sludge', 'spinStacks', 'momentum', 'still', 'rage', 'opp', 'counter', 'rallied', 'stimmed', 'warcry', 'spree', 'rampage', 'pips', 'procT', 'ult', 'wall', 'dome', 'rad', 'lock', 'taps', 'returns', 'screen', 'jam', 'recoil', 'barrier', 'barrierUp', 'barrierBroken', 'comboStep', 'charges', 'chargeT', 'beamTo', 'cloak', 'storm', 'siphonTo', 'chainTo', 'skates', 'air', 'olN', 'slideT', 'shockCh', 'surge', 'overclock', 'bulwark', 'riposte', 'tag', 'flux', 'fluxN', 'adren'].forEach(function (f) { p[f] = o[f] || 0; });
       if (o.k) {
         var ab = abilitiesOf(p).filter(function (a) { return a.id === o.k[0]; })[0];
         p.cast = ab ? { ab: ab, t: o.k[1], dur: o.k[2], targetId: o.k[3] } : null;
@@ -2941,6 +2973,8 @@
     }
     if (wid === 'link') {
       out.push([p.beamTo ? 'Beam linked: LMB = Burst' : 'Beam free', !!p.beamTo]);
+      if (p.flux > 0) out.push(['FLUX: next heal x2 and jumps', true]);
+      else out.push(['Flux in ' + (5 - (p.fluxN || 0)) + ' hits', false]);
       if (p.cloak > 0) out.push(['Cloak -40% ' + Math.ceil(p.cloak) + 's', true]);
       if (p.storm > 0) out.push(['Link Storm ' + Math.ceil(p.storm) + 's', true]);
     }
@@ -2963,13 +2997,13 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.29.0';
+  var VERSION = '0.30.0';
 
   var api = {
     VERSION: VERSION,
     summary: summary,
     snapshot: snapshot, applySnapshot: applySnapshot, predictMove: predictMove,
-    create: create, step: step, usable: usable, GEAR: GEAR, TALENTS: TALENTS, SLOTS: SLOTS, talentList: talentList, talentChips: talentChips, STYLES: STYLES, braced: braced, hasTalent: T, BOT_GEAR: BOT_GEAR, validGear: validGear, gearName: gearName, abilitiesOf: abilitiesOf, behind: behind, inTele: inTele,
+    create: create, step: step, usable: usable, GEAR: GEAR, TALENTS: TALENTS, SLOTS: SLOTS, talentList: talentList, talentChips: talentChips, STYLES: STYLES, braced: braced, hasTalent: T, BOT_GEAR: BOT_GEAR, validGear: validGear, weaponsFor: weaponsFor, playable: playable, gearName: gearName, abilitiesOf: abilitiesOf, behind: behind, inTele: inTele,
     damageEnemy: damageEnemy, damagePlayer: damagePlayer, resOf: resOf, aimWeapon: aimWeapon, barrierMax: barrierMax, inCone: inCone, barrierFor: barrierFor, softTarget: softTarget, coreInAim: coreInAim, portAngle: portAngle, portOpen: portOpen, portHit: portHit, BOLT_AIM: BOLT_AIM, SHOCK_AIM: SHOCK_AIM, fieldSpot: fieldSpot, lobSpot: lobSpot,
     ent: ent, players: players, enemies: enemies, KITS: KITS, TUNE: TUNE, PIP_MAX: PIP_MAX, PROC_WINDOW: PROC_WINDOW,
     ARENA_R: ARENA_R, GCD: GCD, dist: dist

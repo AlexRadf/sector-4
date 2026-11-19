@@ -67,7 +67,7 @@ test('each class has its own four tiers of three talents', () => {
 });
 
 function solo(role, gear) {
-  const S = Sim.create({ humanRole: role, gear, humanAuto: false, seed: 3 });
+  const S = Sim.create({ humanRole: role, gear, humanAuto: false, seed: 3, allWeapons: true });   // tests still cover the switched-off weapons
   S.countdown = 0;
   return { S, p: Sim.ent(S, S.humanId), boss: Sim.ent(S, S.bossId) };
 }
@@ -126,7 +126,7 @@ test('fight records keep movement measures and stats compare people with bots', 
 
 /* v0.10: rotations, the overcharge shield, ultimates and hero moments. */
 function arena(role, gear) {
-  const S = Sim.create({ humanRole: role, gear, humanAuto: false, seed: 4 }); S.countdown = 0;
+  const S = Sim.create({ humanRole: role, gear, humanAuto: false, seed: 4, allWeapons: true }); S.countdown = 0;
   return { S, p: Sim.ent(S, S.humanId), boss: Sim.ent(S, S.bossId) };
 }
 const press = (S, i, extra) => Sim.step(S, 1 / 30, Object.assign({ ability: i }, extra || {}));
@@ -960,4 +960,43 @@ test('Juggernaut rotation: Shove builds Bulwark, a barrier block lights Riposte,
   Sim.step(sd.S, 1 / 30, { aim: Math.atan2(sd.boss.x - sd.p.x, sd.boss.z - sd.p.z), ability: Sim.abilitiesOf(sd.p).findIndex((ab) => ab.id === 'piston') });
   assert.ok(sd.boss.sundered > 11, 'Sundered');
   assert.ok(hit() >= Math.round(before * Sim.TUNE.sunderMult) - 1, 'the squad hits a Sundered target harder');
+});
+
+test('players only get aimed weapons; the Wrecker is bots-only until it has one', () => {
+  for (const role of Object.keys(Sim.KITS)) {
+    if (!Sim.playable(role)) continue;
+    for (const w of Sim.KITS[role].weapons) {
+      const g = Sim.validGear(role, { weapon: w.id });
+      assert.ok(Sim.KITS[role].weapons.find((x) => x.id === g.weapon).aim, role + ': ' + w.id + ' fell back to an aimed weapon');
+    }
+  }
+  assert.strictEqual(Sim.validGear('tank', { weapon: 'flak' }).weapon, 'hammer');
+  assert.ok(!Sim.playable('melee'));
+  const S = Sim.create({ humanRole: 'dps', gear: { weapon: 'rockets' }, seed: 1 });
+  assert.strictEqual(Sim.ent(S, S.humanId).gear.weapon, 'shock');
+});
+
+test('Medic rotation: bolts Tag allies, bolts on the Foreman heal the Tagged (Atonement), Flux doubles and jumps, Burst Tags the group', () => {
+  const a = medic(); a.S.rng = () => 0.5;
+  a.tank.x = 0; a.tank.z = 12; a.tank.hp = 900; a.dps.x = 3; a.dps.z = 14; a.dps.hp = 500; a.boss.speed = 0; a.boss.z = 30;
+  Sim.step(a.S, 1 / 30, { aim: toward(a.p, a.tank), hold: [true, false] });
+  assert.ok(a.tank.tag > 9 && a.tank.tagBy === a.p.id, 'Tagged');
+  a.dps.x = 30; a.dps.z = -20; a.tank.x = 12; a.tank.z = 6;   // both out of the line to the Foreman
+  a.p.gcd = 0; a.S.events.length = 0;
+  Sim.step(a.S, 1 / 30, { aim: toward(a.p, a.boss) + 0.3, hold: [false, false] });
+  Sim.step(a.S, 1 / 30, { aim: toward(a.p, a.boss), hold: [true, false] });
+  const at = a.S.events.find((e) => e.type === 'heal' && e.label === 'Atonement');
+  assert.ok(at && at.dst === a.tank.id && !a.S.events.some((e) => e.label === 'Atonement' && e.dst === a.dps.id), 'only the Tagged are healed by a hit on the Foreman');
+  // Flux after five hits on an enemy.
+  for (let i = 0; i < 4; i++) { a.p.gcd = 0; Sim.step(a.S, 1 / 30, { aim: toward(a.p, a.boss), hold: [false, false] }); Sim.step(a.S, 1 / 30, { aim: toward(a.p, a.boss), hold: [true, false] }); }
+  assert.ok(a.p.flux > 0, 'Flux lit');
+  a.tank.x = 0; a.tank.z = 12; a.tank.hp = 600; a.dps.x = 2; a.dps.z = 13; a.dps.hp = 400; a.p.gcd = 0; a.S.events.length = 0;
+  Sim.step(a.S, 1 / 30, { aim: toward(a.p, a.tank), hold: [false, false] });
+  Sim.step(a.S, 1 / 30, { aim: toward(a.p, a.tank), hold: [true, false] });
+  const fl = a.S.events.filter((e) => e.type === 'heal' && e.label === 'Flux!');
+  assert.ok(fl.length === 2 && fl[0].amt >= 130 && !(a.p.flux > 0), 'double, and it jumps: ' + fl.map((e) => e.amt).join(','));
+  // Burst Tags everyone near you.
+  const b = medic(); b.p.pips = 100; b.tank.x = 3; b.tank.z = 3; b.dps.x = -3; b.dps.z = 2;
+  Sim.step(b.S, 1 / 30, { aim: 0, hold: [true, true] });
+  assert.ok(b.tank.tag > 9 && b.dps.tag > 9 && b.p.tag > 9);
 });

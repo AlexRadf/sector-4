@@ -36,4 +36,5 @@ client, a Node relay server, deployed on Render.
 - Movement: `inp.jump` is the movement ability (Shift; the name is historical) and `inp.hop` is a plain jump (Space).
   Only moving floor attacks (the Ground Pound shockwave) can be jumped.
 - Thrown things (`lob: true` on the ability) are held to aim with a preview arc; distance comes from camera pitch (`inp.ad`).
-- Converted so far: Impact Hammer (tank), Link Gun (medic), Shock Rifle (striker). Everything else is still tab-target.
+- Converted so far: Impact Hammer (tank), Link Gun (medic), Shock Rifle (striker). Everything else is still tab-target and
+  switched off for players (`Sim.weaponsFor`, `Sim.playable`); the Wrecker is bots-only. Tests and sims pass `allWeapons`.

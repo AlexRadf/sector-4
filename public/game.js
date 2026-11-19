@@ -402,7 +402,7 @@
     logLine(watching ? 'Shift started. You are watching from the gantry.' : 'Shift started. ' + human.kit.title + ' on the floor.');
     if (!watching && Sim.aimWeapon(human) && human.kit.weapons[human.weapon].id === 'shock') logLine('Click the arena to aim with the mouse. Left click beams: each hit adds a Shock Charge (the sparks round you), and charges make beams stronger and costlier. Right click fires a Shock Core: let it hit to Charge the target, or click your beam on it to pop a Shock Combo. Both buttons spend your charges on an Overcharged Core and refill the Capacitor. E Overclocks. Lit ports take double; two in a row Surge your next core. Esc releases it.');
     else if (!watching && Sim.aimWeapon(human)) logLine(human.kit.weapons[human.weapon].id === 'link'
-      ? 'Click the arena to aim with the mouse. Left click fires at whatever is nearest your crosshair (green ring: heal, red: damage), right click holds the beam on an ally, both together Nanite Burst. Esc releases it.'
+      ? 'Click the arena to aim with the mouse. Left click fires at whatever is nearest your crosshair (green ring: heal, red: damage). Healing an ally Tags them (green motes); bolts on the Foreman then heal everyone Tagged. Right click holds the beam on an ally, both together Nanite Burst (Tags everyone near you). Every fifth hit on an enemy lights Flux: your next heal is double and jumps. Esc releases it.'
       : 'Click the arena to aim with the mouse: left click swings, right click holds the barrier, both together Shove. Shove builds Bulwark (15% less damage); block a Foreman hit for a Riposte; E Piston Shot keeps him Sundered for the squad. Esc releases it.');
     if (Net.mode !== 'solo') logLine(Sim.players(S).filter(function (p) { return p.human; }).map(function (p) { return p.name; }).join(', ') + ' on the squad. Bots fill the rest.');
   }
@@ -433,7 +433,7 @@
     $('#armoryGo').textContent = armoryCtx === 'lobby' ? 'Back to squad' : 'Clock in as ' + k.title;
     $('#armoryBack').style.display = armoryCtx === 'lobby' ? 'none' : '';
     host.innerHTML = '';
-    var weaponItems = k.weapons.map(function (w) {
+    var weaponItems = Sim.weaponsFor(r).map(function (w) {
       var wr = w.res || k.res;
       var tag = function (a) {
         if (a.role === 'skill' || !a.role) return a.cost ? a.cost + ' ' + wr.name : a.needs ? 'needs ' + a.needs + ' ' + wr.name : a.cd ? a.cd + 's cooldown' : 'skill';
@@ -445,7 +445,7 @@
     var showRes = function () {
       var wi = Math.max(0, k.weapons.map(function (w) { return w.id; }).indexOf(gearFor[r].weapon));
       $('#armoryRes').textContent = (k.weapons[wi].res || k.res).how;
-      $('#armoryWeapons').textContent = 'Always carried: ' + (k.weapons[wi].utils || k.utils).map(function (u) { return u.name; }).join(', ') + '. Ultimate: ' + (k.weapons[wi].ult || k.ult).name + (r === 'tank' ? '. Space: Riot Charge' : '');
+      $('#armoryWeapons').textContent = 'Always carried: ' + (k.weapons[wi].utils || k.utils).map(function (u) { return u.name; }).join(', ') + '. Ultimate: ' + (k.weapons[wi].ult || k.ult).name + (r === 'tank' ? '. Shift: Riot Charge' : '');
     };
     showRes();
     $('#armoryTheme').textContent = tree.theme; $('#armoryTheme').className = 'armtheme display role-' + r;
@@ -505,11 +505,13 @@
         });
         card.appendChild(ol);
       };
-      card.appendChild(el('div', 'kit-w', 'Weapon, pick one in the armory'));
-      k.weapons.forEach(function (w) { var d = el('p', 'kit-opt'); d.appendChild(el('b', null, w.name + '. ')); d.appendChild(document.createTextNode(w.pitch)); card.appendChild(d); });
-      addList('Always carried', k.utils.concat([k.ult]), 4);
-      var b = el('button', 'go', 'Gear up as ' + k.title); b.type = 'button';
-      b.addEventListener('click', function () { openArmory(r); });
+      var ok = Sim.playable(r), ws = ok ? Sim.weaponsFor(r) : [];
+      card.appendChild(el('div', 'kit-w', ok ? 'Weapon' : 'Bots only for now'));
+      if (ok) ws.forEach(function (w) { var d = el('p', 'kit-opt'); d.appendChild(el('b', null, w.name + '. ')); d.appendChild(document.createTextNode(w.pitch)); card.appendChild(d); });
+      else card.appendChild(el('p', 'kit-opt', 'The Wrecker\'s weapons are still tab-target, so a bot plays this role until they\'re converted to aimed weapons.'));
+      if (ok) addList('Always carried', (ws[0].utils || k.utils).concat([ws[0].ult || k.ult]), 4);
+      var b = el('button', 'go', ok ? 'Gear up as ' + k.title : 'Coming soon'); b.type = 'button'; b.disabled = !ok;
+      b.addEventListener('click', function () { if (ok) openArmory(r); });
       card.appendChild(b); host.appendChild(card);
     });
   }
@@ -518,7 +520,7 @@
     Sim.players(S).forEach(function (p, i) {
       var b = el('button', 'pf click'); b.type = 'button';
       b.appendChild(el('span', 'glyph display role-' + p.role, ROLE_GLYPH[p.role]));
-      var top = el('span', 'top'); top.appendChild(el('span', null, p.name)); top.appendChild(el('small', null, 'F' + (i + 1) + ' / \u21e7' + (i + 1))); b.appendChild(top);
+      var top = el('span', 'top'); top.appendChild(el('span', null, p.name)); top.appendChild(el('small', null, 'F' + (i + 1))); b.appendChild(top);
       var bar = el('span', 'bar'), fill = el('i'); bar.appendChild(fill); b.appendChild(bar);
       var chips = el('span', 'chips'); b.appendChild(chips);
       b.addEventListener('click', function () { if (watching) follow(p); else input.target = p.id; });
@@ -537,7 +539,7 @@
   function aimSlot(k) { var l = Sim.abilitiesOf(human); for (var i = 0; i < l.length; i++) if (l[i].key === k) return i; return undefined; }
   function buildActions() {
     var acts = $('#actions'); acts.innerHTML = ''; hud.abs = [];
-    hud.wpn = human.weapon;
+    hud.wpn = human.id + ':' + human.weapon;
     Sim.abilitiesOf(human).forEach(function (a, i) {
       var b = el('button', 'ab click'); b.type = 'button'; b.title = a.desc;
       var row = el('span', 'row'), tl = el('span', 'tl'); row.appendChild(el('span', 'k', keyCap(i))); row.appendChild(tl); b.appendChild(row);
@@ -688,9 +690,10 @@
     if (showDr && dr.dataset.t !== String(human.lastDeath.t)) { dr.innerHTML = deathRecap(human); dr.dataset.t = String(human.lastDeath.t); }
     dr.hidden = !showDr;
     $('#myHp > span').textContent = human.alive ? Math.ceil(human.hp) + ' / ' + human.maxHp : (watching ? human.name + ' IS DOWN' : 'YOU ARE DOWN');
-    if (hud.wpn !== human.weapon) buildActions();
-    if (hud.wname !== human.weapon) {
-      hud.wname = human.weapon; $('#weapon').innerHTML = '';
+    var wkey = human.id + ':' + human.weapon;   // who you're playing or watching, and their weapon
+    if (hud.wpn !== wkey) buildActions();
+    if (hud.wname !== wkey) {
+      hud.wname = wkey; $('#weapon').innerHTML = '';
       $('#weapon').appendChild(el('b', 'display', human.kit.weapons[human.weapon].name));
     }
     // One chip per talent showing its live state, so you can see what your build is doing.
@@ -721,6 +724,8 @@
       else if (h.a.id === 'ebarrier') { label = human.barrierBroken > 0 ? 'BROKEN ' + Math.ceil(human.barrierBroken) + 's' : (human.barrierUp ? 'UP ' : 'HOLD ') + Math.round((human.barrier == null ? Sim.barrierMax(human) : human.barrier) / Sim.barrierMax(human) * 100) + '%'; if (human.barrierUp) glow = 'ultready'; }
       else if (h.a.id === 'vent' && (human.pips || 0) >= 85) { label = 'PERFECT'; glow = 'proc'; }
       else if (h.a.id === 'score' && human.surge > 0) { label = 'SURGE'; glow = 'proc'; }
+      else if (h.a.id === 'lbolt' && human.flux > 0) { label = 'FLUX'; glow = 'proc'; }
+      else if (h.a.id === 'lburst' && u.state === 'ok') { var untagged = Sim.players(S, true).filter(function (q) { return !(q.tag > 0); }).length; label = untagged ? 'TAGS ' + untagged : 'COSTS 35'; }
       else if (h.a.id === 'ocore' && u.state !== 'cd') { label = (human.shockCh || 0) + ' CHARGES'; if ((human.shockCh || 0) >= 4) glow = 'proc'; }
       else if (h.a.id === 'sbeam') { label = 'COSTS ' + (3 + 3 * (human.shockCh || 0)); }
       else if (h.a.id === 'screen' && human.screen > 0) label = 'UP ' + Math.ceil(human.screen) + 's';
@@ -894,6 +899,7 @@
           else if (ev.fx === 'field') { ringFx(ev.x2, ev.z2, 0.5, 6, 0x4fd88f, 0.5); if (ev.src === human.id) Snd.play('belt'); }
           else if (ev.fx === 'emp') { ringFx(ev.x2, ev.z2, 0.5, 6, 0x7fb8ff, 0.5); ringFx(ev.x2, ev.z2, 6, 5, 0xffffff, 0.3); Snd.play('boom'); }
           else if (ev.fx === 'core' || ev.fx === 'ocore') { if (ev.src === human.id || watching) Snd.play('orb'); }
+          else if (ev.fx === 'tag') { ringFx(x, z, 0.3, 1.4, 0x4fd88f, 0.3); }
           else if (ev.fx === 'bulwark') { ringFx(x, z, 0.5, 2.5, 0xffd36b, 0.4); if (ev.src === human.id) Snd.play('belt'); }
           else if (ev.fx === 'corehit') { ringFx(x, z, 0.5, 2.5, 0xd9b8ff, 0.3); }
           else if (ev.fx === 'charges4') { ringFx(x, z, 0.3, 2.2, 0xd9b8ff, 0.3); if (ev.src === human.id) Snd.play('proc'); }
@@ -1247,6 +1253,22 @@
       var hs = lit ? 1.35 : 1; cm.halo.scale.set(hs, hs, hs);
     });
     for (var ck in special.cores) if (!seenC[ck]) { fxRoot.remove(special.cores[ck]); delete special.cores[ck]; }
+    // Nanite Tags: three green motes circling low round every Tagged ally, so the Medic reads who Atonement reaches.
+    special.tags = special.tags || {};
+    Sim.players(S).forEach(function (p) {
+      var on = p.alive && p.tag > 0, tg2 = special.tags[p.id];
+      if (!tg2) {
+        tg2 = []; for (var ti = 0; ti < 3; ti++) { var tm = new THREE.Mesh(new THREE.OctahedronGeometry(0.11), new THREE.MeshBasicMaterial({ color: 0x4fd88f, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); tm.visible = false; fxRoot.add(tm); tg2.push(tm); }
+        special.tags[p.id] = tg2;
+      }
+      var tp = views[p.id] ? views[p.id].g.position : p, tt = performance.now() / 1000;
+      tg2.forEach(function (tm, i) {
+        tm.visible = on; if (!on) return;
+        var a = -tt * 2 + i * Math.PI * 2 / 3;
+        tm.position.set(tp.x + Math.sin(a) * 0.75, 0.5 + 0.1 * Math.sin(tt * 3 + i), tp.z + Math.cos(a) * 0.75);
+        tm.material.opacity = p.tag < 2 ? 0.3 + 0.5 * Math.abs(Math.sin(tt * 8)) : 0.9;   // blinks as it runs out
+      });
+    });
     // Sundered enemies: an orange ring at their feet while a Piston Shot's Sunder lasts, fading in its last seconds.
     special.sunders = special.sunders || {};
     var seenSd = {};
@@ -1736,6 +1758,7 @@
       var k = Sim.KITS[r], who = ps.filter(function (p) { return p.presence && p.presence.role === r; });
       if (who.length > 1) conflict = true;
       var b = el('button', 'lslot role-' + r + (myRole === r ? ' mine' : '') + (who.length > 1 ? ' clash' : '')); b.type = 'button';
+      if (!Sim.playable(r)) { b.disabled = true; b.appendChild(el('b', 'display', k.title)); b.appendChild(el('span', null, 'Bot (coming soon)')); slots.appendChild(b); return; }
       b.setAttribute('aria-pressed', myRole === r ? 'true' : 'false');
       b.appendChild(el('b', 'display', k.title));
       var occ = who.length ? who.map(function (p) { return (p.sameTab ? 'You' : peerName(p)) + (p.presence.gear ? ', ' + Sim.gearName('weapon', p.presence.gear.weapon, r) : ''); }).join(' + ') : 'Bot';
