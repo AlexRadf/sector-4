@@ -723,7 +723,11 @@
       else if (h.a.id === 'vent' && (human.pips || 0) >= 85) { label = 'PERFECT'; glow = 'proc'; }
       else if (h.a.id === 'score' && human.surge > 0) { label = 'SURGE'; glow = 'proc'; }
       else if (h.a.id === 'lbolt' && human.flux > 0) { label = 'FLUX'; glow = 'proc'; }
-      else if (h.a.id === 'wsaw') { label = human.overdrive > 0 ? 'OVERDRIVE' : Math.floor(human.pips || 0) + ' REVS'; if (human.overdrive > 0 || (human.pips || 0) >= 5) glow = 'proc'; }
+      else if (h.a.id === 'wsaw') {
+        var sawT = Sim.inCone(S, human, 4.5, 0.55)[0], myB = sawT && sawT.bleedBy === human.id && sawT.bleed > 0 ? sawT.bleed : 0;
+        label = human.overdrive > 0 ? 'OVERDRIVE' : myB >= Sim.TUNE.tearAt ? 'TEAR OPEN' : sawT && myB < Sim.TUNE.bleedRefresh ? (myB > 0 ? 'REFRESH' : 'BLEED IT') : Math.floor(human.pips || 0) + ' REVS';
+        if (human.overdrive > 0 || (human.pips || 0) >= 5 || (sawT && myB < Sim.TUNE.bleedRefresh && (human.pips || 0) >= 3)) glow = 'proc';
+      }
       else if (h.a.id === 'shred' && u.state === 'ok') label = Math.floor(human.pips || 0) + ' REVS';
       else if (h.a.id === 'lburst' && u.state === 'ok') { var untagged = Sim.players(S, true).filter(function (q) { return !(q.tag > 0); }).length; label = untagged ? 'TAGS ' + untagged : 'COSTS 35'; }
       else if (h.a.id === 'ocore' && u.state !== 'cd') { label = (human.shockCh || 0) + ' CHARGES'; if ((human.shockCh || 0) >= 4) glow = 'proc'; }
@@ -750,6 +754,7 @@
       $('#pips').classList.toggle('redline', RS2.id === 'spin' && pipN >= 85);
       $('#pips').classList.toggle('low', RS2.id === 'nanites' && pipN < RS2.min);
     }
+    $('#hud').classList.toggle('overdrive', !watching && human.overdrive > 0);
     var danger = human.alive && S.telegraphs.some(function (g) { return Sim.inTele(g, human); });
     $('#hud').classList.toggle('danger', danger);
     if (toastT > 0) { toastT -= 1 / 60; if (toastT <= 0) $('#toast').textContent = ''; }
@@ -815,6 +820,7 @@
      Squad-wide procs (Hold the Line, Meat Shield, Clear!) are called to everyone; personal ones only to their owner. */
   var PROC_SOUND = { tank: 'challenge', healer: 'keg', dps: 'combo', melee: 'saw' };
   function procFx(ev) {
+    if (ev.talent === 'overdrive' && ev.id === human.id && !watching) { Snd.play('charge'); hitFlash(); }
     var v = views[ev.id], col = ROLE_COLOR[ev.role] || 0xffffff, mine = ev.id === human.id;
     if (v) {
       var x = v.g.position.x, z = v.g.position.z, big = ev.scope === 'all';
@@ -898,6 +904,8 @@
           else if (ev.fx === 'core' || ev.fx === 'ocore') { if (ev.src === human.id || watching) Snd.play('orb'); }
           else if (ev.fx === 'tag') { ringFx(x, z, 0.3, 1.4, 0x4fd88f, 0.3); }
           else if (ev.fx === 'bulwark') { ringFx(x, z, 0.5, 2.5, 0xffd36b, 0.4); if (ev.src === human.id) Snd.play('belt'); }
+          else if (ev.fx === 'tear') { ringFx(x, z, 0.5, 6, 0xff2a1a, 0.5); ringFx(x, z, 0.3, 3.5, 0xffffff, 0.3); Snd.play('combo'); }
+          else if (ev.fx === 'refresh') { ringFx(x, z, 0.4, 3, 0xffffff, 0.3); }
           else if (ev.fx === 'corehit') { ringFx(x, z, 0.5, 2.5, 0xd9b8ff, 0.3); }
           else if (ev.fx === 'charges4') { ringFx(x, z, 0.3, 2.2, 0xd9b8ff, 0.3); if (ev.src === human.id) Snd.play('proc'); }
           else if (ev.fx === 'port') { if (v.ports && v.ports[ev.pw]) v.ports[ev.pw].hit = 1; Snd.play('port'); }
@@ -969,8 +977,9 @@
       animate(v, e, dt);
       v.ring.visible = human.target === e.id && e.alive;
       if (v.ring.visible) v.ring.material.color.setHex(e.kind === 'player' ? 0x4fd88f : 0xff4a36);
-      v.aura.visible = e.alive && (e.kind === 'player' ? (e.belt > 0 || e.sludge > 0 || e.ironhide > 0 || e.bulwark > 0) : e.charged > 0);
+      v.aura.visible = e.alive && (e.kind === 'player' ? (e.belt > 0 || e.sludge > 0 || e.ironhide > 0 || e.bulwark > 0 || e.overdrive > 0) : e.charged > 0);
       if (v.aura.visible && e.kind === 'enemy') { var ar = (e.radius || 1) * 0.9 + 0.4; v.aura.scale.set(ar, ar * (e.type === 'boss' ? 1.5 : 1), ar); v.aura.position.y = e.type === 'boss' ? 3 : 1; v.aura.material.color.setHex(0xb98cff); v.aura.material.opacity = (e.type === 'boss' ? 0.07 : 0.16) + 0.06 * Math.sin(performance.now() / 70); }
+      else if (v.aura.visible && e.overdrive > 0) { v.aura.material.color.setHex(0xff2a1a); v.aura.material.opacity = 0.25 + 0.15 * Math.sin(performance.now() / 60); }   // Overdrive: a red glow
       else if (v.aura.visible && !(e.belt > 0 || e.sludge > 0 || e.ironhide > 0)) { v.aura.material.color.setHex(0xffd36b); v.aura.material.opacity = 0.14; }   // Bulwark: a faint gold shell
       else if (v.aura.visible) { v.aura.material.opacity = 0.25; v.aura.material.color.setHex(e.ironhide > 0 ? 0x9aa7b4 : e.belt > 0 ? 0xffb000 : 0xb46bff); }   // sludge: purple, the cleanse colour
       if (e.type === 'boss') v.holder.rotation.z = e.stagger > 0 ? 0.22 * Math.sin(S.t * 9) : 0;
@@ -1256,17 +1265,29 @@
     });
     // Bleeding enemies: a thin red ring that pulses while the Ripsaw's Bleed runs.
     special.bleeds = special.bleeds || {};
-    var seenBl = {};
+    var seenBl = {}, nowB = performance.now();
     Sim.enemies(S).forEach(function (e) {
       if (!(e.bleed > 0)) return;
       seenBl[e.id] = 1;
+      // A Bleed is a clock on the floor: a red arc that empties as it runs down (full ring = 14s). Orange when it was
+      // snapshotted in Redline; blinking white when it's time to refresh. Blood drips off the target while it runs.
       var bm = special.bleeds[e.id];
-      if (!bm) { bm = new THREE.Mesh(new THREE.RingGeometry(0.93, 1, 48), new THREE.MeshBasicMaterial({ color: 0xd0201a, transparent: true, depthWrite: false, side: THREE.DoubleSide })); bm.rotation.x = -Math.PI / 2; fxRoot.add(bm); special.bleeds[e.id] = bm; }
-      var ep2 = views[e.id] ? views[e.id].g.position : e, rr4 = (e.radius || 1) + 0.5;
-      bm.position.set(ep2.x, 0.11, ep2.z); bm.scale.set(rr4, rr4, 1);
-      bm.material.opacity = (e.bleed < 2 ? 0.3 : 0.6) + 0.3 * Math.sin(performance.now() / 150);
+      if (!bm) { bm = new THREE.Mesh(new THREE.RingGeometry(0.82, 1, 48), new THREE.MeshBasicMaterial({ color: 0xd0201a, transparent: true, depthWrite: false, side: THREE.DoubleSide })); bm.rotation.x = -Math.PI / 2; fxRoot.add(bm); special.bleeds[e.id] = bm; bm.drip = 0; }
+      var frac = Math.max(0.02, Math.min(1, e.bleed / Sim.TUNE.bleedCap)), fq = Math.round(frac * 60);
+      if (bm.fq !== fq) { bm.fq = fq; bm.geometry.dispose(); bm.geometry = new THREE.RingGeometry(0.8, 1, 48, 1, Math.PI / 2, Math.PI * 2 * fq / 60); }
+      var ep2 = views[e.id] ? views[e.id].g.position : e, rr4 = (e.radius || 1) + 0.7, late = e.bleed < Sim.TUNE.bleedRefresh;
+      bm.position.set(ep2.x, 0.12, ep2.z); bm.scale.set(rr4, rr4, 1);
+      bm.material.color.setHex(late && Math.sin(nowB / 90) > 0 ? 0xffffff : e.bleedSnap ? 0xff7a20 : 0xd0201a);
+      bm.material.opacity = 0.9;
+      if (nowB - bm.drip > 220) {
+        bm.drip = nowB;
+        var dr = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 4), new THREE.MeshBasicMaterial({ color: e.bleedSnap ? 0xff7a20 : 0xb01010, transparent: true }));
+        var h0 = e.type === 'boss' ? 3.5 : 1.3, ox = (Math.random() - 0.5) * (e.radius || 1), oz = (Math.random() - 0.5) * (e.radius || 1);
+        dr.position.set(ep2.x + ox, h0, ep2.z + oz);
+        addFx(dr, 0.6, function (f, k) { f.m.position.y = h0 * (1 - k * k); f.m.material.opacity = 1 - k * 0.5; });
+      }
     });
-    for (var blk in special.bleeds) if (!seenBl[blk]) { fxRoot.remove(special.bleeds[blk]); delete special.bleeds[blk]; }
+    for (var blk in special.bleeds) if (!seenBl[blk]) { fxRoot.remove(special.bleeds[blk]); special.bleeds[blk].geometry.dispose(); delete special.bleeds[blk]; }
     // Sundered enemies: an orange ring at their feet while a Piston Shot's Sunder lasts, fading in its last seconds.
     special.sunders = special.sunders || {};
     var seenSd = {};

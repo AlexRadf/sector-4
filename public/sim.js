@@ -197,15 +197,15 @@
       role: 'melee', title: 'Wrecker', hp: 1100,
       blurb: 'Melee damage. Stay out of the Foreman\'s front.',
       weapons: [
-        TW('ripsaw', 'Ripsaw', 'Aimed melee, played like a Rogue. Rip what\'s in front of you to build Revs (double from behind), cash them in on Saw Through to keep a Bleed rolling, or Shred everything round you. Rips on a bleeding target can light Overdrive.',
+        TW('ripsaw', 'Ripsaw', 'Aimed melee, played like a Feral Druid. Rip sweeps an arc to build Revs (double from behind). Spend them on Saw Through to keep a Bleed rolling, Tear it Open when it\'s long, or Shred everything round you. Redline snapshots your Bleeds; Rips on a bleeding target can light Overdrive.',
           { id: 'revs', name: 'Revs', max: 5, start: 0, regen: 0, build: 0, spend: 'all', min: 1, per: 1,
             how: 'Revs, like combo points: up to 5. Rip adds one, two from behind. Saw Through (RMB) and Shred (both buttons) spend them all.' },
-          [{ id: 'wrip', key: 'LMB', name: 'Rip', kind: 'aim', range: 4.5, hold: 'repeat', desc: 'Hold or tap. Rips the enemy in front of you for 40 and adds a Rev; from behind, 50% more and two Revs. A Rip on a bleeding target can light Overdrive (always on a crit).' },
-           { id: 'wsaw', key: 'RMB', name: 'Saw Through', kind: 'aim', range: 4.5, needs: 1, gcd: false, desc: 'Spends all your Revs on the enemy in front of you: 30 plus 32 a Rev (50% more from behind), and a Bleed of 25 a second for 2.4s a Rev, added on to what\'s left. With Overdrive lit, it counts as five Revs.' },
+          [{ id: 'wrip', key: 'LMB', name: 'Rip', kind: 'aim', range: 4.5, hold: 'repeat', desc: 'Hold or tap. A sweeping arc: the enemy in front of you takes 40 and gives a Rev (from behind, 50% more and two Revs); anything else in the arc takes half. A Rip on a bleeding target can light Overdrive (always on a crit).' },
+           { id: 'wsaw', key: 'RMB', name: 'Saw Through', kind: 'aim', range: 4.5, needs: 1, gcd: false, desc: 'Spends all your Revs on the enemy in front of you: 30 plus 32 a Rev (50% more from behind), and a Bleed of 25 a second for 2.4s a Rev, added on to what\'s left (refresh it under 4s). If your Bleed on it has 8s or more left, it Tears Open instead: the whole Bleed lands at once, 30% harder. A Bleed put on during Redline ticks 50% harder all the way. With Overdrive lit, it counts as five Revs.' },
            { id: 'shred', key: 'L+R', name: 'Shred', kind: 'aim', range: 5, needs: 1, gcd: false, desc: 'Press both buttons together. Spends all your Revs on everything within 5m of you: 40 plus 45 a Rev each, and a Bleed of 1s a Rev. For drones in a pile.' }],
           { aim: true,
             utils: [A({ id: 'hook', key: 'Q', name: 'Chain Hook', kind: 'aim', range: 22, cd: 12, gcd: false, desc: 'Hook the enemy nearest your crosshair within 22m. A drone is yanked to you and stunned for 1s; the Foreman pulls you onto his back instead.' }),
-                    A({ id: 'redline', key: 'E', name: 'Redline', kind: 'self', range: 0, cd: 45, gcd: false, desc: 'Your burn window: for 8s Rips come a third faster and everything hits 20% harder.' }),
+                    A({ id: 'redline', key: 'E', name: 'Redline', kind: 'self', range: 0, cd: 45, gcd: false, desc: 'Your burn window: for 8s Rips come a third faster, everything hits 20% harder, and any Bleed you put on is snapshotted at 50% stronger for its whole length.' }),
                     A({ id: 'ironhide', key: 'F', name: 'Iron Hide', kind: 'self', range: 0, cd: 25, gcd: false, desc: 'Take 40% less damage for 5s. For when you have to stay in.' })],
             ult: A({ id: 'slam', key: 'R', name: 'Wrecking Slam', kind: 'aim', range: 8, gcd: false, role: 'ult', desc: 'Ultimate. 450 to the enemy in front of you and it staggers for 3s: it stops attacking and the whole squad hits it 30% harder.' }) })
       ]
@@ -357,7 +357,7 @@
        hold: seconds a key direction is held before re-deciding. aim: radians of error on a new direction.
        eightWay: WASD gives eight directions relative to the camera, not any angle. */
     hands: { holdMin: 0.12, holdMax: 0.34, aim: 0.22, release: 0.07, eightWay: true },
-    bossHp: 194000, bossMelee: 515, bossSwing: 2.0, cleaveMult: 0.5,
+    bossHp: 200000, bossMelee: 600, bossSwing: 2.0, cleaveMult: 0.5,
     barrageEvery: 12, barrageDelay: 2.6, barrageR: 6, barrageDmg: 660,
     // Overcharge shield: break it inside the window or the whole room takes the pulse. Breaking it staggers him.
     // Overcharge: energy fills over overEvery seconds, then he walks to the middle, channels a shield and pulses the room.
@@ -388,7 +388,10 @@
     // Link Gun rotation: Nanite Tags (a HoT, and who Atonement reaches), Atonement (bolts on enemies heal the Tagged), Flux (proc).
     tagDur: 10, tagHot: 8, atone: 0.2, burstTagMult: 1.3, fluxEvery: 5, fluxDur: 10,
     // Ripsaw: Rip builds Revs, Saw Through / Shred spend them; Bleeds stack time on; Overdrive is the proc; Redline the burst.
-    ripDmg: 40, ripGcd: 0.6, sawBase: 30, sawPer: 32, bleedDps: 25, bleedPer: 2.4, bleedCap: 14, shredBase: 40, shredPer: 45,
+    ripDmg: 38, ripCleave: 0.5, ripGcd: 0.6, sawBase: 30, sawPer: 22, bleedDps: 25, bleedPer: 2.4, bleedCap: 14, shredBase: 40, shredPer: 45,
+    // Bleed: refresh it under 4s left (the button says REFRESH); 8s or more and Saw Through tears it open instead (all the
+    // Bleed left lands at once, 30% harder). A Bleed applied during Redline is snapshotted: it ticks 50% harder all the way.
+    bleedRefresh: 4, tearAt: 8, tearMult: 1.1, snapMult: 1.5,
     overdriveChance: 0.06, redlineMult: 1.2, redlineGcd: 0.4, dashLen: 10, dashCd: 10,
     barrierHp: 1800, barrierRegen: 180, barrierRest: 1.5, barrierBreak: 5,
     busterEvery: 15, busterCast: 2.5, busterDmg: 1860,
@@ -622,6 +625,13 @@
   }
   /* Nanite Tag: a small heal over time, and who your Atonement reaches. One Medic's Tag at a time per person. */
   function tagAlly(S, p, q) { if (!q.alive) return; if (!(q.tag > 0)) emit(S, { type: 'fx', fx: 'tag', src: q.id }); q.tag = TUNE.tagDur; q.tagBy = p.id; }
+  /* Put a Ripsaw Bleed on e: secs added on to what's left of yours. Applied during Redline it's snapshotted (50% harder). */
+  function bleedOn(S, p, e, secs) {
+    var cont = e.bleedBy === p.id && e.bleed > 0;
+    e.bleed = Math.min(TUNE.bleedCap, (cont ? e.bleed : 0) + secs); e.bleedBy = p.id;
+    e.bleedSnap = p.redline > 0 ? 1 : 0;
+    e.bleedDps = TUNE.bleedDps * (e.bleedSnap ? TUNE.snapMult : 1);
+  }
   /* An EMP hit on an overcharge shield: 600 straight off it. */
   function empShield(S, by, e) {
     if (!e.oshield || !(e.oshield.hp > 0)) return;
@@ -1064,12 +1074,14 @@
       /* ---- Wrecker, aimed Ripsaw ---- */
       case 'wrip':
         p.gcd = p.redline > 0 ? TUNE.redlineGcd : TUNE.ripGcd;
-        var rt = inCone(S, p, ab.range, 0.55)[0];
-        emit(S, { type: 'fx', fx: 'smash', src: p.id, pw: 0.25 });
+        // A sweeping arc: the enemy nearest the middle takes it all and gives the Revs; anything else in the arc takes half.
+        var rarc = inCone(S, p, ab.range, 0.35), rt = inCone(S, p, ab.range, 0.55)[0] || rarc[0];
+        emit(S, { type: 'fx', fx: 'smash', src: p.id, pw: 0.45 });
         if (!rt) { emit(S, { type: 'fx', fx: 'boltmiss', src: p.id }); break; }
-        var rback = behind(p, rt) || p.afterburn > 0;
+        var rback = behind(p, rt) || p.afterburn > 0, rl = p.redline > 0 ? TUNE.redlineMult : 1;
         emit(S, { type: 'beam', src: p.id, dst: rt.id, fx: 'saw' });
-        damageEnemy(S, p, rt, TUNE.ripDmg * (rback ? 1.5 : 1) * (p.redline > 0 ? TUNE.redlineMult : 1), 1, rback ? 'Rip!' : 'Rip');
+        damageEnemy(S, p, rt, TUNE.ripDmg * (rback ? 1.5 : 1) * rl, 1, rback ? 'Rip!' : 'Rip');
+        rarc.forEach(function (e) { if (e !== rt && e.alive) { emit(S, { type: 'beam', src: p.id, dst: e.id, fx: 'saw' }); damageEnemy(S, p, e, TUNE.ripDmg * TUNE.ripCleave * rl, 1, 'Rip'); } });
         p.pips = Math.min(5, (p.pips || 0) + (rback ? 2 : 1) + (rback && T(p, 'flanker') ? 1 : 0));
         if (rt.alive && rt.bleed > 0 && (p.critThis || S.rng() < TUNE.overdriveChance) && !(p.overdrive > 0)) { p.overdrive = 10; proc(S, p, 'overdrive', 'OVERDRIVE'); }
         break;
@@ -1080,8 +1092,18 @@
         p.pips = 0; p.overdrive = 0;
         var sback = behind(p, st2) || p.afterburn > 0;
         emit(S, { type: 'beam', src: p.id, dst: st2.id, fx: 'sawbig' });
+        var mine2 = st2.bleedBy === p.id && st2.bleed > 0, tear = mine2 && st2.bleed >= TUNE.tearAt;
         damageEnemy(S, p, st2, (TUNE.sawBase + TUNE.sawPer * revs) * (sback ? 1.5 : 1) * (p.redline > 0 ? TUNE.redlineMult : 1), 1, od ? 'Overdrive!' : revs >= 5 ? 'Saw Through!' : 'Saw Through');
-        if (st2.alive) { st2.bleed = Math.min(TUNE.bleedCap, (st2.bleedBy === p.id ? st2.bleed || 0 : 0) + TUNE.bleedPer * revs); st2.bleedBy = p.id; st2.bleedDps = TUNE.bleedDps; }
+        if (tear && st2.alive) {
+          // Tear Open (Ferocious Bite): everything the Bleed had left lands now, 30% harder, and the Bleed ends.
+          var left = st2.bleed * (st2.bleedDps || TUNE.bleedDps) * TUNE.tearMult;
+          st2.bleed = 0; st2.bleedAcc = 0; st2.bleedSnap = 0;
+          emit(S, { type: 'fx', fx: 'tear', src: st2.id });
+          damageEnemy(S, p, st2, left, 1, 'Tear Open!');
+        } else if (st2.alive) {
+          if (mine2 && st2.bleed < TUNE.bleedRefresh) emit(S, { type: 'fx', fx: 'refresh', src: st2.id });
+          bleedOn(S, p, st2, TUNE.bleedPer * revs);
+        }
         p.gcd = TUNE.ripGcd;
         break;
       case 'shred':
@@ -1091,7 +1113,7 @@
           if (dist(e, p) > ab.range + (e.radius || 0)) return;
           emit(S, { type: 'beam', src: p.id, dst: e.id, fx: 'saw' });
           damageEnemy(S, p, e, (TUNE.shredBase + TUNE.shredPer * sr) * (p.redline > 0 ? TUNE.redlineMult : 1), 1, sr >= 5 ? 'Shred!' : 'Shred');
-          if (e.alive) { e.bleed = Math.min(TUNE.bleedCap, (e.bleedBy === p.id ? e.bleed || 0 : 0) + sr); e.bleedBy = p.id; e.bleedDps = TUNE.bleedDps; }
+          if (e.alive) bleedOn(S, p, e, sr);
         });
         p.gcd = TUNE.ripGcd;
         break;
@@ -1523,6 +1545,7 @@
       // Chainsaw bleed: kept apart from the Bio Rifle's acid so a Medic and a Wrecker don't overwrite each other.
       var bstep = Math.min(dt, e.bleed); e.bleed -= dt;
       e.bleedAcc = (e.bleedAcc || 0) + (e.bleedDps || 28) * bstep;
+      if (e.bleed <= 0) e.bleedSnap = 0;
       if (e.bleedAcc >= 28 || e.bleed <= 0) { var bsrc = ent(S, e.bleedBy); if (bsrc) damageEnemy(S, bsrc, e, e.bleedAcc, 1, 'Bleed'); e.bleedAcc = 0; }
       if (!e.alive) return;
     }
@@ -2142,9 +2165,10 @@
       var revs = p.pips || 0, near = foes.filter(function (f) { return dist(f, p) <= 5 + (f.radius || 0); }).length;
       m.hold = [true, false];
       if (p.hp < p.maxHp * 0.4 && ready('ironhide')) inp.ability = idx('ironhide');
-      else if (ready('redline') && boss.alive && S.t > 6 && dm < 4) inp.ability = idx('redline');
+      // Redline just before a Saw, so the new Bleed is snapshotted.
+      else if (ready('redline') && boss.alive && S.t > 6 && dm < 4 && revs >= 4) inp.ability = idx('redline');
       else if (near >= 2 && revs >= 3) { if (p.lHeld || p.rHeld) { m.hold = [false, false]; b.think = 0.05; } else m.hold = [true, true]; }
-      else if (dm < 4.5 && (p.overdrive > 0 || revs >= 5 || (revs >= 4 && !(tg.bleed > 2)))) { if (p.rHeld) { m.hold = [true, false]; b.think = 0.05; } else m.hold = [true, true]; }
+      else if (dm < 4.5 && (p.overdrive > 0 || revs >= 5 || (revs >= 4 && !(tg.bleed > TUNE.bleedRefresh)))) { if (p.rHeld) { m.hold = [true, false]; b.think = 0.05; } else m.hold = [true, true]; }
     }
     inp.hold = m.hold.slice();
     return inp;
@@ -2237,7 +2261,7 @@
         if (e.slowed > 0) q.sw = 1;
         if (e.charged > 0) q.ch = 1;
         if (e.sundered > 0) q.sd = r1(e.sundered);
-        if (e.bleed > 0) q.bl = r1(e.bleed);
+        if (e.bleed > 0) { q.bl = r1(e.bleed); if (e.bleedSnap) q.bs = 1; q.bb = e.bleedBy; }
         if (e.type === 'boss') { q.pr = r2(e.portRot || 0); if (e.portBurst > 0) q.pb = r1(e.portBurst); }
         snap.e.push(q);
       }
@@ -2286,7 +2310,7 @@
       e.oshield = q.os ? { hp: q.os[0], max: q.os[1], t: q.os[2], dur: q.os[3] } : null;
       e.stagger = q.st || 0; e.energy = q.eg || 0; e.goCentre = !!q.gc;
       e.weak = q.wk ? 1 : 0; e.slowed = q.sw ? 1 : 0; e.branded = q.br ? 1 : 0;
-      e.charged = q.ch ? 1 : 0; e.sundered = q.sd || 0; e.bleed = q.bl || 0; if (q.pr != null) { e.portRot = q.pr; e.portBurst = q.pb || 0; }
+      e.charged = q.ch ? 1 : 0; e.sundered = q.sd || 0; e.bleed = q.bl || 0; e.bleedSnap = q.bs || 0; e.bleedBy = q.bb || 0; if (q.pr != null) { e.portRot = q.pr; e.portBurst = q.pb || 0; }
     });
     M.ents = M.ents.filter(function (e) { return e.kind === 'player' || seen[e.id]; });
     M.telegraphs = snap.g.map(function (g) {
@@ -2376,7 +2400,7 @@
       if (p.storm > 0) out.push(['Link Storm ' + Math.ceil(p.storm) + 's', true]);
     }
     if (wid === 'ripsaw') {
-      if (p.overdrive > 0) out.push(['OVERDRIVE: Saw counts as 5', true]);
+      if (p.overdrive > 0) out.push(['OVERDRIVE: Saw counts as 5 ' + Math.ceil(p.overdrive) + 's', true]);
       if (p.redline > 0) out.push(['Redline ' + Math.ceil(p.redline) + 's', true]);
       if (p.ironhide > 0) out.push(['Iron Hide -40% ' + Math.ceil(p.ironhide) + 's', true]);
     }
@@ -2390,7 +2414,7 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.32.0';
+  var VERSION = '0.33.0';
 
   var api = {
     VERSION: VERSION,

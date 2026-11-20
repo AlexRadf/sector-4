@@ -885,3 +885,17 @@ test('Wrecker utilities: Chain Hook pulls a drone in or you onto his back, Shift
   const h = c.p.hp; Sim.damagePlayer(c.S, c.S.bossId, c.p, 100, 'Rocket');
   assert.strictEqual(h - c.p.hp, 60);
 });
+
+test('Ripsaw rotation: Rip sweeps an arc, a long Bleed Tears Open, Redline snapshots a Bleed', () => {
+  const a = wrecker(); a.S.ents.push(drone(954, 2.8, 7.0));   // in the sweep, off the middle
+  const hits = rip(a, [true, false]);
+  const boss = hits.find((e) => e.dst === a.boss.id), side = hits.find((e) => e.dst === 954);
+  assert.ok(boss && side && side.amt < boss.amt * 0.6, 'the arc catches the drone for less');
+  const t = wrecker(); t.boss.bleed = 10; t.boss.bleedBy = t.p.id; t.boss.bleedDps = Sim.TUNE.bleedDps; t.p.pips = 3;
+  rip(t, [false, false]); Sim.step(t.S, 1 / 30, { aim: 0, hold: [false, true] }); for (let i = 0; i < 4; i++) Sim.step(t.S, 1 / 30, { aim: 0, hold: [false, false] });
+  const tear = t.S.events.find((e) => e.label === 'Tear Open!');
+  assert.ok(tear && tear.amt >= 10 * Sim.TUNE.bleedDps * Sim.TUNE.tearMult * 0.95 && !(t.boss.bleed > 0), 'the whole Bleed lands at once: ' + (tear && tear.amt));
+  const r = wrecker(); r.p.pips = 4; r.p.redline = 8;
+  rip(r, [false, false]); Sim.step(r.S, 1 / 30, { aim: 0, hold: [false, true] }); for (let i = 0; i < 4; i++) Sim.step(r.S, 1 / 30, { aim: 0, hold: [false, false] });
+  assert.ok(r.boss.bleedSnap === 1 && Math.abs(r.boss.bleedDps - Sim.TUNE.bleedDps * Sim.TUNE.snapMult) < 0.01, 'snapshotted');
+});

@@ -4,6 +4,23 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.33.0 (2026-11-20) Wrecker: a Feral rotation you can read
+- **Overdrive is hard to miss.** When it lights the screen edges pulse red, you glow red, the sparks round you go red,
+  there's a rev and a flash, and the Saw button says OVERDRIVE until you spend it.
+- **Rip sweeps an arc** (an area builder): the enemy in the middle takes the full hit and gives the Revs, anything else in
+  the arc takes half. With Shred as the area finisher there's a whole area rotation for drones.
+- **The Bleed is a clock.** The red ring under a bleeding target is now an arc that empties as the Bleed runs down
+  (a full ring is 14s), blinks white when it's under 4s (refresh it), and blood drips off the target while it runs.
+  The Saw button reads BLEED IT, REFRESH, TEAR OPEN or your Revs.
+- **Tear Open** (like Ferocious Bite): Saw Through on a target whose Bleed has 8s or more left tears it open instead: the
+  whole Bleed lands at once, 10% harder, and you start a fresh one next time. Keep it rolling, or cash it in.
+- **Redline snapshots Bleeds** (like Feral's Tiger's Fury): a Bleed put on during Redline ticks 50% harder for its whole
+  length, and its ring glows orange. Redline into a fresh Bleed.
+- The rotation: Rip from behind to five Revs, Saw to start the Bleed (Redline first if it's up), refresh under 4s or
+  Tear it Open when it's long, Shred a pile of drones, spend Overdrive at once.
+- Balance: Rip 38, Saw Through 30 plus 22 a Rev. The Foreman has 200,000 health (was 194,000) and swings for 600 (was
+  515): the squad had got a little too comfortable. An all-bot squad wins about 90% in roughly 4:40.
+
 ## 0.32.0 (2026-11-19) One good weapon per role
 - **The tab-target weapons are cut.** Each role has one aimed weapon: Impact Hammer (Juggernaut), Link Gun (Medic),
   Shock Rifle (Striker), Ripsaw (Wrecker). Gone: Flak Cannon, Minigun, Bio Rifle, Shield Gun, Rocket Launcher,
