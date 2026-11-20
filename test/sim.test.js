@@ -815,17 +815,17 @@ test('Juggernaut rotation: Shove builds Bulwark, a barrier block lights Riposte,
   assert.ok(hit() >= Math.round(before * Sim.TUNE.sunderMult) - 1, 'the squad hits a Sundered target harder');
 });
 
-test('Medic rotation: bolts Tag allies, bolts on the Foreman heal the Tagged (Atonement), Flux doubles and jumps, Burst Tags the group', () => {
+test('Medic rotation: bolts Tag allies, bolts on the Foreman earn Nanites but heal nobody, Flux doubles and jumps, Burst Tags the group', () => {
   const a = medic(); a.S.rng = () => 0.5;
   a.tank.x = 0; a.tank.z = 12; a.tank.hp = 900; a.dps.x = 3; a.dps.z = 14; a.dps.hp = 500; a.boss.speed = 0; a.boss.z = 30;
   Sim.step(a.S, 1 / 30, { aim: toward(a.p, a.tank), hold: [true, false] });
   assert.ok(a.tank.tag > 9 && a.tank.tagBy === a.p.id, 'Tagged');
   a.dps.x = 30; a.dps.z = -20; a.tank.x = 12; a.tank.z = 6;   // both out of the line to the Foreman
-  a.p.gcd = 0; a.S.events.length = 0;
+  a.p.gcd = 0; a.S.events.length = 0; a.p.pips = 50;
   Sim.step(a.S, 1 / 30, { aim: toward(a.p, a.boss) + 0.3, hold: [false, false] });
   Sim.step(a.S, 1 / 30, { aim: toward(a.p, a.boss), hold: [true, false] });
-  const at = a.S.events.find((e) => e.type === 'heal' && e.label === 'Atonement');
-  assert.ok(at && at.dst === a.tank.id && !a.S.events.some((e) => e.label === 'Atonement' && e.dst === a.dps.id), 'only the Tagged are healed by a hit on the Foreman');
+  assert.ok(a.S.events.some((e) => e.type === 'dmg' && e.dst === a.boss.id && e.label === 'Link Bolt') && a.p.pips > 50, 'a hit on the Foreman earns Nanites');
+  assert.ok(!a.S.events.some((e) => e.type === 'heal' && e.label !== 'Nanite Tag'), 'and heals nobody: a conscious choice');
   // Flux after five hits on an enemy.
   for (let i = 0; i < 4; i++) { a.p.gcd = 0; Sim.step(a.S, 1 / 30, { aim: toward(a.p, a.boss), hold: [false, false] }); Sim.step(a.S, 1 / 30, { aim: toward(a.p, a.boss), hold: [true, false] }); }
   assert.ok(a.p.flux > 0, 'Flux lit');

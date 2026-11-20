@@ -46,6 +46,9 @@ people who are out of position alive.
   to react to, and a burn window to line up with the fight. Every one of them shows on the body or the target.
 - **Ranged roles aren't rewarded for standing behind the boss.** Their precision reward comes from aim (weak points that
   move and open), not from position. Behind-the-boss bonuses belong to melee.
+- **Spec visuals are personal.** Rotation state (stacks, procs, debuff clocks, weak points) is drawn only for the player
+  whose spec it is. Anything the whole squad must react to (telegraphs, status that needs cleansing) is drawn for everyone.
+- **Healing is a choice, not a by-product.** Damage doesn't heal; it earns the resource heals cost.
 - **Every ability should mean the same thing against a player.** No forced taunts: tanks hold attention with big-threat
   attacks (Hammer Throw), which in PvP are simply hits. Keeps the kits ready for a PvP mode later.
 - **Jumping only clears things that move along the floor** (a shockwave). Anything lying on the floor (pools, debuffs,
@@ -83,7 +86,7 @@ while dodging). Rules for the healer prototype:
 4. One aimed DPS weapon: the Shock Rifle (v0.25.0), reworked around Shock Cores, combos and coolant ports (v0.26.0),
    with Shift/Space movement and the ramping overcharge pulse, and its talent tree (v0.27.0). To be played. The Ground
    Pound is built but off for the Foreman. The Striker's Arcane-style rotation (v0.28.0) and the Juggernaut's Protection
-   rotation (Bulwark, Riposte, Sunder; v0.29.0), the Medic's Discipline rotation (Tags, Atonement, Flux; v0.30.0).
+   rotation (Bulwark, Riposte, Sunder; v0.29.0), the Medic's rotation (Tags, Flux; v0.30.0, Atonement removed in v0.34.0).
    One aimed weapon per role: the tab-target weapons are cut (v0.32.0).
 5. The Wrecker's aimed Ripsaw with its Rogue rotation, and the over-the-shoulder camera (v0.31.0). To be played.
 6. One good weapon per role (v0.32.0). A second weapon for a role only when the first is played out and there's a

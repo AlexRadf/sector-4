@@ -163,10 +163,10 @@
       role: 'healer', title: 'Medic', hp: 900,
       blurb: 'Keep four health bars up. Your builder shoots the Foreman, and every shot patches someone up.',
       weapons: [
-        TW('link', 'Link Gun', 'Aimed healing, played like a Discipline Priest. Tag your squad with Link Bolts, the beam or a Nanite Burst, then shoot the Foreman: every bolt that hits him heals everyone you have Tagged (Atonement) and refills your Nanites. Where you stand decides who you can reach.',
+        TW('link', 'Link Gun', 'Aimed healing. Every shot is a choice: heal an ally or shoot the Foreman for the Nanites (and Flux) your heals run on. Healing Tags allies with a small heal over time that Nanite Burst rewards. Where you stand decides who you can reach.',
           { id: 'nanites', name: 'Nanites', max: 100, start: 100, regen: 2.5, build: 0,
-            how: 'Nanites. Every Link Bolt that hits an enemy harvests 7. The Link Beam drains 5 a second, Nanite Burst costs 35 and a Nano Field 25. They barely refill on their own: shoot to heal, and with the squad Tagged, shooting is healing.' },
-          [{ id: 'lbolt', key: 'LMB', name: 'Link Bolt', kind: 'aim', range: 35, hold: 'repeat', desc: 'Fires at whatever is nearest your crosshair, no precision needed. A hurt ally is healed for 70 and Tagged for 10s (green motes: a small heal over time). An enemy takes 50, gives you 7 Nanites, and heals every ally you have Tagged for a quarter of the damage (Atonement). A crit or every fifth bolt on an enemy lights Flux: your next bolt on an ally heals double and jumps to a second hurt ally. Allies at full health are skipped.' },
+            how: 'Nanites. Every Link Bolt that hits an enemy harvests 7. The Link Beam drains 5 a second, Nanite Burst costs 35 and a Nano Field 25. They barely refill on their own: shoot the Foreman to earn them.' },
+          [{ id: 'lbolt', key: 'LMB', name: 'Link Bolt', kind: 'aim', range: 35, hold: 'repeat', desc: 'Fires at whatever is nearest your crosshair, no precision needed. A hurt ally is healed for 70 and Tagged for 10s (green motes: a small heal over time). An enemy takes 50 and gives you 7 Nanites. A crit or every fifth bolt on an enemy lights Flux: your next bolt on an ally heals double and jumps to a second hurt ally. Allies at full health are skipped.' },
            { id: 'lbeam', key: 'RMB', name: 'Link Beam', kind: 'aim', range: 25, hold: 'channel', gcd: false, desc: 'Hold to latch onto the ally nearest your crosshair. The beam stays attached, heals 185 a second for 5 Nanites a second and keeps them Tagged. It snaps if they get more than 25m away. No bolts while it\'s on.' },
            { id: 'lburst', key: 'L+R', name: 'Nanite Burst', kind: 'aim', range: 10, needs: 35, gcd: false, desc: 'Press both mouse buttons (35 Nanites). Heals everyone within 10m of you, you included, for 260 (30% more on anyone already Tagged) and Tags them all. Get into the group, then pop it: the fastest way to Tag the squad.' }],
           { aim: true,
@@ -385,8 +385,8 @@
     portMult: 2, portHalf: 1.2, portSpin: 0.22, portOpen: 2.5, portGap: 2.5, portBurst: 3,
     // Impact Hammer rotation: Bulwark (active mitigation from Shove), Riposte (a barrier block lights it), Sunder (Piston Shot).
     bulwarkCut: 0.85, bulwarkMax: 12, riposteDur: 6, riposteMult: 1.5, sunderDur: 12, sunderMult: 1.08,
-    // Link Gun rotation: Nanite Tags (a HoT, and who Atonement reaches), Atonement (bolts on enemies heal the Tagged), Flux (proc).
-    tagDur: 10, tagHot: 8, atone: 0.2, burstTagMult: 1.3, fluxEvery: 5, fluxDur: 10,
+    // Link Gun rotation: Nanite Tags (a small HoT that Nanite Burst rewards) and Flux (shoot enemies to earn a big heal).
+    tagDur: 10, tagHot: 8, burstTagMult: 1.3, fluxEvery: 5, fluxDur: 10,
     // Ripsaw: Rip builds Revs, Saw Through / Shred spend them; Bleeds stack time on; Overdrive is the proc; Redline the burst.
     ripDmg: 38, ripCleave: 0.5, ripGcd: 0.6, sawBase: 30, sawPer: 22, bleedDps: 25, bleedPer: 2.4, bleedCap: 14, shredBase: 40, shredPer: 45,
     // Bleed: refresh it under 4s left (the button says REFRESH); 8s or more and Saw Through tears it open instead (all the
@@ -623,8 +623,8 @@
     }
     return dealt;
   }
-  /* Nanite Tag: a small heal over time, and who your Atonement reaches. One Medic's Tag at a time per person. */
-  function tagAlly(S, p, q) { if (!q.alive) return; if (!(q.tag > 0)) emit(S, { type: 'fx', fx: 'tag', src: q.id }); q.tag = TUNE.tagDur; q.tagBy = p.id; }
+  /* Nanite Tag: a small heal over time; Nanite Burst heals the Tagged 30% more. One Medic's Tag at a time per person. */
+  function tagAlly(S, p, q) { if (!q.alive) return; if (!(q.tag > 0)) emit(S, { type: 'fx', fx: 'tag', src: q.id, by: p.id }); q.tag = TUNE.tagDur; q.tagBy = p.id; }
   /* Put a Ripsaw Bleed on e: secs added on to what's left of yours. Applied during Redline it's snapshotted (50% harder). */
   function bleedOn(S, p, e, secs) {
     var cont = e.bleedBy === p.id && e.bleed > 0;
@@ -1023,7 +1023,7 @@
         p.shockCh = Math.min(4, chWas + (port >= 0 ? 2 : 1));
         if (p.shockCh === 4 && chWas < 4) emit(S, { type: 'fx', fx: 'charges4', src: p.id });
         if (port >= 0) {
-          met(S, p.id).ports = (met(S, p.id).ports || 0) + 1; emit(S, { type: 'fx', fx: 'port', src: sbt.id, pw: port });
+          met(S, p.id).ports = (met(S, p.id).ports || 0) + 1; emit(S, { type: 'fx', fx: 'port', src: sbt.id, pw: port, by: p.id });
           // Surge (Clearcasting): two port hits in a row and your next core is ready, fast and hard.
           p.portRun = (p.portRun || 0) + 1;
           if (p.portRun >= 2 && !(p.surge > 0)) { p.portRun = 0; p.surge = 10; p.cds.score = 0; proc(S, p, 'surge', 'SURGE'); }
@@ -1098,10 +1098,10 @@
           // Tear Open (Ferocious Bite): everything the Bleed had left lands now, 30% harder, and the Bleed ends.
           var left = st2.bleed * (st2.bleedDps || TUNE.bleedDps) * TUNE.tearMult;
           st2.bleed = 0; st2.bleedAcc = 0; st2.bleedSnap = 0;
-          emit(S, { type: 'fx', fx: 'tear', src: st2.id });
+          emit(S, { type: 'fx', fx: 'tear', src: st2.id, by: p.id });
           damageEnemy(S, p, st2, left, 1, 'Tear Open!');
         } else if (st2.alive) {
-          if (mine2 && st2.bleed < TUNE.bleedRefresh) emit(S, { type: 'fx', fx: 'refresh', src: st2.id });
+          if (mine2 && st2.bleed < TUNE.bleedRefresh) emit(S, { type: 'fx', fx: 'refresh', src: st2.id, by: p.id });
           bleedOn(S, p, st2, TUNE.bleedPer * revs);
         }
         p.gcd = TUNE.ripGcd;
@@ -1157,8 +1157,6 @@
         } else {
           var dealtL = damageEnemy(S, p, lt, 50, 1, 'Link Bolt') || 0;
           p.pips = Math.min(resOf(p).max, (p.pips || 0) + 7);
-          // Atonement: everyone you've Tagged is healed for a share of the hit.
-          players(S, true).forEach(function (q) { if (q.tag > 0 && q.tagBy === p.id) heal(S, p, q, dealtL * TUNE.atone, 'Atonement'); });
           p.fluxN = (p.fluxN || 0) + 1;
           if ((p.critThis || p.fluxN >= TUNE.fluxEvery) && !(p.flux > 0)) { p.fluxN = 0; p.flux = TUNE.fluxDur; proc(S, p, 'flux', 'FLUX'); }
         }
@@ -1832,7 +1830,7 @@
           var hitAmt = (c.big ? (TUNE.ocoreBase + TUNE.ocorePer * c.spent) * TUNE.ocoreHit : TUNE.coreHit) * (c.surge ? TUNE.surgeMult : 1);
           damageEnemy(S, cby, touch, hitAmt * (T(cby, 'volatile') ? 0.5 : 1), 1, c.big ? 'Overcharged Core' : 'Shock Core');
           if (touch.alive) { touch.charged = TUNE.chargedDur; touch.chargedBy = cby.id; touch.arcOn = T(cby, 'arclink'); }   // a direct hit Charges too
-          emit(S, { type: 'fx', fx: 'corehit', src: touch.id });
+          emit(S, { type: 'fx', fx: 'corehit', src: touch.id, by: cby.id });
           gone = true;
         }
       }
@@ -2068,11 +2066,6 @@
       else if (hurt >= 1 && lowO && ready('field') && nan >= 40 && dist(p, lowO) <= 25 && lowO.hp < lowO.maxHp * 0.75) { m.aim = lowO.id; inp.ad = dist(p, lowO); inp.ability = idx('field'); }
       else if (lowO && lowO.hp < lowO.maxHp * (p.beamTo ? 0.97 : 0.8) && nan > (p.beamTo ? 3 : 15) && dist(p, lowO) <= 24) { m.aim = (p.beamTo && ent(S, p.beamTo)) ? p.beamTo : lowO.id; m.hold = [false, true]; }
       else if (lowO && lowO.hp < lowO.maxHp * 0.9 && dist(p, lowO) <= 33) { m.aim = lowO.id; m.hold = [true, false]; }
-      else if (others.some(function (a) { return !(a.tag > 1.5) && a.hp < a.maxHp - 1 && dist(p, a) <= 33; })) {
-        // Keep the squad Tagged so shooting the Foreman heals them (Atonement).
-        var untag = others.filter(function (a) { return !(a.tag > 1.5) && a.hp < a.maxHp - 1 && dist(p, a) <= 33; })[0];
-        m.aim = untag.id; m.hold = [true, false];
-      }
       else if (boss.alive) { m.aim = boss.id; m.hold = [true, false]; }
     }
     var at = m.aim != null ? ent(S, m.aim) : null;
@@ -2414,7 +2407,7 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.33.0';
+  var VERSION = '0.34.0';
 
   var api = {
     VERSION: VERSION,

@@ -4,6 +4,17 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.34.0 (2026-11-20) Healing is a choice, and spec visuals are personal
+- **No more Atonement.** A Link Bolt on the Foreman earns Nanites (and builds towards Flux) but heals nobody, so each shot
+  is a conscious choice: heal now, or deal damage for the resource your heals run on. Nanite Tag stays as a small heal
+  over time that Nanite Burst rewards, and Flux still turns five enemy hits into a double heal that jumps.
+- **Spec visuals are only drawn for that spec.** You see your own: the Wrecker's Bleed clocks and Revs, the Striker's
+  Shock Charges, coolant ports and Charged glow, the Juggernaut's Sunder rings and Bulwark shell, the Medic's Tags,
+  Overdrive's red glow, and their proc rings. Other players don't, so the arena stays readable for everyone. Spectating
+  shows the visuals of whoever you're following. Shared things stay visible to all: boss telegraphs, sludge (purple),
+  Shield Belt, shields, cores in flight, ultimates.
+- The overcharge shield stays at 11,500. An all-bot squad wins about 91% in roughly 4:40.
+
 ## 0.33.0 (2026-11-20) Wrecker: a Feral rotation you can read
 - **Overdrive is hard to miss.** When it lights the screen edges pulse red, you glow red, the sparks round you go red,
   there's a rev and a flash, and the Saw button says OVERDRIVE until you spend it.

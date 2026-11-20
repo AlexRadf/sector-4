@@ -410,7 +410,7 @@
     if (!watching && Sim.aimWeapon(human) && human.kit.weapons[human.weapon].id === 'shock') logLine('Click the arena to aim with the mouse. Left click beams: each hit adds a Shock Charge (the sparks round you), and charges make beams stronger and costlier. Right click fires a Shock Core: let it hit to Charge the target, or click your beam on it to pop a Shock Combo. Both buttons spend your charges on an Overcharged Core and refill the Capacitor. E Overclocks. Lit ports take double; two in a row Surge your next core. Esc releases it.');
     else if (!watching && Sim.aimWeapon(human) && human.kit.weapons[human.weapon].id === 'ripsaw') logLine('Click the arena to aim with the mouse. Left click Rips what is in front of you (Revs: the orange sparks; double from behind), right click Saw Through spends them and leaves a Bleed, both together Shred everything round you. Rips on a bleeding target can light Overdrive. Shift dashes, Q Chain Hook, E Redline, F Iron Hide. Esc releases it.');
     else if (!watching && Sim.aimWeapon(human)) logLine(human.kit.weapons[human.weapon].id === 'link'
-      ? 'Click the arena to aim with the mouse. Left click fires at whatever is nearest your crosshair (green ring: heal, red: damage). Healing an ally Tags them (green motes); bolts on the Foreman then heal everyone Tagged. Right click holds the beam on an ally, both together Nanite Burst (Tags everyone near you). Every fifth hit on an enemy lights Flux: your next heal is double and jumps. Esc releases it.'
+      ? 'Click the arena to aim with the mouse. Left click fires at whatever is nearest your crosshair (green ring: heal, red: damage). Healing an ally Tags them (green motes, a small heal over time); shooting enemies earns the Nanites your heals cost. Right click holds the beam on an ally, both together Nanite Burst (Tags everyone near you). Every fifth hit on an enemy lights Flux: your next heal is double and jumps. Esc releases it.'
       : 'Click the arena to aim with the mouse: left click swings, right click holds the barrier, both together Shove. Shove builds Bulwark (15% less damage); block a Foreman hit for a Riposte; E Piston Shot keeps him Sundered for the squad. Esc releases it.');
     if (Net.mode !== 'solo') logLine(Sim.players(S).filter(function (p) { return p.human; }).map(function (p) { return p.name; }).join(', ') + ' on the squad. Bots fill the rest.');
   }
@@ -822,7 +822,7 @@
   function procFx(ev) {
     if (ev.talent === 'overdrive' && ev.id === human.id && !watching) { Snd.play('charge'); hitFlash(); }
     var v = views[ev.id], col = ROLE_COLOR[ev.role] || 0xffffff, mine = ev.id === human.id;
-    if (v) {
+    if (v && (mine || ev.scope === 'all')) {
       var x = v.g.position.x, z = v.g.position.z, big = ev.scope === 'all';
       ringFx(x, z, 0.5, big ? 12 : 4, col, big ? 0.7 : 0.5);
       if (ev.talent === 'bash' || ev.talent === 'rally') ringFx(x, z, 0.5, ev.talent === 'rally' ? 15 : 8, 0xffffff, 0.3);
@@ -858,6 +858,8 @@
           break;
         case 'beam': if (ev.dst == null && ev.x2 != null) beamPt(ev.src, ev.x2, ev.z2, ev.fx); else beamFx(ev.src, ev.dst, ev.fx); if (ev.src === human.id) Snd.play(FX_SOUND[ev.fx]); break;
         case 'fx':
+          if (ev.by != null && ev.by !== human.id) break;   // someone else's spec effect
+          if ((ev.fx === 'ports' && viewerRole() !== 'dps') || ((ev.fx === 'bulwark' || ev.fx === 'charges4') && ev.src !== human.id)) break;
           v = views[ev.src];
           if (ev.x2 != null && /^(scombo|fizzle)$/.test(ev.fx)) {
             // Things that go off at a point in the air rather than on someone.
@@ -977,13 +979,15 @@
       animate(v, e, dt);
       v.ring.visible = human.target === e.id && e.alive;
       if (v.ring.visible) v.ring.material.color.setHex(e.kind === 'player' ? 0x4fd88f : 0xff4a36);
-      v.aura.visible = e.alive && (e.kind === 'player' ? (e.belt > 0 || e.sludge > 0 || e.ironhide > 0 || e.bulwark > 0 || e.overdrive > 0) : e.charged > 0);
+      var selfV = e === human;
+      v.aura.visible = e.alive && (e.kind === 'player' ? (e.belt > 0 || e.sludge > 0 || (selfV && (e.ironhide > 0 || e.bulwark > 0 || e.overdrive > 0))) : e.charged > 0 && viewerRole() === 'dps');
       if (v.aura.visible && e.kind === 'enemy') { var ar = (e.radius || 1) * 0.9 + 0.4; v.aura.scale.set(ar, ar * (e.type === 'boss' ? 1.5 : 1), ar); v.aura.position.y = e.type === 'boss' ? 3 : 1; v.aura.material.color.setHex(0xb98cff); v.aura.material.opacity = (e.type === 'boss' ? 0.07 : 0.16) + 0.06 * Math.sin(performance.now() / 70); }
-      else if (v.aura.visible && e.overdrive > 0) { v.aura.material.color.setHex(0xff2a1a); v.aura.material.opacity = 0.25 + 0.15 * Math.sin(performance.now() / 60); }   // Overdrive: a red glow
-      else if (v.aura.visible && !(e.belt > 0 || e.sludge > 0 || e.ironhide > 0)) { v.aura.material.color.setHex(0xffd36b); v.aura.material.opacity = 0.14; }   // Bulwark: a faint gold shell
-      else if (v.aura.visible) { v.aura.material.opacity = 0.25; v.aura.material.color.setHex(e.ironhide > 0 ? 0x9aa7b4 : e.belt > 0 ? 0xffb000 : 0xb46bff); }   // sludge: purple, the cleanse colour
+      else if (v.aura.visible && selfV && e.overdrive > 0) { v.aura.material.color.setHex(0xff2a1a); v.aura.material.opacity = 0.25 + 0.15 * Math.sin(performance.now() / 60); }   // Overdrive: a red glow
+      else if (v.aura.visible && !(e.belt > 0 || e.sludge > 0 || (selfV && e.ironhide > 0))) { v.aura.material.color.setHex(0xffd36b); v.aura.material.opacity = 0.14; }   // Bulwark: a faint gold shell
+      else if (v.aura.visible) { v.aura.material.opacity = 0.25; v.aura.material.color.setHex(e.sludge > 0 ? 0xb46bff : e.belt > 0 ? 0xffb000 : 0x9aa7b4); }   // sludge: purple, the cleanse colour
       if (e.type === 'boss') v.holder.rotation.z = e.stagger > 0 ? 0.22 * Math.sin(S.t * 9) : 0;
-      if (v.ports) v.ports.forEach(function (pt0, i) {
+      if (v.ports) v.ports.forEach(function (pt0) { pt0.g.visible = viewerRole() === 'dps'; });
+      if (v.ports && viewerRole() === 'dps') v.ports.forEach(function (pt0, i) {
         var la = Math.PI + (e.portRot || 0) + i * Math.PI * 2 / 3, rr = (e.radius || 3) * 0.66, open = Sim.portOpen(S, e, i);
         pt0.g.position.set(Math.sin(la) * rr, 0, Math.cos(la) * rr); pt0.g.rotation.y = la;
         pt0.hit = Math.max(0, pt0.hit - dt * 3);
@@ -1148,6 +1152,9 @@
   function setMute(m) { $('#mute').textContent = m ? 'Sound off' : 'Sound on'; $('#mute').setAttribute('aria-pressed', m ? 'false' : 'true'); }
 
   function wpnId0() { return human && human.kit ? human.kit.weapons[human.weapon].id : ''; }
+  /* Spec visuals (Bleed clocks, Shock Charges, ports, Charged, Sunder, Tags, Bulwark, Overdrive) are only drawn for the
+     player whose spec they belong to: you, or whoever you're spectating. The rest of the squad sees a clean arena. */
+  function viewerRole() { return human ? human.role : ''; }
   /* Things that aren't entities: the overcharge bubble, barriers, domes, fields, cores, rings and the rest. */
   var special = {};
   function syncSpecials() {
@@ -1247,10 +1254,10 @@
       var hs = lit ? 1.35 : 1; cm.halo.scale.set(hs, hs, hs);
     });
     for (var ck in special.cores) if (!seenC[ck]) { fxRoot.remove(special.cores[ck]); delete special.cores[ck]; }
-    // Nanite Tags: three green motes circling low round every Tagged ally, so the Medic reads who Atonement reaches.
+    // Nanite Tags: three green motes circling low round every Tagged ally, so the Medic reads who's carrying a Tag.
     special.tags = special.tags || {};
     Sim.players(S).forEach(function (p) {
-      var on = p.alive && p.tag > 0, tg2 = special.tags[p.id];
+      var on = p.alive && p.tag > 0 && viewerRole() === 'healer', tg2 = special.tags[p.id];
       if (!tg2) {
         tg2 = []; for (var ti = 0; ti < 3; ti++) { var tm = new THREE.Mesh(new THREE.OctahedronGeometry(0.11), new THREE.MeshBasicMaterial({ color: 0x4fd88f, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); tm.visible = false; fxRoot.add(tm); tg2.push(tm); }
         special.tags[p.id] = tg2;
@@ -1267,7 +1274,7 @@
     special.bleeds = special.bleeds || {};
     var seenBl = {}, nowB = performance.now();
     Sim.enemies(S).forEach(function (e) {
-      if (!(e.bleed > 0)) return;
+      if (!(e.bleed > 0) || viewerRole() !== 'melee' || e.bleedBy !== human.id) return;
       seenBl[e.id] = 1;
       // A Bleed is a clock on the floor: a red arc that empties as it runs down (full ring = 14s). Orange when it was
       // snapshotted in Redline; blinking white when it's time to refresh. Blood drips off the target while it runs.
@@ -1292,7 +1299,7 @@
     special.sunders = special.sunders || {};
     var seenSd = {};
     Sim.enemies(S).forEach(function (e) {
-      if (!(e.sundered > 0)) return;
+      if (!(e.sundered > 0) || viewerRole() !== 'tank') return;
       seenSd[e.id] = 1;
       var sm = special.sunders[e.id];
       if (!sm) { sm = new THREE.Mesh(new THREE.RingGeometry(0.88, 1, 48), new THREE.MeshBasicMaterial({ color: 0xff8a30, transparent: true, depthWrite: false, side: THREE.DoubleSide })); sm.rotation.x = -Math.PI / 2; fxRoot.add(sm); special.sunders[e.id] = sm; }
@@ -1305,7 +1312,7 @@
     special.sparks = special.sparks || {};
     Sim.players(S).forEach(function (p) {
       var wid3 = p.kit ? p.kit.weapons[p.weapon].id : '', revsW = wid3 === 'ripsaw';
-      var n = !p.alive ? 0 : revsW ? (p.pips || 0) : (p.shockCh || 0), cap3 = revsW ? 5 : 4, sk = special.sparks[p.id];
+      var n = !p.alive || p !== human ? 0 : revsW ? (p.pips || 0) : (p.shockCh || 0), cap3 = revsW ? 5 : 4, sk = special.sparks[p.id];
       if (!sk) {
         sk = []; for (var si = 0; si < 5; si++) { var sm = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: 0xe6d4ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); sm.visible = false; fxRoot.add(sm); sk.push(sm); }
         special.sparks[p.id] = sk;
