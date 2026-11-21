@@ -2407,7 +2407,7 @@
 
   /* The version players see. Bump it with every change you ship and add a line to CHANGELOG.md:
      the middle number for new things, the last number for fixes. package.json must match (a test checks). */
-  var VERSION = '0.34.0';
+  var VERSION = '0.34.1';
 
   var api = {
     VERSION: VERSION,

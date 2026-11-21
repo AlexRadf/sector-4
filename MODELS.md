@@ -18,9 +18,9 @@ The game draws every character from a model slot. Until a slot has a real model 
 2. Commit and push to `main`. The server lists the folder in `models/index.json`, and the model files count towards
    the build id, so everyone gets the new model on their next load despite the long browser cache.
 
-Each player can still try a model out without shipping it: the briefing screen's "Swap in your own meshes" takes a
-`.glb` per slot, kept in that browser only. **Clear** puts the slot back to the game's model (or the placeholder).
-An upload beats a shipped model, which beats the placeholder.
+Each player can try a model out without shipping it: the briefing screen's "Swap in your own meshes" takes a `.glb`
+per slot. It's only for you and only until you reload the page (or press **Clear**). An upload beats a shipped model,
+which beats the placeholder.
 
 ## How a model is placed
 - It's scaled so its height matches the slot's, centred, and stood on the floor. Any units work.

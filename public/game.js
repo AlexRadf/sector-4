@@ -184,7 +184,7 @@
 
   /* ---------- models ----------
      Each slot (SLOTS above) draws, in order of preference:
-       1. a .glb uploaded in this browser ("Swap in your own meshes" on the briefing screen; Clear removes it),
+       1. a .glb uploaded on the briefing screen ("Swap in your own meshes"; Clear removes it, a reload forgets it),
        2. public/models/<slot>.glb shipped with the game (listed by models/index.json), for everyone,
        3. the placeholder boxes from placeholders.js, if that file is still there; otherwise nothing.
      Models are scaled to the slot's height, stood on the floor and centred. Face +Z. See MODELS.md for clip names. */
@@ -252,15 +252,9 @@
     else an.hitT = 0.3;
   }
 
-  /* mesh storage: IndexedDB keeps the files in this browser between visits */
-  function idb(mode, fn) {
-    try {
-      var open = indexedDB.open('sector4', 1);
-      open.onupgradeneeded = function () { open.result.createObjectStore('meshes'); };
-      open.onsuccess = function () { try { fn(open.result.transaction('meshes', mode).objectStore('meshes')); } catch (e) {} };
-      open.onerror = function () {};
-    } catch (e) {}
-  }
+  /* Uploads are a try-out: they last until the page reloads. Real models ship in public/models (see MODELS.md).
+     Older versions kept uploads in IndexedDB between visits; that store is wiped on load so nothing lingers. */
+  try { if (window.indexedDB) indexedDB.deleteDatabase('sector4'); } catch (e) {}
   function setSlotStatus(key, text, cls) {
     var s = document.getElementById('st-' + key); if (s) { s.textContent = text; s.className = 'st' + (cls ? ' ' + cls : ''); }
   }
@@ -293,7 +287,6 @@
       var clr = el('button', 'ghost mono', 'Clear'); clr.type = 'button'; clr.title = 'Remove your upload for this slot';
       clr.addEventListener('click', function () {
         delete customBuffers[sl.key]; inp.value = '';
-        idb('readwrite', function (store) { store.delete(sl.key); });
         slotStatus(sl.key); refreshModels(sl.key);
       });
       inp.addEventListener('change', function () {
@@ -301,18 +294,11 @@
         var rd = new FileReader();
         rd.onload = function () {
           customBuffers[sl.key] = rd.result; slotStatus(sl.key);
-          idb('readwrite', function (store) { store.put(rd.result, sl.key); });
           refreshModels(sl.key);
         };
         rd.readAsArrayBuffer(f);
       });
       row.appendChild(lab); row.appendChild(inp); row.appendChild(clr); row.appendChild(st); host.appendChild(row);
-    });
-    idb('readonly', function (store) {
-      SLOTS.forEach(function (sl) {
-        var rq = store.get(sl.key);
-        rq.onsuccess = function () { if (rq.result) { customBuffers[sl.key] = rq.result; slotStatus(sl.key); refreshModels(sl.key); } };
-      });
     });
   }
 

@@ -4,6 +4,11 @@ What changed in each version. The version shows on the briefing screen, in the c
 on /stats and in every fight record. Bump it in `public/sim.js` (VERSION) and `package.json` together:
 the middle number for new things, the last number for fixes.
 
+## 0.34.1 (2026-11-21) Uploaded models don't stick around
+- A model uploaded under "Swap in your own meshes" is now a try-out: only you see it, and it's gone when you reload the
+  page (or press Clear). Older versions kept uploads in the browser between visits; those are wiped on the first load
+  of this version. Models for everyone go in `public/models` (see `MODELS.md`).
+
 ## 0.34.0 (2026-11-20) Healing is a choice, and spec visuals are personal
 - **No more Atonement.** A Link Bolt on the Foreman earns Nanites (and builds towards Flux) but heals nobody, so each shot
   is a conscious choice: heal now, or deal damage for the resource your heals run on. Nanite Tag stays as a small heal
